@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.sql.elements import ColumnElement
 
 from sqlrules.columns import resolve_column
-from sqlrules.constraints import extract_constraints
+from sqlrules.constraints import ensure_supported_type, extract_constraints
 from sqlrules.errors import ConfigurationError
 from sqlrules.inspectors import inspect_model
 from sqlrules.ir import CompilationContext, OnUnsupported
@@ -39,7 +39,13 @@ class Compiler:
         rules: RulesDict = {}
 
         for field in inspect_model(model):
-            column = resolve_column(field.name, table, column_map)
+            ensure_supported_type(field)
+            column = resolve_column(
+                field.name,
+                table,
+                column_map,
+                alias=field.alias,
+            )
             constraints = extract_constraints(field)
 
             expressions: list[ColumnElement[bool]] = []

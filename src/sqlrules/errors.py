@@ -13,7 +13,10 @@ class InvalidModelError(SQLRulesError):
     model: Any
 
     def __str__(self) -> str:
-        return f"Expected a Pydantic BaseModel subclass, got {self.model!r}."
+        return (
+            f"Expected a Pydantic BaseModel subclass, got {self.model!r}. "
+            "Pass a model class such as class UserFilter(BaseModel): ..."
+        )
 
 
 @dataclass(slots=True)
@@ -21,7 +24,10 @@ class MissingColumnError(SQLRulesError):
     field: str
 
     def __str__(self) -> str:
-        return f"No SQLAlchemy column found for field {self.field!r}."
+        return (
+            f"No SQLAlchemy column found for field {self.field!r}. "
+            "Provide a matching table column, ORM attribute, or column_map entry."
+        )
 
 
 @dataclass(slots=True)
@@ -29,12 +35,15 @@ class UnsupportedConstraintError(SQLRulesError):
     field: str
     operator: str
     value: Any = None
+    suggestion: str | None = None
 
     def __str__(self) -> str:
-        return (
-            f"Field {self.field!r}: constraint {self.operator!r} is not supported "
-            "by the active SQLRules compiler."
+        message = (
+            f"Field {self.field!r}: constraint {self.operator!r} is not supported by SQLRules 0.1."
         )
+        if self.suggestion:
+            return f"{message} {self.suggestion}"
+        return f"{message} Remove the constraint, or set on_unsupported='warn'/'ignore'."
 
 
 @dataclass(slots=True)
@@ -56,7 +65,10 @@ class InvalidTranslatorError(SQLRulesError):
     translator: Any
 
     def __str__(self) -> str:
-        return f"Invalid translator for operator {self.operator!r}: {self.translator!r}."
+        return (
+            f"Invalid translator for operator {self.operator!r}: {self.translator!r}. "
+            "Translators must be callables returning a SQLAlchemy boolean expression."
+        )
 
 
 @dataclass(slots=True)
@@ -73,7 +85,12 @@ class ConfigurationError(SQLRulesError):
     value: Any
 
     def __str__(self) -> str:
-        return f"Invalid configuration value for {self.option!r}: {self.value!r}."
+        return (
+            f"Invalid configuration value for {self.option!r}: {self.value!r}. "
+            "Use one of: 'raise', 'warn', 'ignore'."
+            if self.option == "on_unsupported"
+            else f"Invalid configuration value for {self.option!r}: {self.value!r}."
+        )
 
 
 class InternalCompilerError(SQLRulesError):

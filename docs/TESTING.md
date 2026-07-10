@@ -19,7 +19,7 @@ CI runs on Python 3.10–3.13:
 - `ruff check`
 - `ruff format --check`
 - `mypy` (strict)
-- `pytest` with coverage fail-under 90%
+- `pytest` with coverage fail-under 95%
 
 ## Principles
 

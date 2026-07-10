@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public API: `compile()`, `where()`, `flatten()`, and `Compiler`
 - Constraint support: `gt`, `ge`, `lt`, `le`, `multiple_of`, `min_length`,
   `max_length`, `Literal`, and `Enum`
+- Equivalent Pydantic forms: `Interval`, `conint`/`constr`, `Len`, and
+  `StringConstraints` (supported attributes only)
+- Fail-fast handling for unsupported metadata (`pattern`, validators,
+  decimal precision) and unsupported types (containers, UUID, time,
+  timedelta)
+- Field alias resolution when binding SQLAlchemy columns
 - Unsupported-constraint policies: `raise` (default), `warn`, and `ignore`
 - Exception hierarchy rooted at `SQLRulesError`
 - Column resolution for SQLAlchemy `Table` objects, ORM attributes, and

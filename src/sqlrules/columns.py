@@ -12,17 +12,28 @@ def resolve_column(
     field_name: str,
     table: Any,
     column_map: Mapping[str, ColumnElement[Any]] | None = None,
+    *,
+    alias: str | None = None,
 ) -> ColumnElement[Any]:
-    if column_map and field_name in column_map:
-        return column_map[field_name]
+    candidates = [field_name]
+    if alias and alias not in candidates:
+        candidates.append(alias)
+
+    if column_map:
+        for candidate in candidates:
+            if candidate in column_map:
+                return column_map[candidate]
 
     columns = getattr(table, "c", None)
-    if columns is not None and field_name in columns:
-        return cast(ColumnElement[Any], columns[field_name])
+    if columns is not None:
+        for candidate in candidates:
+            if candidate in columns:
+                return cast(ColumnElement[Any], columns[candidate])
 
     # ORM mapped classes often expose columns as attributes.
-    candidate = getattr(table, field_name, None)
-    if candidate is not None:
-        return cast(ColumnElement[Any], candidate)
+    for candidate in candidates:
+        attr = getattr(table, candidate, None)
+        if attr is not None:
+            return cast(ColumnElement[Any], attr)
 
     raise MissingColumnError(field=field_name)
