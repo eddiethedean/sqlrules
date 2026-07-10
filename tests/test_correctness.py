@@ -125,14 +125,23 @@ def test_on_unsupported_ignore_still_raises_for_timedelta() -> None:
         sqlrules.compile(Filter, table, on_unsupported="ignore")
 
 
-def test_on_unsupported_ignore_still_raises_for_containers() -> None:
+def test_on_unsupported_ignore_still_raises_for_unsupported_containers() -> None:
     table = Table("users", MetaData(), Column("age", Integer))
 
     class Filter(BaseModel):
-        age: list[int]
+        age: set[int]
 
-    with pytest.raises(UnsupportedConstraintError, match="list"):
+    with pytest.raises(UnsupportedConstraintError, match="set"):
         sqlrules.compile(Filter, table, on_unsupported="ignore")
+
+
+def test_unconstrained_list_field_skipped() -> None:
+    table = Table("users", MetaData(), Column("tags", String))
+
+    class Filter(BaseModel):
+        tags: list[str]
+
+    assert sqlrules.compile(Filter, table) == {}
 
 
 def test_timedelta_unsupported_time_allowed() -> None:

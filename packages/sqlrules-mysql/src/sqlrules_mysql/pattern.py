@@ -13,13 +13,10 @@ def translate_pattern(
     column: ColumnElement[Any],
     context: CompilationContext,
 ) -> ColumnElement[bool]:
-    """Translate ``pattern`` to SQLite ``column REGEXP pattern``.
+    """Translate ``pattern`` to MySQL/MariaDB ``REGEXP``.
 
-    Case-insensitive patterns are encoded with a ``(?i)`` prefix so
-    :func:`sqlrules_sqlite.register_regexp` can apply ``re.IGNORECASE``.
-    Callers must enable REGEXP on the SQLite connection before execution.
+    MySQL ``REGEXP`` is case-insensitive for non-binary collations. SQLRules
+    follows that dialect behavior rather than inventing ``REGEXP BINARY``.
     """
-    pattern, ignore_case = pattern_text(constraint.value)
-    if ignore_case and not pattern.startswith("(?i)"):
-        pattern = f"(?i){pattern}"
+    pattern, _ignore_case = pattern_text(constraint.value)
     return cast(ColumnElement[bool], column.op("REGEXP")(pattern))

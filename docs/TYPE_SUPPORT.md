@@ -199,12 +199,13 @@ expressions.
 
   Type     Status
   ------- --------
-  list       ❌
+  list       ✅     Marker-driven fields only (e.g. `ArrayContains`)
+  dict       ✅     Marker-driven fields only (e.g. `JsonContains`)
   tuple      ❌
   set        ❌
-  dict       ❌
 
-Container validation has no direct SQL WHERE equivalent.
+Portable constraints (`gt`, `min_length`, `pattern`, …) on `list` / `dict`
+still raise. Use `sqlrules.markers` with a dialect plugin.
 
 ------------------------------------------------------------------------
 
@@ -217,7 +218,7 @@ The following are intentionally unsupported:
 -   model_validator
 -   computed_field
 -   serializer hooks
--   arbitrary custom metadata
+-   arbitrary custom metadata (except `ConstraintMarker` instances)
 -   custom validation functions
 -   `max_digits` / `decimal_places` (deferred; no deterministic WHERE map)
 
@@ -232,10 +233,11 @@ These features require runtime execution or lack portable SQL semantics.
 -   translator / dialect plugins
 -   pattern translators via `sqlrules-postgresql` / `sqlrules-sqlite`
 
-## Later
+## v0.4 ✅
 
--   decimal precision (if a clear WHERE semantics emerges)
--   JSON / ARRAY (dialect plugins)
+-   JSON / ARRAY / range markers + dialect plugins
+-   MySQL / SQL Server plugins
+-   `PatternSpec` / `list` / `dict` support
 
 Support should expand only when the resulting SQL semantics are
 well-defined across supported SQLAlchemy backends.

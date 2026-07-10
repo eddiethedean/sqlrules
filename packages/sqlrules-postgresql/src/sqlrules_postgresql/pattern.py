@@ -4,6 +4,7 @@ from typing import Any, cast
 
 from sqlalchemy.sql.elements import ColumnElement
 
+from sqlrules.constraints import pattern_text
 from sqlrules.ir import CompilationContext, Constraint
 
 
@@ -12,5 +13,7 @@ def translate_pattern(
     column: ColumnElement[Any],
     context: CompilationContext,
 ) -> ColumnElement[bool]:
-    """Translate ``pattern`` to PostgreSQL ``column ~ pattern``."""
-    return cast(ColumnElement[bool], column.op("~")(constraint.value))
+    """Translate ``pattern`` to PostgreSQL ``~`` or case-insensitive ``~*``."""
+    pattern, ignore_case = pattern_text(constraint.value)
+    op = "~*" if ignore_case else "~"
+    return cast(ColumnElement[bool], column.op(op)(pattern))

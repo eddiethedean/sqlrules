@@ -145,9 +145,9 @@ def test_field_alias_resolves_column(people: Table) -> None:
 
 def test_unsupported_container_type(people: Table) -> None:
     class Filter(BaseModel):
-        age: list[int]
+        age: tuple[int, ...]
 
-    with pytest.raises(UnsupportedConstraintError, match="list"):
+    with pytest.raises(UnsupportedConstraintError, match="tuple"):
         sqlrules.compile(Filter, people)
 
 

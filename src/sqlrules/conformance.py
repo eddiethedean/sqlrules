@@ -108,15 +108,23 @@ def assert_translates_operator(
             f"returned {type(expression)!r}, expected ColumnElement"
         )
 
-    # Deterministic compile smoke check (dialect-neutral string form).
-    compiled_a = str(expression.compile(compile_kwargs={"literal_binds": True}))
-    compiled_b = str(expression.compile(compile_kwargs={"literal_binds": True}))
+    # Deterministic compile smoke check (avoid literal_binds; values may be
+    # structured IR objects such as PatternSpec).
+    compiled_a = str(expression.compile())
+    compiled_b = str(expression.compile())
     if compiled_a != compiled_b:
         raise AssertionError(f"Plugin {plugin.name!r}: non-deterministic compile for {operator!r}")
     return expression
 
 
-def run_basic_conformance(plugin: SQLRulesPlugin, *, operator: str = "pattern") -> None:
+def run_basic_conformance(
+    plugin: SQLRulesPlugin,
+    *,
+    operator: str = "pattern",
+    model: type[BaseModel] | None = None,
+    table: Any | None = None,
+    field: str = "name",
+) -> None:
     """Run the standard conformance checks for a dialect/translator plugin."""
     if getattr(plugin, "api_version", None) != PLUGIN_API_VERSION:
         raise PluginError(
@@ -129,7 +137,13 @@ def run_basic_conformance(plugin: SQLRulesPlugin, *, operator: str = "pattern") 
     assert_plugin_api_compatible(plugin)
     assert_builtins_preserved(plugin, on_conflict="replace")
     assert_register_idempotent_ignore(plugin)
-    assert_translates_operator(plugin, operator=operator)
+    assert_translates_operator(
+        plugin,
+        operator=operator,
+        model=model,
+        table=table,
+        field=field,
+    )
 
     # Conflict under raise: only meaningful if the plugin re-registers an op
     # already present after the first registration.

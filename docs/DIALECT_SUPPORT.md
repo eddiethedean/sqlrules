@@ -29,18 +29,18 @@ compiler deterministic.
 
 ------------------------------------------------------------------------
 
-# Planned Dialects
+# Dialects
 
 Core emits portable SQLAlchemy Core expressions. The table below describes
 **intended** dialect posture, not a certified multi-backend test matrix.
 
   Dialect             Status        Notes
   ------------ -------------------- --------------------------------
-  SQLite             Core + plugin  `sqlrules-sqlite` adds `pattern` (REGEXP)
-  PostgreSQL         Core + plugin  `sqlrules-postgresql` adds `pattern` (`~`)
-  MySQL              Core (planned) Enhanced features via future plugin
-  MariaDB            Core (planned) Follows MySQL where practical
-  SQL Server         Core (planned) Enhanced features via future plugin
+  SQLite             Core + plugin  `sqlrules-sqlite` — REGEXP + JSON
+  PostgreSQL         Core + plugin  `sqlrules-postgresql` — regex, JSONB, ARRAY, range
+  MySQL              Core + plugin  `sqlrules-mysql` — REGEXP, JSON, full-text
+  MariaDB            Core + plugin  Follows MySQL plugin where practical
+  SQL Server         Core + plugin  `sqlrules-mssql` — JSON + `LEN`
   Oracle             Planned        Core support after 1.0
 
 ------------------------------------------------------------------------
@@ -61,20 +61,33 @@ These should compile identically across supported databases:
 
 ------------------------------------------------------------------------
 
+# Shared dialect markers
+
+Dialect-oriented operators are expressed with `sqlrules.markers` and
+extracted into IR. Core does not translate them; plugins register
+translators for the stable operator names:
+
+-   `JsonContains` → `json_contains`
+-   `JsonHasKey` → `json_has_key`
+-   `ArrayContains` → `array_contains`
+-   `ArrayOverlap` → `array_overlap`
+-   `RangeContains` → `range_contains`
+-   `RangeOverlap` → `range_overlap`
+-   `FullTextMatch` → `fulltext_match`
+
+`list` / `dict` field annotations are allowed for marker-driven fields.
+Portable constraints on containers still raise.
+
+------------------------------------------------------------------------
+
 # PostgreSQL
 
 Package: `sqlrules-postgresql`
 
-0.3 enhancement:
-
--   Native regular expressions via `pattern` → `column ~ value`
-
-Potential later enhancements (0.4+):
-
--   ARRAY operators
--   JSONB operators
--   Range types
--   Full-text search
+-   `pattern` → `~` or `~*` (`PatternSpec.ignore_case`)
+-   JSONB containment / key checks
+-   ARRAY contains / overlap
+-   range `@>` / `&&`
 
 ------------------------------------------------------------------------
 
@@ -82,37 +95,29 @@ Potential later enhancements (0.4+):
 
 Package: `sqlrules-sqlite`
 
-Goals:
-
--   Reliable test platform
--   Portable numeric comparisons
--   Portable string-length operations
--   `pattern` via `REGEXP` (application must enable REGEXP on the connection)
-
-Limitations:
-
--   REGEXP requires an extension / `create_function`
--   Limited advanced JSON functionality
+-   `pattern` via `REGEXP` — call `register_regexp(connection)`
+-   Case-insensitive patterns use a `(?i)` prefix understood by the helper
+-   JSON helpers via JSON1 `json_extract` / `json_type`
 
 ------------------------------------------------------------------------
 
 # MySQL / MariaDB
 
-Potential enhancements:
+Package: `sqlrules-mysql`
 
--   Full-text search
--   JSON operators
--   Generated column optimizations
+-   `pattern` → `REGEXP`
+-   JSON operators (`JSON_CONTAINS`, `JSON_CONTAINS_PATH`)
+-   `fulltext_match` → `MATCH ... AGAINST` (requires FULLTEXT index)
 
 ------------------------------------------------------------------------
 
 # SQL Server
 
-Potential enhancements:
+Package: `sqlrules-mssql`
 
--   Specialized string functions
--   JSON functions
--   Spatial operators
+-   `min_length` / `max_length` → `LEN`
+-   JSON helpers via `JSON_VALUE` / `JSON_QUERY`
+-   `pattern` is not registered (no deterministic portable regex)
 
 ------------------------------------------------------------------------
 
@@ -145,36 +150,16 @@ If no override exists, the portable translator is used.
 
 ------------------------------------------------------------------------
 
-# Example
-
-Portable:
-
-``` python
-func.length(users.c.name) >= 3
-```
-
-PostgreSQL plugin:
-
-``` python
-users.c.name.op("~")(pattern)
-```
-
-Both originate from the same IR.
-
-------------------------------------------------------------------------
-
 # Plugin Packages
 
-Recommended official plugins:
+Official plugins:
 
 -   sqlrules-postgresql
 -   sqlrules-sqlite
 -   sqlrules-mysql
 -   sqlrules-mssql
--   sqlrules-oracle
 
-Each package should register only the translators relevant to its
-backend.
+Each package registers only the translators relevant to its backend.
 
 ------------------------------------------------------------------------
 
@@ -184,7 +169,6 @@ Every supported dialect should include:
 
 -   Unit tests
 -   SQL compilation tests
--   Integration tests
 -   Regression tests
 
 The same Pydantic model should produce equivalent logical behavior

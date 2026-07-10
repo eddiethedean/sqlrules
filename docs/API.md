@@ -90,6 +90,7 @@ instances.
 
 ```python
 from sqlrules import PLUGIN_API_VERSION, Compiler
+from sqlrules.constraints import pattern_text
 
 class MyPlugin:
     name = "my-plugin"
@@ -98,15 +99,16 @@ class MyPlugin:
     def register(self, registry):
         registry.register_constraint(
             "pattern",
-            lambda c, col, ctx: col.op("~")(c.value),
+            lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             on_conflict="replace",
         )
 
 compiler = Compiler(plugins=[MyPlugin()])
 ```
 
-See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md). Conformance helpers live in
-`sqlrules.conformance`.
+Dialect markers (`JsonContains`, `ArrayContains`, …) are extracted into IR
+and translated by official dialect plugins. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
+Conformance helpers live in `sqlrules.conformance`.
 
 ## Other exports
 
@@ -116,7 +118,9 @@ Also exported for advanced use and typing:
 - `PLUGIN_API_VERSION`, `SQLRulesPlugin`
 - `SQLRulesWarning`
 - `CompilationContext`, `Constraint`, `FieldDescriptor`, `FieldIR`, `ModelIR`,
-  `Diagnostic` (IR helpers)
+  `Diagnostic`, `PatternSpec`
+- Markers: `ConstraintMarker`, `JsonContains`, `JsonHasKey`, `ArrayContains`,
+  `ArrayOverlap`, `RangeContains`, `RangeOverlap`, `FullTextMatch`
 
 `DiagnosticsCollector` and `ModelIRCache` are internal (import from
 `sqlrules.ir` / `sqlrules.cache` only if you accept instability).

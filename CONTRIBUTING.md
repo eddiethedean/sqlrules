@@ -16,7 +16,8 @@ Thanks for helping improve SQLRules.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite
+pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite \
+  -e packages/sqlrules-mysql -e packages/sqlrules-mssql
 pre-commit install
 ```
 
@@ -26,10 +27,13 @@ pre-commit install
 ruff check .
 ruff format --check .
 mypy src/sqlrules
-pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests
+pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests \
+  packages/sqlrules-mysql/tests packages/sqlrules-mssql/tests
 python -m build && twine check dist/*
 python -m build packages/sqlrules-postgresql --outdir dist-plugins
 python -m build packages/sqlrules-sqlite --outdir dist-plugins
+python -m build packages/sqlrules-mysql --outdir dist-plugins
+python -m build packages/sqlrules-mssql --outdir dist-plugins
 twine check dist-plugins/*
 ```
 
@@ -42,7 +46,7 @@ wheel imports cleanly.
 - Prefer `register_constraint(..., on_conflict=...)`.
 - Run `sqlrules.conformance.run_basic_conformance(plugin)`.
 - Official dialect packages live under `packages/` and should track the
-  plugin API major (`sqlrules>=0.3,<0.4` while `PLUGIN_API_VERSION == "1"`).
+  core minor (`sqlrules>=0.4,<0.5` while `PLUGIN_API_VERSION == "1"`).
 
 ## Pull requests
 
@@ -58,11 +62,11 @@ Releases are published to PyPI by pushing a version tag. Before tagging:
 2. Run the full check suite (`ruff`, `mypy`, `pytest`).
 3. Ensure CI is green on `main`.
 
-Then create and push the tag (example for 0.3.0):
+Then create and push the tag (example for 0.4.0):
 
 ```bash
-git tag -a v0.3.0 -m "sqlrules 0.3.0"
-git push origin v0.3.0
+git tag -a v0.4.0 -m "sqlrules 0.4.0"
+git push origin v0.4.0
 ```
 
 The [release workflow](.github/workflows/release.yml) runs CI, verifies the
@@ -71,10 +75,12 @@ publishes **core** `sqlrules` with `PYPI_API_TOKEN`.
 
 Dialect plugin packages under `packages/` are versioned independently and
 are **not** published by the core release workflow. Publish them separately
-after core `0.3.0` is on PyPI (they depend on `sqlrules>=0.3,<0.4`):
+after core `0.4.0` is on PyPI (they depend on `sqlrules>=0.4,<0.5`):
 
 ```bash
-python -m build packages/sqlrules-postgresql
-python -m build packages/sqlrules-sqlite
-twine upload dist-plugins/*   # after building with --outdir dist-plugins
+python -m build packages/sqlrules-postgresql --outdir dist-plugins
+python -m build packages/sqlrules-sqlite --outdir dist-plugins
+python -m build packages/sqlrules-mysql --outdir dist-plugins
+python -m build packages/sqlrules-mssql --outdir dist-plugins
+twine upload dist-plugins/*
 ```

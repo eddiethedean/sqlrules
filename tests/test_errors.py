@@ -84,4 +84,4 @@ def test_optional_literal_and_enum() -> None:
 
 
 def test_version_exposed() -> None:
-    assert sqlrules.__version__ == "0.3.0"
+    assert sqlrules.__version__ == "0.4.0"

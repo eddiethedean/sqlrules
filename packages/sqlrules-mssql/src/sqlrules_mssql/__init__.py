@@ -2,28 +2,32 @@ from __future__ import annotations
 
 from sqlrules.plugins import PLUGIN_API_VERSION
 from sqlrules.translators import TranslatorRegistry
-from sqlrules_sqlite.json import translate_json_contains, translate_json_has_key
-from sqlrules_sqlite.pattern import translate_pattern
-from sqlrules_sqlite.regexp import register_regexp
+from sqlrules_mssql.json import translate_json_contains, translate_json_has_key
+from sqlrules_mssql.length import translate_max_length, translate_min_length
 
 __version__ = "0.4.0"
 
 
-class SQLitePlugin:
-    """Register SQLite-specific constraint translators.
+class MssqlPlugin:
+    """Register SQL Server constraint translators.
 
-    The ``pattern`` translator emits ``column REGEXP pattern``. Call
-    :func:`register_regexp` on each SQLite connection before executing
-    the resulting SQL.
+    Does not register ``pattern`` — SQL Server has no portable regex operator
+    that SQLRules can emit deterministically. Provide a custom translator if
+    needed.
     """
 
-    name = "sqlite"
+    name = "mssql"
     api_version = PLUGIN_API_VERSION
 
     def register(self, registry: TranslatorRegistry) -> None:
         registry.register_constraint(
-            "pattern",
-            translate_pattern,
+            "min_length",
+            translate_min_length,
+            on_conflict="replace",
+        )
+        registry.register_constraint(
+            "max_length",
+            translate_max_length,
             on_conflict="replace",
         )
         registry.register_constraint(
@@ -39,10 +43,10 @@ class SQLitePlugin:
 
 
 __all__ = [
-    "SQLitePlugin",
+    "MssqlPlugin",
     "__version__",
-    "register_regexp",
     "translate_json_contains",
     "translate_json_has_key",
-    "translate_pattern",
+    "translate_max_length",
+    "translate_min_length",
 ]

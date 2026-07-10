@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqlrules"
-version = "0.3.0"
+version = "0.4.0"
 description = "Compile constrained Pydantic models into SQLAlchemy WHERE-rule dictionaries."
 readme = "README.md"
 requires-python = ">=3.10"

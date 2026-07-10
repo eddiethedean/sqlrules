@@ -22,15 +22,18 @@ from annotated_types import (
 from pydantic.fields import FieldInfo
 
 from sqlrules.errors import UnsupportedConstraintError
-from sqlrules.ir import Constraint, FieldDescriptor
+from sqlrules.ir import Constraint, FieldDescriptor, PatternSpec
+from sqlrules.markers import ConstraintMarker
 
 _SUPPORTED_TYPES: frozenset[type[Any]] = frozenset(
     {bool, int, float, Decimal, str, date, datetime, time, UUID}
 )
+_SUPPORTED_CONTAINER_ORIGINS: frozenset[Any] = frozenset({list, dict})
 _UNSUPPORTED_TYPES: frozenset[type[Any]] = frozenset({timedelta})
-_UNSUPPORTED_ORIGINS: frozenset[Any] = frozenset({list, dict, tuple, set, frozenset})
+_UNSUPPORTED_ORIGINS: frozenset[Any] = frozenset({tuple, set, frozenset})
 _LENGTH_OPERATORS: frozenset[str] = frozenset({"min_length", "max_length"})
 _NUMERIC_OPERATORS: frozenset[str] = frozenset({"gt", "ge", "lt", "le", "multiple_of"})
+_PORTABLE_OPERATORS: frozenset[str] = _LENGTH_OPERATORS | _NUMERIC_OPERATORS | {"pattern"}
 _TEMPORAL_TYPES: frozenset[type[Any]] = frozenset({date, datetime, time})
 _VALIDATOR_TYPE_NAMES = frozenset(
     {
@@ -126,6 +129,13 @@ def _concrete_type(field: FieldDescriptor) -> Any:
     return annotation
 
 
+def _is_container_type(annotation: Any) -> bool:
+    origin = get_origin(annotation)
+    if origin in _SUPPORTED_CONTAINER_ORIGINS:
+        return True
+    return annotation in _SUPPORTED_CONTAINER_ORIGINS
+
+
 def ensure_supported_type(field: FieldDescriptor) -> None:
     """Raise when a field annotation is outside the support matrix."""
     annotation = _concrete_type(field)
@@ -134,15 +144,19 @@ def ensure_supported_type(field: FieldDescriptor) -> None:
     if origin is Literal:
         return
 
-    if origin in _UNSUPPORTED_ORIGINS:
+    if origin in _UNSUPPORTED_ORIGINS or annotation in _UNSUPPORTED_ORIGINS:
         raise UnsupportedConstraintError(
             field=field.name,
-            operator=getattr(origin, "__name__", str(origin)),
+            operator=getattr(origin or annotation, "__name__", str(origin or annotation)),
             value=annotation,
             suggestion=(
-                "Remove the field or wait for a future SQLRules release with container support."
+                "Remove the field or wait for a future SQLRules release with "
+                f"{getattr(origin or annotation, '__name__', origin or annotation)!r} support."
             ),
         )
+
+    if _is_container_type(annotation):
+        return
 
     if isinstance(annotation, type) and issubclass(annotation, Enum):
         return
@@ -171,17 +185,31 @@ def ensure_supported_type(field: FieldDescriptor) -> None:
     )
 
 
-def _normalize_pattern(field_name: str, pattern: Any) -> str:
-    if isinstance(pattern, str):
+def _normalize_pattern(field_name: str, pattern: Any) -> PatternSpec:
+    if isinstance(pattern, PatternSpec):
         return pattern
+    if isinstance(pattern, str):
+        return PatternSpec(pattern=pattern, ignore_case=False)
     if isinstance(pattern, re.Pattern):
-        return str(pattern.pattern)
+        return PatternSpec(
+            pattern=str(pattern.pattern),
+            ignore_case=bool(pattern.flags & re.IGNORECASE),
+        )
     raise UnsupportedConstraintError(
         field=field_name,
         operator="pattern",
         value=pattern,
         suggestion="pattern must be a str or re.Pattern.",
     )
+
+
+def pattern_text(value: Any) -> tuple[str, bool]:
+    """Return ``(pattern, ignore_case)`` from a ``pattern`` constraint value."""
+    if isinstance(value, PatternSpec):
+        return value.pattern, value.ignore_case
+    if isinstance(value, str):
+        return value, False
+    raise TypeError(f"pattern value must be str or PatternSpec, got {type(value)!r}")
 
 
 def _constraints_from_mapping(field_name: str, data: dict[str, Any]) -> list[Constraint]:
@@ -202,7 +230,16 @@ def _constraints_from_mapping(field_name: str, data: dict[str, Any]) -> list[Con
     return constraints
 
 
+def _is_constraint_marker(item: Any) -> bool:
+    if isinstance(item, type):
+        return False
+    return isinstance(item, ConstraintMarker)
+
+
 def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
+    if _is_constraint_marker(item):
+        return [Constraint(field_name, item.operator, item.value)]
+
     if isinstance(item, Predicate):
         return [Constraint(field_name, "predicate", item.func)]
 
@@ -218,7 +255,7 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
 
     # First-class pattern attribute (e.g. _PydanticGeneralMetadata(pattern=...)).
     pattern = getattr(item, "pattern", None)
-    if pattern is not None and isinstance(pattern, (str, re.Pattern)):
+    if pattern is not None and isinstance(pattern, (str, re.Pattern, PatternSpec)):
         constraints = _constraints_from_mapping(
             field_name,
             {
@@ -242,6 +279,17 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
 def _reject_type_operator_mismatch(field: FieldDescriptor, constraint: Constraint) -> None:
     annotation = _concrete_type(field)
     origin = get_origin(annotation)
+
+    if _is_container_type(annotation) and constraint.operator in _PORTABLE_OPERATORS:
+        raise UnsupportedConstraintError(
+            field=field.name,
+            operator=constraint.operator,
+            value=constraint.value,
+            suggestion=(
+                "Portable constraints are not valid on list/dict fields; "
+                "use sqlrules.markers (e.g. JsonContains, ArrayContains) instead."
+            ),
+        )
 
     if origin is Literal:
         if (
@@ -322,7 +370,9 @@ def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
     constraints: list[Constraint] = []
 
     for item in _iter_metadata(_field_metadata(field)):
-        if isinstance(item, Gt):
+        if _is_constraint_marker(item):
+            constraints.append(Constraint(field.name, item.operator, item.value))
+        elif isinstance(item, Gt):
             constraints.append(Constraint(field.name, "gt", item.gt))
         elif isinstance(item, Ge):
             constraints.append(Constraint(field.name, "ge", item.ge))
@@ -351,7 +401,7 @@ def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
         constraints.append(Constraint(field.name, "enum", values))
 
     for constraint in constraints:
-        if constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS | {"pattern"}:
+        if constraint.operator in _PORTABLE_OPERATORS:
             _reject_type_operator_mismatch(field, constraint)
 
     return constraints

@@ -3,9 +3,9 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sqlrules-postgresql"
+name = "sqlrules-mysql"
 version = "0.4.0"
-description = "PostgreSQL dialect plugin for SQLRules (regex, JSONB, ARRAY, range)."
+description = "MySQL/MariaDB dialect plugin for SQLRules (REGEXP, JSON, full-text)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -21,7 +21,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sqlrules_postgresql"]
+packages = ["src/sqlrules_mysql"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

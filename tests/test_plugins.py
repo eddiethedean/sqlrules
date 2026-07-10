@@ -18,6 +18,7 @@ from sqlrules.conformance import (
     assert_translates_operator,
     run_basic_conformance,
 )
+from sqlrules.constraints import pattern_text
 from sqlrules.ir import CompilationContext, Constraint, DiagnosticsCollector
 from sqlrules.plugins import PLUGIN_API_VERSION, validate_plugin
 from sqlrules.translators import TranslatorRegistry, default_registry
@@ -30,7 +31,7 @@ class _PatternPlugin:
     def register(self, registry: TranslatorRegistry) -> None:
         registry.register_constraint(
             "pattern",
-            lambda c, col, ctx: col.op("~")(c.value),
+            lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             on_conflict="replace",
         )
 
@@ -165,7 +166,7 @@ def test_registry_copy_and_operators() -> None:
     assert "gt" in clone
     clone.register_constraint(
         "pattern",
-        lambda c, col, ctx: col.op("~")(c.value),
+        lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
         on_conflict="raise",
     )
     assert "pattern" in clone
@@ -194,7 +195,7 @@ def test_dialect_hint_on_context(items: Table) -> None:
                 context: CompilationContext,
             ) -> ColumnElement[bool]:
                 seen.append(context.dialect)
-                return column.op("~")(constraint.value)
+                return column.op("~")(pattern_text(constraint.value)[0])
 
             registry.register_constraint("pattern", translate, on_conflict="replace")
 
@@ -289,7 +290,7 @@ def test_conformance_conflict_raise_helper() -> None:
             # Use raise (default) so second registration conflicts.
             registry.register_constraint(
                 "pattern",
-                lambda c, col, ctx: col.op("~")(c.value),
+                lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             )
 
     assert_register_conflict_raise(DupPlugin())
@@ -328,7 +329,7 @@ def test_plugin_aware_register_constraint_default() -> None:
         def register(self, registry: TranslatorRegistry) -> None:
             registry.register_constraint(
                 "pattern",
-                lambda c, col, ctx: col.op("~")(c.value),
+                lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             )
 
     # First registration ok; second compiler with ignore should not error.
@@ -355,7 +356,7 @@ def test_sqlite_compile_smoke_with_custom_pattern(items: Table) -> None:
         def register(self, registry: TranslatorRegistry) -> None:
             registry.register_constraint(
                 "pattern",
-                lambda c, col, ctx: col.op("REGEXP")(c.value),
+                lambda c, col, ctx: col.op("REGEXP")(pattern_text(c.value)[0]),
                 on_conflict="replace",
             )
 

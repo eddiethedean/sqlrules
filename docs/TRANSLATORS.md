@@ -178,12 +178,15 @@ plugin API:
 
 ``` python
 from sqlrules import Compiler, PLUGIN_API_VERSION
+from sqlrules.constraints import pattern_text
 from sqlrules.translators import default_registry
 
 registry = default_registry()
 registry.register_constraint(
     "pattern",
-    lambda constraint, column, context: column.op("~")(constraint.value),
+    lambda constraint, column, context: column.op("~")(
+        pattern_text(constraint.value)[0]
+    ),
     on_conflict="replace",
 )
 compiler = Compiler(registry=registry)
@@ -197,7 +200,7 @@ class PatternPlugin:
     def register(self, registry):
         registry.register_constraint(
             "pattern",
-            lambda c, col, ctx: col.op("~")(c.value),
+            lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             on_conflict="replace",
         )
 
@@ -210,8 +213,10 @@ compiler = Compiler(plugins=[PatternPlugin()])
 
 Some SQL constructs differ by backend. Official packages:
 
--   `sqlrules-postgresql` — `pattern` via `~`
--   `sqlrules-sqlite` — `pattern` via `REGEXP`
+-   `sqlrules-postgresql` — `~` / `~*`, JSONB, ARRAY, range
+-   `sqlrules-sqlite` — REGEXP helper + JSON
+-   `sqlrules-mysql` — REGEXP, JSON, full-text
+-   `sqlrules-mssql` — JSON + `LEN` length overrides
 
 A dialect plugin overrides the default translator while preserving the
 same IR. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) and

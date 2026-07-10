@@ -16,7 +16,7 @@ Ordering is deterministic and follows model field declaration order.
 Within a field, expressions follow constraint extraction order.
 Fields that produce no expressions are omitted from the dictionary.
 
-## Supported constraints (v0.3)
+## Supported constraints (v0.4)
 
 - `gt`
 - `ge`
@@ -28,17 +28,20 @@ Fields that produce no expressions are omitted from the dictionary.
 - `Literal`
 - `Enum`
 
-`pattern` is extracted into IR but has no portable core translator. It raises
-by default; use `on_unsupported="warn"` / `"ignore"`, register a custom
-translator, or install a dialect plugin (`sqlrules-postgresql`,
-`sqlrules-sqlite`).
+`pattern` is extracted into IR as `PatternSpec` but has no portable core
+translator. It raises by default; use `on_unsupported="warn"` / `"ignore"`,
+register a custom translator, or install a dialect plugin.
 
-## Supported types (v0.2)
+Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
+`FullTextMatch`, …) are extracted into IR and require a dialect plugin.
+
+## Supported types (v0.4)
 
 - `bool`, `int`, `float`, `Decimal`, `str`
 - `date`, `datetime`, `time`
 - `UUID` (Literal / Enum only)
 - `Literal[...]`, `Enum`
+- `list` / `dict` (marker-driven fields only)
 
 ## Unsupported constraints
 

@@ -9,6 +9,14 @@ DiagnosticSeverity = Literal["warning", "info"]
 
 
 @dataclass(frozen=True, slots=True)
+class PatternSpec:
+    """Normalized ``pattern`` constraint value (preserves case-folding intent)."""
+
+    pattern: str
+    ignore_case: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class Constraint:
     field: str
     operator: str

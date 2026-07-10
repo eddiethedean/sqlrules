@@ -114,7 +114,7 @@ Official plugin packages begin:
 
 ------------------------------------------------------------------------
 
-# 0.4.0 --- Dialect Enhancements
+# 0.4.0 --- Dialect Enhancements ✅
 
 ## Goals
 
@@ -122,14 +122,14 @@ Provide optimized translations for major databases.
 
 ### PostgreSQL
 
--   regex
+-   regex (`~` / `~*`)
 -   JSONB
 -   ARRAY
 -   range operators
 
 ### SQLite
 
--   REGEXP integration
+-   REGEXP integration (`register_regexp`)
 -   JSON helpers
 
 ### MySQL / MariaDB
@@ -140,7 +140,13 @@ Provide optimized translations for major databases.
 ### SQL Server
 
 -   JSON support
--   string optimizations
+-   string optimizations (`LEN`)
+
+### Core
+
+-   `ConstraintMarker` + `sqlrules.markers`
+-   `PatternSpec` for pattern IR
+-   `list` / `dict` type support for marker fields
 
 ------------------------------------------------------------------------
 

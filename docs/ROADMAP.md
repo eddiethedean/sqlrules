@@ -28,11 +28,12 @@
 - Versioned plugin API (`PLUGIN_API_VERSION`)
 - Diagnostic codes
 
-## 0.4 — Dialect Enhancements
+## 0.4 — Dialect Enhancements ✅
 
 - PostgreSQL regex polish, JSONB, ARRAY, range operators
 - SQLite REGEXP integration helpers
 - MySQL / MariaDB / SQL Server enhancements
+- Shared `ConstraintMarker` / `sqlrules.markers` API
 
 ## 1.0 — Stable
 

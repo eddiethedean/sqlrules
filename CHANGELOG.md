@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0/).
 
+## [0.4.0] - 2026-07-10
+
+### Added
+
+- `ConstraintMarker` protocol and shared markers in `sqlrules.markers`:
+  `JsonContains`, `JsonHasKey`, `ArrayContains`, `ArrayOverlap`,
+  `RangeContains`, `RangeOverlap`, `FullTextMatch`
+- `PatternSpec` IR value for `pattern` (preserves `ignore_case` from
+  `re.Pattern` flags); `pattern_text()` helper for plugins
+- `list` / `dict` annotations for marker-driven fields (portable
+  constraints on containers still raise)
+- Expanded dialect plugins:
+  - `sqlrules-postgresql` — `~` / `~*`, JSONB, ARRAY, range operators
+  - `sqlrules-sqlite` — `register_regexp()`, flag-aware REGEXP, JSON helpers
+  - `sqlrules-mysql` — REGEXP, JSON, `fulltext_match`
+  - `sqlrules-mssql` — JSON helpers, `LEN` overrides for length constraints
+- Conformance helpers accept optional `model` / `table` / `field` for
+  non-`pattern` operators
+
+### Changed
+
+- Package version bumped to 0.4.0
+- Official plugin packages depend on `sqlrules>=0.4,<0.5`
+
 ## [0.3.0] - 2026-07-10
 
 ### Added
@@ -108,6 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs clarify that `on_unsupported` does not soften unsupported types;
   plugin / two-phase compile designs are marked as future
 
+[0.4.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.4.0
 [0.3.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.3.0
 [0.2.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.2.0
 [0.1.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.1.0

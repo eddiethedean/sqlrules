@@ -44,19 +44,27 @@ Requires Python 3.10+, Pydantic v2, and SQLAlchemy 2.x.
 Optional dialect plugins:
 
 ```bash
-pip install sqlrules-postgresql   # pattern → PostgreSQL ~
-pip install sqlrules-sqlite       # pattern → SQLite REGEXP
+pip install sqlrules-postgresql   # ~ / ~*, JSONB, ARRAY, range
+pip install sqlrules-sqlite       # REGEXP helper + JSON
+pip install sqlrules-mysql        # REGEXP, JSON, full-text
+pip install sqlrules-mssql        # JSON + LEN string ops
 ```
 
 ```python
-from sqlrules import Compiler
+from typing import Annotated, Any
+from pydantic import BaseModel, Field
+from sqlrules import Compiler, JsonContains
 from sqlrules_postgresql import PostgresPlugin
 
+class RowFilter(BaseModel):
+    name: Annotated[str, Field(pattern=r"^A")]
+    meta: Annotated[dict[str, Any], JsonContains({"active": True})]
+
 compiler = Compiler(plugins=[PostgresPlugin()], dialect="postgresql")
-rules = compiler.compile(UserFilter, users)
+rules = compiler.compile(RowFilter, table)
 ```
 
-## Supported constraints (0.3)
+## Supported constraints (0.4)
 
 | Constraint | SQLAlchemy expression |
 |---|---|
@@ -66,9 +74,11 @@ rules = compiler.compile(UserFilter, users)
 | `Literal[...]` | `column.in_(...)` |
 | `Enum` | `column.in_(...)` |
 
-`pattern` is extracted into IR but has no portable core translator.
-Use a custom registry translator or a dialect plugin
-(`sqlrules-postgresql`, `sqlrules-sqlite`).
+`pattern` is extracted into IR (`PatternSpec`) but has no portable core
+translator. Use a dialect plugin or a custom registry translator.
+
+Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
+`FullTextMatch`, …) live in `sqlrules.markers` and require a dialect plugin.
 
 Unsupported constraints raise `UnsupportedConstraintError` by default.
 Use `on_unsupported="warn"` or `"ignore"` to change that policy for unknown
@@ -107,8 +117,10 @@ and [roadmap](docs/ROADMAP.md).
 
 ```bash
 pip install -e ".[dev]"
-pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite
-pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests
+pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite \
+  -e packages/sqlrules-mysql -e packages/sqlrules-mssql
+pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests \
+  packages/sqlrules-mysql/tests packages/sqlrules-mssql/tests
 ruff check .
 mypy src/sqlrules
 python -m benchmarks.bench_compile

@@ -51,6 +51,7 @@ A plugin is a Python object that exposes `name`, `api_version`, and
 
 ``` python
 from sqlrules import PLUGIN_API_VERSION
+from sqlrules.constraints import pattern_text
 from sqlrules.translators import TranslatorRegistry
 
 class CompanyPlugin:
@@ -60,12 +61,21 @@ class CompanyPlugin:
     def register(self, registry: TranslatorRegistry) -> None:
         registry.register_constraint(
             "pattern",
-            lambda c, col, ctx: col.op("~")(c.value),
+            lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             on_conflict="replace",
         )
 ```
 
-`api_version` must equal `sqlrules.PLUGIN_API_VERSION` (`"1"` in 0.3).
+`api_version` must equal `sqlrules.PLUGIN_API_VERSION` (`"1"` in 0.4).
+
+------------------------------------------------------------------------
+
+# Markers
+
+Dialect-oriented constraints use `sqlrules.markers` (for example
+`JsonContains`, `ArrayContains`). Markers implement the
+`ConstraintMarker` protocol (`operator`, `value`) and are extracted into
+IR. Plugins register translators for those operator names.
 
 ------------------------------------------------------------------------
 
@@ -91,7 +101,7 @@ Invalid translators raise `InvalidTranslatorError`. Duplicate operators
 raise `RegistryError` unless `on_conflict` / `replace` allows otherwise.
 
 `register_type`, `register_dialect`, and `register_compiler_pass` are
-not implemented in 0.3 (reserved).
+not implemented (reserved).
 
 ------------------------------------------------------------------------
 
@@ -121,14 +131,12 @@ caller-owned registries are never mutated.
 
 # Dialect Plugins
 
-Official starter packages (same monorepo under `packages/`):
+Official packages (monorepo under `packages/`):
 
-- `sqlrules-postgresql` — `pattern` → `column ~ value`
-- `sqlrules-sqlite` — `pattern` → `column REGEXP value` (app must enable REGEXP)
-
-Dialect plugins override or supplement built-in translators while
-preserving the same IR. JSONB, ARRAY, and other enhancements are planned
-for 0.4.
+- `sqlrules-postgresql` — regex, JSONB, ARRAY, range
+- `sqlrules-sqlite` — REGEXP helper + JSON
+- `sqlrules-mysql` — REGEXP, JSON, full-text
+- `sqlrules-mssql` — JSON + `LEN` length overrides
 
 ------------------------------------------------------------------------
 
@@ -168,7 +176,8 @@ run_basic_conformance(PostgresPlugin(), operator="pattern")
 ```
 
 Helpers also cover API version checks, builtin preservation, and
-deterministic translation.
+deterministic translation. Pass `model=` / `table=` / `field=` when
+conformance-checking non-`pattern` operators.
 
 ------------------------------------------------------------------------
 
@@ -185,7 +194,7 @@ The plugin system does not support:
 
 - Runtime SQL execution
 - Database connections
-- Automatic package downloads / entry-point discovery (0.3)
+- Automatic package downloads / entry-point discovery
 - Dynamic code generation
 - Compiler pass plugins (future)
 

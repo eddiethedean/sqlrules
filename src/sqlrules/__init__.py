@@ -18,27 +18,47 @@ from sqlrules.ir import (
     FieldDescriptor,
     FieldIR,
     ModelIR,
+    PatternSpec,
+)
+from sqlrules.markers import (
+    ArrayContains,
+    ArrayOverlap,
+    ConstraintMarker,
+    FullTextMatch,
+    JsonContains,
+    JsonHasKey,
+    RangeContains,
+    RangeOverlap,
 )
 from sqlrules.plugins import PLUGIN_API_VERSION, SQLRulesPlugin
 from sqlrules.translators import SQLRulesWarning
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "PLUGIN_API_VERSION",
+    "ArrayContains",
+    "ArrayOverlap",
     "CompilationContext",
     "Compiler",
     "ConfigurationError",
     "Constraint",
+    "ConstraintMarker",
     "Diagnostic",
     "FieldDescriptor",
     "FieldIR",
+    "FullTextMatch",
     "InternalCompilerError",
     "InvalidModelError",
     "InvalidTranslatorError",
+    "JsonContains",
+    "JsonHasKey",
     "MissingColumnError",
     "ModelIR",
+    "PatternSpec",
     "PluginError",
+    "RangeContains",
+    "RangeOverlap",
     "RegistryError",
     "SQLRulesError",
     "SQLRulesPlugin",

@@ -17,7 +17,8 @@ from sqlalchemy.dialects import sqlite
 import sqlrules
 from sqlrules import SQLRulesWarning, UnsupportedConstraintError
 from sqlrules.cache import ModelIRCache
-from sqlrules.ir import Constraint
+from sqlrules.constraints import pattern_text
+from sqlrules.ir import Constraint, PatternSpec
 from sqlrules.translators import default_registry
 
 
@@ -105,7 +106,7 @@ def test_diagnostics_warn_records_pattern(items: Table) -> None:
     assert diag.severity == "warning"
     assert diag.field == "name"
     assert diag.operator == "pattern"
-    assert diag.value == r"^A"
+    assert diag.value == PatternSpec(pattern=r"^A")
     assert diag.code == "unsupported_constraint"
 
 
@@ -141,7 +142,9 @@ def test_pattern_extracted_as_ir_operator(items: Table) -> None:
 
     compiler = sqlrules.Compiler(cache=False)
     model_ir = compiler.compile_model(Filter)
-    assert model_ir.fields[0].constraints == (Constraint("name", "pattern", r"^A"),)
+    assert model_ir.fields[0].constraints == (
+        Constraint("name", "pattern", PatternSpec(pattern=r"^A")),
+    )
 
 
 def test_custom_pattern_translator(items: Table) -> None:
@@ -151,7 +154,7 @@ def test_custom_pattern_translator(items: Table) -> None:
     registry = default_registry()
 
     def pattern_translator(constraint, column, context):  # type: ignore[no-untyped-def]
-        return column.op("~")(constraint.value)
+        return column.op("~")(pattern_text(constraint.value)[0])
 
     registry.register("pattern", pattern_translator)
     compiler = sqlrules.Compiler(registry=registry, cache=False)
@@ -257,7 +260,7 @@ def test_temporal_multiple_of_rejected(items: Table) -> None:
         sqlrules.compile(TimeFilter, items, cache=False)
 
 
-def test_re_pattern_normalized_to_string(items: Table) -> None:
+def test_re_pattern_normalized_to_pattern_spec(items: Table) -> None:
     import re
 
     class Filter(BaseModel):
@@ -265,7 +268,22 @@ def test_re_pattern_normalized_to_string(items: Table) -> None:
 
     compiler = sqlrules.Compiler(cache=False)
     model_ir = compiler.compile_model(Filter)
-    assert model_ir.fields[0].constraints == (Constraint("name", "pattern", r"^A"),)
+    assert model_ir.fields[0].constraints == (
+        Constraint("name", "pattern", PatternSpec(pattern=r"^A")),
+    )
+
+
+def test_re_pattern_ignore_case_preserved(items: Table) -> None:
+    import re
+
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=re.compile(r"^A", re.I))]
+
+    compiler = sqlrules.Compiler(cache=False)
+    model_ir = compiler.compile_model(Filter)
+    assert model_ir.fields[0].constraints == (
+        Constraint("name", "pattern", PatternSpec(pattern=r"^A", ignore_case=True)),
+    )
 
 
 def test_invalid_pattern_type_rejected() -> None:
