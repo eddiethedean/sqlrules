@@ -63,6 +63,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist-all/
+          skip-existing: true
           # Prefer API token when present (creates new dialect projects on first
           # upload). OIDC Trusted Publishing also works once each project has a
           # publisher configured; omit password then and rely on id-token.
