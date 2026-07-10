@@ -45,8 +45,9 @@ Suggested interface:
 
 ``` python
 class Compiler:
-    def compile(self, model, table):
-        ...
+    def compile_model(self, model) -> ModelIR: ...
+    def bind(self, model_ir, table, *, column_map=None) -> RulesDict: ...
+    def compile(self, model, table, *, column_map=None) -> RulesDict: ...
 ```
 
 ------------------------------------------------------------------------
@@ -126,6 +127,8 @@ Suggested models:
 ``` python
 Constraint
 FieldDescriptor
+FieldIR
+ModelIR
 CompilationContext
 Diagnostic
 ```
@@ -180,13 +183,11 @@ Ordering must be deterministic.
 
 # CompilationContext
 
-Shared immutable state passed throughout compilation.
+Shared state passed throughout compilation.
 
 Suggested contents:
 
--   compiler options
--   translator registry
--   dialect
+-   compiler options (`on_unsupported`)
 -   diagnostics collector
 
 Avoid global state.
@@ -195,13 +196,13 @@ Avoid global state.
 
 # Diagnostics
 
-Internal diagnostics should record:
+Internal diagnostics record:
 
--   warnings
--   skipped constraints
--   plugin decisions
+-   warnings (`severity="warning"`)
+-   ignored skips (`severity="info"`)
 
-Diagnostics are separate from exceptions.
+Exposed after compile via `Compiler.diagnostics`. Diagnostics are
+separate from exceptions.
 
 ------------------------------------------------------------------------
 
@@ -210,13 +211,9 @@ Diagnostics are separate from exceptions.
 ``` text
 Model
  ↓
-Inspect
+Inspect + Extract  →  ModelIR  (cached)
  ↓
 Resolve Columns
- ↓
-Extract Constraints
- ↓
-Build IR
  ↓
 Translate
  ↓

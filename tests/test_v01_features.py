@@ -151,12 +151,11 @@ def test_unsupported_container_type(people: Table) -> None:
         sqlrules.compile(Filter, people)
 
 
-def test_unsupported_uuid_type(people: Table) -> None:
+def test_unconstrained_uuid_skipped(people: Table) -> None:
     class Filter(BaseModel):
-        age: UUID  # reuse people.age column name to isolate type failure
+        age: UUID  # reuse people.age column name; unconstrained → omitted
 
-    with pytest.raises(UnsupportedConstraintError, match="UUID"):
-        sqlrules.compile(Filter, people)
+    assert sqlrules.compile(Filter, people) == {}
 
 
 def test_enum_and_literal(people: Table) -> None:

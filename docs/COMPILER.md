@@ -64,6 +64,9 @@ Read only constraints that have deterministic SQL equivalents.
 Examples: - gt - ge - lt - le - multiple_of - min_length - max_length -
 Literal - Enum
 
+`pattern` is normalized into IR (`operator="pattern"`) but has no
+portable core translator.
+
 Constraints without SQL equivalents are delegated to the
 unsupported-constraint policy.
 
@@ -130,8 +133,11 @@ Errors include:
 
 ## Caching
 
-Future versions may cache compiled metadata using the model type as the
-cache key. Translation remains deterministic.
+Phase-1 model IR is cached in-process by model class (default on).
+Cached values are immutable field descriptors and constraints — never
+SQLAlchemy column objects. Disable with `cache=False`.
+
+Translation remains deterministic.
 
 ## Extension Points
 

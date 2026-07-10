@@ -70,7 +70,7 @@ rules = sqlrules.compile(UserFilter, users)
 
 ------------------------------------------------------------------------
 
-# 0.2.0 --- Compiler Maturity
+# 0.2.0 --- Compiler Maturity ✅
 
 ## Goals
 
@@ -79,17 +79,17 @@ Improve correctness and extensibility.
 ## Features
 
 -   UUID support
--   date/time improvements
--   regex IR
+-   date/time improvements (`time` + datetime polish)
+-   regex IR (`pattern` extracted; no portable core translator)
 -   structured diagnostics
 -   metadata caching
 -   benchmark suite
 
 ### Internal
 
--   immutable IR
+-   immutable IR (`ModelIR` / `FieldIR`)
 -   two-phase compilation
--   compiler context
+-   compiler context + diagnostics collector
 
 ------------------------------------------------------------------------
 

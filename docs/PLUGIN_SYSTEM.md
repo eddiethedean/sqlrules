@@ -1,8 +1,9 @@
 # SQLRules Plugin System
 
-> **Status: future design (not available in 0.1).**
-> SQLRules 0.1 has no plugin hook. Use `Compiler(registry=...)` to supply
-> custom translators. This document describes the planned extension model.
+> **Status: future design (not available in 0.2).**
+> SQLRules 0.2 has no plugin hook. Use `Compiler(registry=...)` to supply
+> custom translators (including `pattern`). This document describes the
+> planned extension model.
 
 ## Purpose
 

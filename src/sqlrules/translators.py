@@ -104,6 +104,10 @@ class TranslatorRegistry:
     ) -> ColumnElement[bool] | None:
         translator = self.lookup(constraint.operator)
         if translator is None:
+            message = (
+                f"Field {constraint.field!r}: constraint {constraint.operator!r} "
+                "is not supported and will be skipped."
+            )
             if context.on_unsupported == "raise":
                 raise UnsupportedConstraintError(
                     field=constraint.field,
@@ -112,15 +116,23 @@ class TranslatorRegistry:
                     suggestion=("Remove the constraint, or set on_unsupported='warn'/'ignore'."),
                 )
             if context.on_unsupported == "warn":
-                # sqlrules.compile → Compiler.compile → translate → warn
+                context.record(
+                    severity="warning",
+                    field=constraint.field,
+                    operator=constraint.operator,
+                    value=constraint.value,
+                    message=message,
+                )
+                # sqlrules.compile → Compiler.bind → translate → warn
                 # stacklevel=4 attributes the warning to the caller's code.
-                warnings.warn(
-                    (
-                        f"Field {constraint.field!r}: constraint {constraint.operator!r} "
-                        "is not supported and will be skipped."
-                    ),
-                    SQLRulesWarning,
-                    stacklevel=4,
+                warnings.warn(message, SQLRulesWarning, stacklevel=4)
+            else:
+                context.record(
+                    severity="info",
+                    field=constraint.field,
+                    operator=constraint.operator,
+                    value=constraint.value,
+                    message=message,
                 )
             return None
 
@@ -147,4 +159,5 @@ def default_registry() -> TranslatorRegistry:
     registry.register("max_length", _max_length)
     registry.register("literal", _in_values)
     registry.register("enum", _in_values)
+    # pattern is extracted into IR but has no portable core translator.
     return registry

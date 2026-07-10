@@ -78,7 +78,7 @@ Returns:
 
 Future:
 
--   pattern
+-   pattern (IR in 0.2; translators via custom registry / dialect plugins)
 -   starts_with
 -   ends_with
 -   contains

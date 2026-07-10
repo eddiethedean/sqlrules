@@ -10,12 +10,14 @@
 - Docs
 - CI
 
-## 0.2 — Compiler maturity
+## 0.2 — Compiler maturity ✅
 
-- Regex IR
-- Decimal / date / datetime / UUID polish
+- Regex IR (`pattern`)
+- Decimal / date / datetime / UUID / time polish
 - Structured diagnostics
 - Metadata caching
+- Two-phase compilation
+- Benchmark suite
 
 ## 0.3 — Plugins
 

@@ -71,21 +71,24 @@ Compilation should scale approximately linearly.
 
 ## Metadata Cache
 
-Cache expensive model introspection.
+Cache expensive model introspection (Phase 1).
 
-Suggested key:
+Key:
 
 ``` python
-(model_class, compiler_options)
+model_class
 ```
 
 Cached values:
 
 -   field descriptors
 -   extracted constraints
--   normalized IR
+-   normalized `ModelIR`
 
 Avoid caching SQLAlchemy column objects, which are table-specific.
+
+Enabled by default (`cache=True`). Thread-safe via a lock-guarded
+`WeakKeyDictionary`.
 
 ------------------------------------------------------------------------
 
@@ -147,7 +150,13 @@ This keeps runtime predictable.
 
 # Benchmark Suite
 
-Representative benchmarks:
+Representative benchmarks live in `benchmarks/bench_compile.py`:
+
+```bash
+python -m benchmarks.bench_compile
+```
+
+Sizes:
 
 -   Small model (5 fields)
 -   Medium model (25 fields)
@@ -155,10 +164,10 @@ Representative benchmarks:
 
 Measure:
 
--   wall-clock compilation time
--   allocations (where feasible)
--   cache hit rate
--   translator dispatch cost
+-   wall-clock compilation time (cold vs warm cache)
+-   cache hit benefit
+
+CI performance regression gates are planned for a later milestone.
 
 ------------------------------------------------------------------------
 

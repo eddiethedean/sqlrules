@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0/).
 
+## [0.2.0] - 2026-07-10
+
+### Added
+
+- Two-phase compilation: `Compiler.compile_model()` (static IR) and
+  `Compiler.bind()` (column resolve + translate)
+- In-process metadata cache for Phase-1 `ModelIR` (default on; disable with
+  `cache=False`)
+- Structured diagnostics: `Diagnostic`, `compiler.diagnostics` for skipped
+  constraints under `on_unsupported="warn"` / `"ignore"`
+- Type support for `UUID` and `time` (range comparisons for `time`;
+  Literal/Enum for `UUID`)
+- First-class `pattern` constraint IR (no portable core translator; register
+  a custom translator or use a future dialect plugin)
+- IR types: `ModelIR`, `FieldIR`, `Diagnostic`, `DiagnosticsCollector`
+- Local benchmark suite: `python -m benchmarks.bench_compile`
+
+### Changed
+
+- Unsupported-constraint error messages no longer hard-code a release version
+- `CompilationContext` carries an optional diagnostics collector
+
+### Fixed
+
+- N/A (feature release)
+
 ## [0.1.0] - 2026-07-10
 
 ### Added
@@ -48,4 +74,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs clarify that `on_unsupported` does not soften unsupported types;
   plugin / two-phase compile designs are marked as future
 
+[0.2.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.2.0
 [0.1.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.1.0

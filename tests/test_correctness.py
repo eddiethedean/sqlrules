@@ -1,7 +1,6 @@
 from datetime import time, timedelta
 from enum import Enum
 from typing import Annotated, Literal
-from uuid import UUID
 
 import pytest
 from pydantic import BaseModel, Field
@@ -116,13 +115,13 @@ def test_multiple_of_negative_rejected() -> None:
         sqlrules.compile(Filter, table)
 
 
-def test_on_unsupported_ignore_still_raises_for_uuid() -> None:
-    table = Table("users", MetaData(), Column("age", Integer))
+def test_on_unsupported_ignore_still_raises_for_timedelta() -> None:
+    table = Table("users", MetaData(), Column("delta", String))
 
     class Filter(BaseModel):
-        age: UUID
+        delta: timedelta
 
-    with pytest.raises(UnsupportedConstraintError, match="UUID"):
+    with pytest.raises(UnsupportedConstraintError, match="timedelta"):
         sqlrules.compile(Filter, table, on_unsupported="ignore")
 
 
@@ -136,7 +135,7 @@ def test_on_unsupported_ignore_still_raises_for_containers() -> None:
         sqlrules.compile(Filter, table, on_unsupported="ignore")
 
 
-def test_time_and_timedelta_unsupported() -> None:
+def test_timedelta_unsupported_time_allowed() -> None:
     table = Table(
         "users",
         MetaData(),
@@ -150,8 +149,8 @@ def test_time_and_timedelta_unsupported() -> None:
     class DeltaFilter(BaseModel):
         delta: timedelta
 
-    with pytest.raises(UnsupportedConstraintError, match="time"):
-        sqlrules.compile(TimeFilter, table)
+    # Unconstrained time fields are skipped (type is supported in 0.2).
+    assert sqlrules.compile(TimeFilter, table) == {}
     with pytest.raises(UnsupportedConstraintError, match="timedelta"):
         sqlrules.compile(DeltaFilter, table)
 

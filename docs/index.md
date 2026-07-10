@@ -6,7 +6,7 @@ WHERE expressions.
 ## Start here
 
 - [README](../README.md) — quick start and install
-- [SPEC](SPEC.md) — 0.1 contract
+- [SPEC](SPEC.md) — 0.2 contract
 - [API](API.md) — public surface
 - [CONSTRAINTS](CONSTRAINTS.md) — constraint → expression map
 

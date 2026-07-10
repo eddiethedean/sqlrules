@@ -23,8 +23,10 @@ from pydantic.fields import FieldInfo
 from sqlrules.errors import UnsupportedConstraintError
 from sqlrules.ir import Constraint, FieldDescriptor
 
-_SUPPORTED_TYPES: frozenset[type[Any]] = frozenset({bool, int, float, Decimal, str, date, datetime})
-_UNSUPPORTED_TYPES: frozenset[type[Any]] = frozenset({UUID, time, timedelta})
+_SUPPORTED_TYPES: frozenset[type[Any]] = frozenset(
+    {bool, int, float, Decimal, str, date, datetime, time, UUID}
+)
+_UNSUPPORTED_TYPES: frozenset[type[Any]] = frozenset({timedelta})
 _UNSUPPORTED_ORIGINS: frozenset[Any] = frozenset({list, dict, tuple, set, frozenset})
 _LENGTH_OPERATORS: frozenset[str] = frozenset({"min_length", "max_length"})
 _NUMERIC_OPERATORS: frozenset[str] = frozenset({"gt", "ge", "lt", "le", "multiple_of"})
@@ -96,7 +98,7 @@ def _concrete_type(field: FieldDescriptor) -> Any:
 
 
 def ensure_supported_type(field: FieldDescriptor) -> None:
-    """Raise when a field annotation is outside the v0.1 support matrix."""
+    """Raise when a field annotation is outside the support matrix."""
     annotation = _concrete_type(field)
     origin = get_origin(annotation)
 
@@ -127,7 +129,7 @@ def ensure_supported_type(field: FieldDescriptor) -> None:
             field=field.name,
             operator=type_name,
             value=annotation,
-            suggestion=f"Type {type_name!r} is not supported in SQLRules 0.1.",
+            suggestion=f"Type {type_name!r} is not supported by SQLRules.",
         )
 
     # Unions with multiple non-None members and other unknown annotations.
@@ -136,8 +138,13 @@ def ensure_supported_type(field: FieldDescriptor) -> None:
         field=field.name,
         operator="type",
         value=annotation,
-        suggestion=f"Annotation {type_name} is outside the SQLRules 0.1 type support matrix.",
+        suggestion=f"Annotation {type_name} is outside the SQLRules type support matrix.",
     )
+
+
+def _constraints_from_mapping(field_name: str, data: dict[str, Any]) -> list[Constraint]:
+    """Normalize metadata dict keys into IR constraints (including pattern)."""
+    return [Constraint(field_name, key, value) for key, value in data.items() if value is not None]
 
 
 def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
@@ -154,11 +161,23 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
             )
         ]
 
+    # First-class pattern attribute (e.g. _PydanticGeneralMetadata(pattern=...)).
+    pattern = getattr(item, "pattern", None)
+    if isinstance(pattern, str):
+        constraints = _constraints_from_mapping(
+            field_name,
+            {
+                key: value
+                for key, value in getattr(item, "__dict__", {}).items()
+                if key != "pattern" and value is not None
+            },
+        )
+        constraints.append(Constraint(field_name, "pattern", pattern))
+        return constraints
+
     data = getattr(item, "__dict__", None)
     if isinstance(data, dict) and data:
-        return [
-            Constraint(field_name, key, value) for key, value in data.items() if value is not None
-        ]
+        return _constraints_from_mapping(field_name, data)
 
     return [Constraint(field_name, type_name, item)]
 
@@ -195,9 +214,15 @@ def _reject_type_operator_mismatch(field: FieldDescriptor, constraint: Constrain
             field=field.name,
             operator=constraint.operator,
             value=constraint.value,
-            suggestion=(
-                "Bool fields only support Literal/equality-style constraints in SQLRules 0.1."
-            ),
+            suggestion=("Bool fields only support Literal/equality-style constraints in SQLRules."),
+        )
+
+    if annotation is UUID and constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS:
+        raise UnsupportedConstraintError(
+            field=field.name,
+            operator=constraint.operator,
+            value=constraint.value,
+            suggestion=("UUID fields only support Literal/Enum-style constraints in SQLRules."),
         )
 
     if constraint.operator in _LENGTH_OPERATORS and annotation is not str:
@@ -214,6 +239,14 @@ def _reject_type_operator_mismatch(field: FieldDescriptor, constraint: Constrain
             operator=constraint.operator,
             value=constraint.value,
             suggestion="Numeric comparison constraints are not valid for str fields.",
+        )
+
+    if constraint.operator == "pattern" and annotation is not str:
+        raise UnsupportedConstraintError(
+            field=field.name,
+            operator=constraint.operator,
+            value=constraint.value,
+            suggestion="pattern constraints require a str field annotation.",
         )
 
 
@@ -250,7 +283,7 @@ def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
         constraints.append(Constraint(field.name, "enum", values))
 
     for constraint in constraints:
-        if constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS:
+        if constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS | {"pattern"}:
             _reject_type_operator_mismatch(field, constraint)
 
     return constraints

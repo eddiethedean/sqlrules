@@ -10,21 +10,31 @@ from sqlrules.errors import (
     TranslatorError,
     UnsupportedConstraintError,
 )
-from sqlrules.ir import CompilationContext, Constraint, FieldDescriptor
+from sqlrules.ir import (
+    CompilationContext,
+    Constraint,
+    Diagnostic,
+    FieldDescriptor,
+    FieldIR,
+    ModelIR,
+)
 from sqlrules.translators import SQLRulesWarning
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "CompilationContext",
     "Compiler",
     "ConfigurationError",
     "Constraint",
+    "Diagnostic",
     "FieldDescriptor",
+    "FieldIR",
     "InternalCompilerError",
     "InvalidModelError",
     "InvalidTranslatorError",
     "MissingColumnError",
+    "ModelIR",
     "RegistryError",
     "SQLRulesError",
     "SQLRulesWarning",

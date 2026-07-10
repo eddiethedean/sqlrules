@@ -235,8 +235,9 @@ SQL Server, or Oracle plugins.
 
 ## Decision
 
-SQLRules 0.1 does **not** ship a plugin API. Customization today is limited
-to injecting a `TranslatorRegistry` into `Compiler(registry=...)`.
+SQLRules 0.2 does **not** ship a plugin API. Customization today is limited
+to injecting a `TranslatorRegistry` into `Compiler(registry=...)` (for
+example a custom `pattern` translator).
 
 A future release may add explicit plugin registration (for example
 `Compiler(plugins=[...])`) without automatic discovery.
@@ -248,7 +249,7 @@ reproducibility, and keeps the compiler deterministic.
 
 ## Consequences
 
-Do not treat plugin examples in design docs as available in 0.1. See
+Do not treat plugin examples in design docs as available in 0.2. See
 [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) for the planned design.
 
 ------------------------------------------------------------------------
@@ -297,21 +298,19 @@ early.
 
 ------------------------------------------------------------------------
 
-# Decision 12: Two-Phase Compilation (Future)
+# Decision 12: Two-Phase Compilation
 
 ## Decision
 
-SQLRules should eventually separate static model compilation from table
-binding. **0.1 compiles in a single pass** (inspect → extract → resolve →
-translate).
+SQLRules separates static model compilation from table binding.
 
-## Planned Phase 1: Static Compilation
+## Phase 1: Static Compilation
 
 - inspect Pydantic model
 - extract constraints
-- build IR
+- build `ModelIR` (cached by default)
 
-## Planned Phase 2: Binding
+## Phase 2: Binding
 
 - resolve SQLAlchemy columns
 - translate IR to expressions
@@ -323,7 +322,8 @@ aliases, ORM models, or column maps.
 
 ## Consequences
 
-This supports better performance and cleaner architecture.
+`Compiler.compile_model` / `Compiler.bind` expose the phases.
+`sqlrules.compile(...)` remains the one-shot public API.
 
 ------------------------------------------------------------------------
 
@@ -438,12 +438,12 @@ This may improve ergonomics while preserving dictionary output.
 
 ## Should Regex Be Core or Dialect Plugin?
 
-Regex support varies by database.
+**Decided for 0.2:**
 
-Likely answer:
-
--   IR support in core
--   translator support in dialect plugins
+- IR support in core (`Constraint(operator="pattern", ...)`)
+- No portable core translator
+- Translator support via custom `TranslatorRegistry` today, dialect
+  plugins in 0.3+
 
 ------------------------------------------------------------------------
 

@@ -41,7 +41,7 @@ pip install sqlrules
 
 Requires Python 3.10+, Pydantic v2, and SQLAlchemy 2.x.
 
-## Supported constraints (0.1)
+## Supported constraints (0.2)
 
 | Constraint | SQLAlchemy expression |
 |---|---|
@@ -51,6 +51,8 @@ Requires Python 3.10+, Pydantic v2, and SQLAlchemy 2.x.
 | `Literal[...]` | `column.in_(...)` |
 | `Enum` | `column.in_(...)` |
 
+`pattern` is extracted into IR but has no portable core translator.
+
 Unsupported constraints raise `UnsupportedConstraintError` by default.
 Use `on_unsupported="warn"` or `"ignore"` to change that policy for unknown
 constraint operators (unsupported types always raise).
@@ -58,7 +60,7 @@ constraint operators (unsupported types always raise).
 ## Public API
 
 ```python
-sqlrules.compile(model, table, *, column_map=None, on_unsupported="raise")
+sqlrules.compile(model, table, *, column_map=None, on_unsupported="raise", cache=True)
 sqlrules.where(rules)    # flatten all expressions
 sqlrules.flatten(rules)  # alias of where()
 ```
@@ -82,6 +84,7 @@ pip install -e ".[dev]"
 pytest
 ruff check .
 mypy src/sqlrules
+python -m benchmarks.bench_compile
 ```
 
 ## License

@@ -3,8 +3,17 @@
 ## Unit tests
 
 - One test module per constraint family (numeric, string, literal/enum)
+- 0.2 features: two-phase compile, cache, diagnostics, UUID/time, pattern IR
 - Error-path coverage for missing columns, invalid models, and policies
 - Helper coverage for `where` / `flatten`
+
+## Benchmarks
+
+Local only (not a CI gate):
+
+```bash
+python -m benchmarks.bench_compile
+```
 
 ## Compatibility
 

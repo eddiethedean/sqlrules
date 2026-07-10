@@ -39,7 +39,7 @@ class UnsupportedConstraintError(SQLRulesError):
 
     def __str__(self) -> str:
         message = (
-            f"Field {self.field!r}: constraint {self.operator!r} is not supported by SQLRules 0.1."
+            f"Field {self.field!r}: constraint {self.operator!r} is not supported by SQLRules."
         )
         if self.suggestion:
             return f"{message} {self.suggestion}"

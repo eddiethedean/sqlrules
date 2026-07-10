@@ -21,21 +21,23 @@ deterministically into SQLAlchemy boolean expressions.
 
 ------------------------------------------------------------------------
 
-# Supported Types (v0.1)
+# Supported Types (v0.2)
 
   Python Type    Supported  Notes
   ------------- ----------- -------------------------------------
   bool              ✅      Equality / literal constraints only
   int               ✅      Numeric comparisons
   float             ✅      Numeric comparisons
-  Decimal           ✅      Numeric comparisons
-  str               ✅      Length constraints, Literal, Enum
+  Decimal           ✅      Numeric comparisons (`max_digits` /
+                            `decimal_places` still unsupported)
+  str               ✅      Length constraints, Literal, Enum;
+                            `pattern` IR only
   date              ✅      Range comparisons
-  datetime          ✅      Range comparisons
+  datetime          ✅      Range comparisons (no TZ conversion)
+  time              ✅      Range comparisons
   Enum              ✅      Translated to `IN (...)`
   Literal           ✅      Translated to `IN (...)`
-  UUID              ❌      Not supported in 0.1 (planned)
-  time              ❌      Not supported in 0.1 (planned)
+  UUID              ✅      Literal / Enum only
   timedelta         ❌      No deterministic SQL mapping yet
 
 ------------------------------------------------------------------------
@@ -74,9 +76,12 @@ Supported constraints:
 -   min_length
 -   max_length
 
-Planned:
+IR only (no portable translator in core):
 
 -   pattern
+
+Planned (later milestones):
+
 -   starts_with
 -   ends_with
 -   contains
@@ -115,7 +120,7 @@ column.in_([True])
 
 ------------------------------------------------------------------------
 
-# Date and DateTime
+# Date, DateTime, and Time
 
 Supported operators:
 
@@ -124,7 +129,22 @@ Supported operators:
 -   lt
 -   le
 
-No timezone conversion is performed by SQLRules.
+No timezone conversion is performed by SQLRules. Aware and naive
+`datetime` values are passed through unchanged.
+
+------------------------------------------------------------------------
+
+# UUID
+
+Supported:
+
+-   Unconstrained fields (skipped; no column required)
+-   `Literal[...]` / `Enum`
+
+Rejected:
+
+-   length constraints
+-   numeric comparisons
 
 ------------------------------------------------------------------------
 
@@ -182,13 +202,13 @@ expressions.
   set        ❌
   dict       ❌
 
-Container validation has no direct SQL WHERE equivalent in the MVP.
+Container validation has no direct SQL WHERE equivalent.
 
 ------------------------------------------------------------------------
 
 # Unsupported Pydantic Features
 
-The following are intentionally unsupported in v0.1:
+The following are intentionally unsupported:
 
 -   validators
 -   field_validator
@@ -197,29 +217,23 @@ The following are intentionally unsupported in v0.1:
 -   serializer hooks
 -   arbitrary custom metadata
 -   custom validation functions
+-   `max_digits` / `decimal_places` (deferred; no deterministic WHERE map)
 
-These features require runtime execution and cannot be translated
-deterministically.
+These features require runtime execution or lack portable SQL semantics.
 
 ------------------------------------------------------------------------
 
 # Future Roadmap
 
-## v0.2
-
--   UUID
--   time
--   regex
--   decimal precision
--   JSON fields
-
 ## v0.3
 
--   ARRAY support
--   PostgreSQL JSON operators
--   custom translator plugins
+-   translator / dialect plugins
+-   pattern translators via plugins
 
-## Long-term
+## Later
+
+-   decimal precision (if a clear WHERE semantics emerges)
+-   JSON / ARRAY (dialect plugins)
 
 Support should expand only when the resulting SQL semantics are
 well-defined across supported SQLAlchemy backends.

@@ -13,6 +13,7 @@ Goals:
 - Helpful error messages
 - Deterministic behavior
 - Configurable handling for unsupported **constraint operators**
+- Structured diagnostics for skipped constraints
 
 ------------------------------------------------------------------------
 
@@ -24,10 +25,10 @@ SQLRulesError
 ├── MissingColumnError
 ├── UnsupportedConstraintError
 ├── TranslatorError
-├── InvalidTranslatorError   (reserved in 0.1)
+├── InvalidTranslatorError   (reserved in 0.2)
 ├── RegistryError
 ├── ConfigurationError
-└── InternalCompilerError    (reserved in 0.1)
+└── InternalCompilerError    (reserved in 0.2)
 ```
 
 All public exceptions inherit from `SQLRulesError`.
@@ -66,15 +67,15 @@ an unsupported type, or an invalid operator/type combination.
 
 Examples:
 
-- `pattern`, `max_digits`, `decimal_places`
+- `pattern` (no core translator), `max_digits`, `decimal_places`
 - custom validators / `Strict`
-- unsupported types (`UUID`, containers, `time`, `timedelta`)
+- unsupported types (containers, `timedelta`)
 - `multiple_of <= 0`
 - length constraints on non-`str` fields
 
 Example:
 
-    Field 'name': constraint 'pattern' is not supported by SQLRules 0.1.
+    Field 'name': constraint 'pattern' is not supported by SQLRules.
     Remove the constraint, or set on_unsupported='warn'/'ignore'.
 
 ------------------------------------------------------------------------
@@ -89,7 +90,7 @@ expression (unexpected SQLAlchemy errors wrapped by the registry).
 # InvalidTranslatorError
 
 Reserved for future validation of custom translators. Not raised by the
-0.1 compiler path.
+0.2 compiler path.
 
 ------------------------------------------------------------------------
 
@@ -109,13 +110,13 @@ Missing operators raise `UnsupportedConstraintError`, not `RegistryError`.
 
 Raised when compiler configuration is inconsistent.
 
-In 0.1 this is raised for an invalid `on_unsupported` mode only.
+In 0.2 this is raised for an invalid `on_unsupported` mode only.
 
 ------------------------------------------------------------------------
 
 # InternalCompilerError
 
-Reserved for unexpected internal failures. Not raised by the 0.1
+Reserved for unexpected internal failures. Not raised by the 0.2
 compiler path.
 
 ------------------------------------------------------------------------
@@ -131,13 +132,33 @@ Immediately raises `UnsupportedConstraintError`.
 
 ## warn
 
-Emits a `SQLRulesWarning` and skips the constraint.
+Emits a `SQLRulesWarning`, records a `Diagnostic`, and skips the
+constraint.
 
 ## ignore
 
-Silently skips unsupported constraints.
+Records a `Diagnostic` and silently skips unsupported constraints.
 
 Unsupported **types** always raise, regardless of `on_unsupported`.
+
+------------------------------------------------------------------------
+
+# Structured Diagnostics
+
+After `compile` / `bind`, inspect skipped constraints:
+
+```python
+compiler = sqlrules.Compiler(on_unsupported="warn")
+rules = compiler.compile(Model, table)
+for diag in compiler.diagnostics:
+    print(diag.severity, diag.field, diag.operator, diag.message)
+```
+
+`Diagnostic` fields: `severity` (`"warning"` | `"info"`), `field`,
+`operator`, `value`, `message`.
+
+Diagnostics are separate from exceptions and do not change the rules
+dict return type.
 
 ------------------------------------------------------------------------
 
@@ -150,17 +171,13 @@ Every public exception should include:
 - offending value (when applicable)
 - suggested resolution
 
-Example:
-
-    Field 'age': constraint 'between' is not supported by SQLRules 0.1.
-
 ------------------------------------------------------------------------
 
 # Logging
 
 SQLRules does not log by default.
 
-Applications decide how to handle exceptions and warnings.
+Applications decide how to handle exceptions, warnings, and diagnostics.
 
 ------------------------------------------------------------------------
 
