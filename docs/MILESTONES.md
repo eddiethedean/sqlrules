@@ -9,7 +9,7 @@ Each milestone delivers a complete, usable release.
 
 ------------------------------------------------------------------------
 
-# 0.1.0 --- Foundation (MVP)
+## 0.1.0 --- Foundation (MVP)
 
 ## Goals
 
@@ -70,7 +70,7 @@ rules = sqlrules.compile(UserFilter, users)
 
 ------------------------------------------------------------------------
 
-# 0.2.0 --- Compiler Maturity ✅
+## 0.2.0 --- Compiler Maturity ✅
 
 ## Goals
 
@@ -93,7 +93,7 @@ Improve correctness and extensibility.
 
 ------------------------------------------------------------------------
 
-# 0.3.0 --- Plugin System ✅
+## 0.3.0 --- Plugin System ✅
 
 ## Goals
 
@@ -114,7 +114,7 @@ Official plugin packages begin:
 
 ------------------------------------------------------------------------
 
-# 0.4.0 --- Dialect Enhancements ✅
+## 0.4.0 --- Dialect Enhancements ✅
 
 ## Goals
 
@@ -150,7 +150,7 @@ Provide optimized translations for major databases.
 
 ------------------------------------------------------------------------
 
-# Post-1.0 — Performance (formerly 0.5)
+## Post-1.0 — Performance (formerly 0.5)
 
 ## Goals
 
@@ -170,7 +170,7 @@ Target:
 
 ------------------------------------------------------------------------
 
-# Post-1.0 — Developer Experience (formerly 0.6)
+## Post-1.0 — Developer Experience (formerly 0.6)
 
 ## Goals
 
@@ -187,7 +187,7 @@ Make SQLRules pleasant to use.
 
 ------------------------------------------------------------------------
 
-# Post-1.0 — Ecosystem examples (formerly 0.7)
+## Post-1.0 — Ecosystem examples (formerly 0.7)
 
 Optional documentation/examples only — not product integrations:
 
@@ -196,7 +196,7 @@ Optional documentation/examples only — not product integrations:
 
 ------------------------------------------------------------------------
 
-# Post-1.0 — Advanced Constraints (formerly 0.8)
+## Post-1.0 — Advanced Constraints (formerly 0.8)
 
 Potential features (only with deterministic SQL semantics):
 
@@ -206,7 +206,7 @@ Potential features (only with deterministic SQL semantics):
 
 ------------------------------------------------------------------------
 
-# Pre-1.0 — Contract hardening (replaces 0.9 RC theater)
+## Pre-1.0 — Contract hardening (replaces 0.9 RC theater)
 
 API freeze activities happen as a short hardening cycle before tagging
 1.0.0 — not a separate feature release:
@@ -220,15 +220,17 @@ No new major features.
 
 ------------------------------------------------------------------------
 
-# 1.0.0 --- Stable Release
+## 1.0.0 --- Stable Release ✅
 
-## Success Criteria
+### Success Criteria
 
 -   Stable Application API
 -   Stable Plugin API (`PLUGIN_API_VERSION`)
--   Excellent documentation
+-   Opt-in `emit_type_checks` / `TypeSpec` (plugin-translated)
+-   Documentation suitable for public adoption
 -   Comprehensive test suite
 -   Official dialect plugins released with core
+  (`postgresql`, `sqlite`, `mysql`, `mssql`)
 -   Predictable compiler behavior
 
 ### Public API
@@ -236,6 +238,7 @@ No new major features.
 -   compile()
 -   where() / flatten()
 -   Compiler
+-   `emit_type_checks` / `type_spec` / `TypeSpec`
 -   Plugin API exports (`TranslatorRegistry`, `pattern_text`, markers, …)
 
 ### Supported Platforms
@@ -246,19 +249,18 @@ No new major features.
 
 ------------------------------------------------------------------------
 
-# Post-1.0 Ideas
+## Post-1.0 Ideas (backlog — not commitments)
 
--   Opt-in `emit_type_checks` / `TypeSpec` type-annotation WHERE rules
-    (strict/lax approximations via dialect plugins)
 -   Rust acceleration for metadata extraction
 -   optional IR serialization
 -   code generation helpers
 -   static analysis integrations
 -   additional official dialect plugins
+-   performance regression CI (not in current CI)
 
 ------------------------------------------------------------------------
 
-# Guiding Principles
+## Guiding Principles
 
 Every release should:
 

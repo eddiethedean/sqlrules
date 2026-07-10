@@ -10,7 +10,7 @@ compiler deterministic.
 
 ------------------------------------------------------------------------
 
-# Philosophy
+## Philosophy
 
 1.  Prefer portable SQLAlchemy constructs.
 2.  Keep the core compiler dialect-neutral.
@@ -19,7 +19,7 @@ compiler deterministic.
 
 ------------------------------------------------------------------------
 
-# Support Levels
+## Support Levels
 
   Level          Meaning
   -------------- -------------------------------------------------
@@ -29,7 +29,7 @@ compiler deterministic.
 
 ------------------------------------------------------------------------
 
-# Dialects
+## Dialects
 
 Core emits portable SQLAlchemy Core expressions. The table below describes
 **intended** dialect posture, not a certified multi-backend test matrix.
@@ -45,7 +45,7 @@ Core emits portable SQLAlchemy Core expressions. The table below describes
 
 ------------------------------------------------------------------------
 
-# Core Portable Constraints
+## Core Portable Constraints
 
 These should compile identically across supported databases:
 
@@ -61,7 +61,7 @@ These should compile identically across supported databases:
 
 ------------------------------------------------------------------------
 
-# Shared dialect markers
+## Shared dialect markers
 
 Dialect-oriented operators are expressed with `sqlrules.markers` and
 extracted into IR. Core does not translate them; plugins register
@@ -80,7 +80,7 @@ Portable constraints on containers still raise.
 
 ------------------------------------------------------------------------
 
-# PostgreSQL
+## PostgreSQL
 
 Package: `sqlrules-postgresql`
 
@@ -91,7 +91,7 @@ Package: `sqlrules-postgresql`
 
 ------------------------------------------------------------------------
 
-# SQLite
+## SQLite
 
 Package: `sqlrules-sqlite`
 
@@ -101,7 +101,7 @@ Package: `sqlrules-sqlite`
 
 ------------------------------------------------------------------------
 
-# MySQL / MariaDB
+## MySQL / MariaDB
 
 Package: `sqlrules-mysql`
 
@@ -111,7 +111,7 @@ Package: `sqlrules-mysql`
 
 ------------------------------------------------------------------------
 
-# SQL Server
+## SQL Server
 
 Package: `sqlrules-mssql`
 
@@ -121,7 +121,7 @@ Package: `sqlrules-mssql`
 
 ------------------------------------------------------------------------
 
-# Oracle
+## Oracle
 
 Long-term goals:
 
@@ -131,7 +131,7 @@ Long-term goals:
 
 ------------------------------------------------------------------------
 
-# Translator Selection
+## Translator Selection
 
 The compiler dispatches through a registry.
 
@@ -150,7 +150,7 @@ If no override exists, the portable translator is used.
 
 ------------------------------------------------------------------------
 
-# Plugin Packages
+## Plugin Packages
 
 Official plugins:
 
@@ -163,7 +163,7 @@ Each package registers only the translators relevant to its backend.
 
 ------------------------------------------------------------------------
 
-# Testing Strategy
+## Testing Strategy
 
 Every supported dialect should include:
 
@@ -176,7 +176,7 @@ across supported databases whenever a portable translation exists.
 
 ------------------------------------------------------------------------
 
-# Compatibility Policy
+## Compatibility Policy
 
 Minor SQLRules releases may add dialect features.
 
@@ -185,7 +185,7 @@ of portable translators whenever possible.
 
 ------------------------------------------------------------------------
 
-# Non-Goals
+## Non-Goals
 
 SQLRules will not:
 
@@ -199,7 +199,7 @@ plugin.
 
 ------------------------------------------------------------------------
 
-# Design Principles
+## Design Principles
 
 -   Portable by default
 -   Explicit dialect extensions

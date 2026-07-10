@@ -1,6 +1,6 @@
 """Compile rules and show a SQLAlchemy select() string.
 
-Run:
+Run from the repo root after ``pip install "sqlrules>=1,<2"`` (or ``make install``):
 
     python examples/select_usage.py
 """

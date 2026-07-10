@@ -14,7 +14,7 @@ It does not inspect Pydantic models, execute SQL, or perform validation.
 
 ------------------------------------------------------------------------
 
-# Translator Pipeline
+## Translator Pipeline
 
 ``` text
 Constraint IR
@@ -31,7 +31,7 @@ SQLAlchemy Expression
 
 ------------------------------------------------------------------------
 
-# Translator Interface
+## Translator Interface
 
 Every translator implements a common interface.
 
@@ -55,7 +55,7 @@ Returns:
 
 ------------------------------------------------------------------------
 
-# Built-in Translators
+## Built-in Translators
 
 ## Numeric
 
@@ -76,12 +76,12 @@ Returns:
   min_length   `func.length(column) >= value`
   max_length   `func.length(column) <= value`
 
-Future:
+**`pattern` (1.0):** extracted as `PatternSpec` in core IR; **no portable
+core translator**. Install `sqlrules-postgresql` / `sqlrules-sqlite` /
+`sqlrules-mysql`, or register a custom translator. SQL Server
+(`sqlrules-mssql`) does **not** register `pattern`.
 
--   pattern (IR in 0.2; translators via custom registry / dialect plugins)
--   starts_with
--   ends_with
--   contains
+**Not in 1.0:** `starts_with`, `ends_with`, `contains`.
 
 ------------------------------------------------------------------------
 
@@ -129,7 +129,7 @@ for temporal types.
 
 ------------------------------------------------------------------------
 
-# Translator Registry
+## Translator Registry
 
 The compiler owns a registry mapping IR operators to translators.
 
@@ -148,7 +148,7 @@ The registry is responsible for dispatch only.
 
 ------------------------------------------------------------------------
 
-# Design Rules
+## Design Rules
 
 Each translator should:
 
@@ -160,7 +160,7 @@ Each translator should:
 
 ------------------------------------------------------------------------
 
-# Unsupported Constraints
+## Unsupported Constraints
 
 If no translator exists, behavior depends on the compiler policy.
 
@@ -170,7 +170,7 @@ If no translator exists, behavior depends on the compiler policy.
 
 ------------------------------------------------------------------------
 
-# Custom Translators
+## Custom Translators
 
 Applications may register additional translators on a
 `TranslatorRegistry` and pass it to `Compiler(registry=...)`, or use the
@@ -209,7 +209,7 @@ compiler = Compiler(plugins=[PatternPlugin()])
 
 ------------------------------------------------------------------------
 
-# Dialect Overrides
+## Dialect Overrides
 
 Some SQL constructs differ by backend. Official packages:
 
@@ -224,7 +224,7 @@ same IR. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) and
 
 ------------------------------------------------------------------------
 
-# Testing Requirements
+## Testing Requirements
 
 Every translator should have tests for:
 
@@ -238,7 +238,7 @@ One translator should never rely on another translator's implementation.
 
 ------------------------------------------------------------------------
 
-# Design Principles
+## Design Principles
 
 -   Small, composable classes or functions
 -   One constraint per translator

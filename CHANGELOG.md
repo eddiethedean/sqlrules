@@ -7,40 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-10
+
 ### Added
 
+- **Stable 1.0** Application + Plugin APIs frozen; classifiers
+  `Production/Stable`
 - Opt-in `emit_type_checks` on `Compiler` / `compile()`: extracts `type_check`
   IR (`TypeSpec`) from supported scalar annotations, honoring Field /
   `Strict()` / `model_config` strictness and `Optional` → `allow_none`
 - `TypeSpec` / `type_spec()` helper; dialect plugins translate `type_check`
   (PostgreSQL reference matrix; SQLite / MySQL / MSSQL partial support)
-- `examples/` runnable scripts; Makefile (`install` / `test` / `docs` / `dist`)
-- Root `SECURITY.md`, `CODE_OF_CONDUCT.md`, `RELEASING.md`; GitHub issue templates
-- Docs: Application vs Plugin autodoc pages; pattern footgun in getting started
-
-### Changed
-
-- Phase-1 IR cache keyed by `(model, emit_type_checks)` so type-check IR
-  does not collide with default compiles
-- `Strict()` metadata is no longer turned into a fake IR operator
-- README copy-paste complete snippets, repo map, `pattern` callout, prefer `where`
-- CONTRIBUTING focused on contributors; release steps moved to RELEASING.md
-- Docs sidebar nests design/architecture under “Internals and design”
-
-### Added
-
 - Application API `clear_model_cache()` for the process-wide Phase-1 IR cache
-- `docs/IR_CONTRACT.md` — frozen Plugin API v1 IR appendix
+- `docs/IR_CONTRACT.md` — frozen Plugin API v1 IR schema
 - `scripts/check_versions.py` — core/plugin lockstep + extras pin checks
 - All-or-nothing PyPI publish via Trusted Publishing (OIDC)
 - Plugin wheel install + conformance smoke in CI; mypy on dialect packages
+- `examples/` runnable scripts; Makefile (`install` / `test` / `docs` / `dist`)
+- Root `SECURITY.md`, `CODE_OF_CONDUCT.md`, `RELEASING.md`; GitHub issue templates
+- Docs: Application vs Plugin autodoc pages; pattern footgun in getting started;
+  how-to guides (ORM/`column_map`, markers); Support & compatibility page
 
 ### Changed
 
-- **Stable 1.0** release: Application + Plugin APIs frozen; classifiers
-  `Production/Stable`
 - Core and dialect packages versioned `1.0.0` in lockstep; pins
   `sqlrules>=1,<2` / extras `sqlrules-*>=1,<2`
+- Phase-1 IR cache keyed by `(model, emit_type_checks)` so type-check IR
+  does not collide with default compiles
+- `Strict()` metadata is no longer turned into a fake IR operator
 - Builtin translator registry built once per process; module `compile()`
   reuses shared default `Compiler` instances
 - `max_digits` / `decimal_places` and unknown Field metadata keys rejected at
@@ -48,12 +42,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Elevated pattern/ReDoS guidance in SECURITY and dialect READMEs
 - Core sdist no longer bundles `/packages`
 - `annotated-types` upper-bounded (`>=0.6,<1`)
+- README mental-model anti-example, install honesty (PyPI vs source), prefer
+  `where`; CONTRIBUTING focused on contributors; release steps in RELEASING.md
 
 ### Docs
 
 - Whole-model type matrix documented as intentional 1.0 contract
 - Registry mutation after `Compiler` init documented as unsupported
 - Prefer `register_constraint` in Plugin docs
+- Diátaxis-oriented navigation; one H1 per page for sidebar hygiene
 
 ## [0.4.0] - 2026-07-10
 

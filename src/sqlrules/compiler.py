@@ -57,6 +57,34 @@ class Compiler:
         model_cache: ModelIRCache | None = None,
         emit_type_checks: bool = False,
     ) -> None:
+        """Create a compiler with an optional plugin set and policies.
+
+        Args:
+            registry: Optional base ``TranslatorRegistry``. Always copied;
+                the caller's registry is never mutated.
+            plugins: ``SQLRulesPlugin`` instances registered at init.
+            on_conflict: Default conflict policy for plugin registration
+                (``"raise"``, ``"replace"``, or ``"ignore"``).
+            on_unsupported: Policy for unknown **operators** (``"raise"``,
+                ``"warn"``, or ``"ignore"``). Unsupported **types** always
+                raise.
+            dialect: Hint stored on ``CompilationContext`` only — does not
+                load plugins.
+            cache: When ``True``, cache Phase-1 ``ModelIR`` in ``model_cache``.
+            model_cache: Optional cache instance; defaults to the process-wide
+                shared cache. Custom caches are not cleared by
+                ``clear_model_cache()``.
+            emit_type_checks: When ``True``, extract ``type_check`` IR for
+                supported scalars (needs a plugin translator to bind).
+
+        Raises:
+            ConfigurationError: Invalid ``on_unsupported`` or ``on_conflict``.
+            PluginError: Plugin failed validation (missing attributes or
+                ``api_version`` mismatch).
+            RegistryError: Plugin registration conflict under ``on_conflict``.
+            InvalidTranslatorError: Plugin registered a non-callable or
+                wrong-arity translator.
+        """
         if on_unsupported not in {"raise", "warn", "ignore"}:
             raise ConfigurationError(option="on_unsupported", value=on_unsupported)
         if on_conflict not in {"raise", "replace", "ignore"}:
@@ -172,6 +200,28 @@ class Compiler:
         *,
         column_map: Mapping[str, ColumnElement[Any]] | None = None,
     ) -> RulesDict:
+        """Compile ``model`` constraints and bind them to ``table`` columns.
+
+        Args:
+            model: Pydantic ``BaseModel`` subclass whose Field metadata is
+                compiled (instance values are never applied).
+            table: SQLAlchemy ``Table``, selectable, ORM class, or object
+                with ``.c``.
+            column_map: Optional field-name or alias → column mapping.
+
+        Returns:
+            Mapping of Python field names to lists of boolean
+            ``ColumnElement`` expressions. Unconstrained supported-type
+            fields are omitted.
+
+        Raises:
+            InvalidModelError: ``model`` is not a usable Pydantic model.
+            MissingColumnError: A constrained field could not bind.
+            UnsupportedConstraintError: No translator for an operator/type,
+                or ``emit_type_checks`` / ``pattern`` without a translator.
+            TranslatorError: A registered translator failed at bind time.
+            ConfigurationError: Invalid compiler configuration.
+        """
         return self.bind(self.compile_model(model), table, column_map=column_map)
 
 
@@ -258,6 +308,38 @@ def compile(
     cache: bool = True,
     emit_type_checks: bool = False,
 ) -> RulesDict:
+    """One-shot Application API compile (no plugins).
+
+    Compiles **Field constraint metadata** into SQLAlchemy expressions.
+    Does not apply model instance / request values.
+
+    Args:
+        model: Pydantic ``BaseModel`` subclass.
+        table: SQLAlchemy ``Table``, selectable, ORM class, or object with
+            ``.c``.
+        column_map: Optional field-name or alias → column mapping.
+        on_unsupported: Policy for unknown **operators** (``"raise"``,
+            ``"warn"``, or ``"ignore"``). Unsupported **types** always raise.
+        cache: Cache Phase-1 model IR (default ``True``).
+        emit_type_checks: Emit ``type_check`` IR for supported scalars
+            (requires a plugin translator — use ``Compiler(plugins=...)``).
+
+    Returns:
+        Mapping of Python field names to lists of boolean
+        ``ColumnElement`` expressions.
+
+    Raises:
+        InvalidModelError: ``model`` is not a usable Pydantic model.
+        MissingColumnError: A constrained field could not bind.
+        UnsupportedConstraintError: No translator for an operator/type.
+        TranslatorError: A registered translator failed at bind time.
+        ConfigurationError: Invalid ``on_unsupported`` value.
+
+    Note:
+        Module-level ``compile`` reuses shared default ``Compiler`` instances
+        keyed by ``(on_unsupported, cache, emit_type_checks)``. For plugins,
+        construct ``Compiler(plugins=[...])`` explicitly.
+    """
     return _default_compiler(
         on_unsupported=on_unsupported,
         cache=cache,
@@ -266,8 +348,28 @@ def compile(
 
 
 def flatten(rules: RulesDict) -> list[ColumnElement[bool]]:
+    """Flatten a rules dict into a single list of expressions.
+
+    Args:
+        rules: Mapping of field name to lists of boolean column elements,
+            as returned by ``compile`` / ``Compiler.compile``.
+
+    Returns:
+        Concatenated list suitable for spreading into a SQLAlchemy
+        ``where`` clause.
+    """
     return list(chain.from_iterable(rules.values()))
 
 
 def where(rules: RulesDict) -> list[ColumnElement[bool]]:
+    """Flatten a rules dict for a SQLAlchemy ``where`` clause.
+
+    Identical to :func:`flatten`. Prefer this name at call sites.
+
+    Args:
+        rules: Mapping of field name to lists of boolean column elements.
+
+    Returns:
+        Concatenated list of expressions.
+    """
     return flatten(rules)

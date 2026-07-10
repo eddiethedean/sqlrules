@@ -11,7 +11,7 @@ for use during application startup or on demand.
 
 ------------------------------------------------------------------------
 
-# Performance Goals
+## Performance Goals
 
 ## Primary Goals
 
@@ -28,7 +28,7 @@ Target complexity:
 
 ------------------------------------------------------------------------
 
-# Compiler Pipeline
+## Compiler Pipeline
 
 ``` text
 Model
@@ -53,7 +53,7 @@ Each stage should process data in a single pass where practical.
 
 ------------------------------------------------------------------------
 
-# Expected Workload
+## Expected Workload
 
 Typical models:
 
@@ -67,7 +67,7 @@ Compilation should scale approximately linearly.
 
 ------------------------------------------------------------------------
 
-# Caching
+## Caching
 
 ## Metadata Cache
 
@@ -109,7 +109,7 @@ Use dictionary-based dispatch keyed by constraint operator.
 
 ------------------------------------------------------------------------
 
-# Memory Strategy
+## Memory Strategy
 
 Prefer immutable lightweight objects.
 
@@ -122,7 +122,7 @@ Recommendations:
 
 ------------------------------------------------------------------------
 
-# Allocation Strategy
+## Allocation Strategy
 
 Avoid:
 
@@ -135,7 +135,7 @@ sacrificing determinism.
 
 ------------------------------------------------------------------------
 
-# SQLAlchemy Interaction
+## SQLAlchemy Interaction
 
 SQLRules should only construct SQLAlchemy expression objects.
 
@@ -150,7 +150,7 @@ This keeps runtime predictable.
 
 ------------------------------------------------------------------------
 
-# Benchmark Suite
+## Benchmark Suite
 
 Representative benchmarks live in `benchmarks/bench_compile.py`:
 
@@ -179,7 +179,7 @@ gates remain a post-1.0 / performance-milestone item.
 
 ------------------------------------------------------------------------
 
-# Profiling
+## Profiling
 
 Use profiling to identify:
 
@@ -191,7 +191,7 @@ Optimize only after profiling demonstrates a measurable benefit.
 
 ------------------------------------------------------------------------
 
-# Concurrency
+## Concurrency
 
 The compiler should be safe for concurrent reads after initialization.
 
@@ -203,7 +203,7 @@ Recommendations:
 
 ------------------------------------------------------------------------
 
-# Future Optimizations
+## Future Optimizations
 
 Potential improvements:
 
@@ -215,7 +215,7 @@ Potential improvements:
 
 ------------------------------------------------------------------------
 
-# Performance Targets
+## Performance Targets
 
 Illustrative goals on modern hardware:
 
@@ -229,7 +229,7 @@ Exact values should be validated through continuous benchmarking.
 
 ------------------------------------------------------------------------
 
-# Testing
+## Testing
 
 Local benchmarks: `python -m benchmarks.bench_compile`.
 
@@ -239,7 +239,7 @@ milestone adds them.
 
 ------------------------------------------------------------------------
 
-# Design Principles
+## Design Principles
 
 -   Measure before optimizing
 -   Optimize the common case

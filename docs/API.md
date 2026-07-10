@@ -50,6 +50,10 @@ Unsupported **types** always raise, regardless of `on_unsupported`.
 
 Module-level `compile` does not accept plugins; use `Compiler`.
 
+**Raises** (typical): `InvalidModelError`, `MissingColumnError`,
+`UnsupportedConstraintError`, `TranslatorError`, `ConfigurationError`.
+See [ERRORS](ERRORS.md).
+
 ### `where` / `flatten`
 
 ```python
@@ -121,9 +125,11 @@ For dialect packages and custom translators. Import from `sqlrules`:
 | `TranslatorRegistry` | Register / lookup / copy translators |
 | `default_registry` | Copy of built-in portable translators |
 | `pattern_text` | Unpack `PatternSpec` or `str` → `(pattern, ignore_case)` |
+| `type_spec` / `TypeSpec` | Helpers for `type_check` IR (opt-in `emit_type_checks`) |
 | `Constraint`, `PatternSpec`, `CompilationContext` | IR types used by translators |
 | `ModelIR` | Two-phase / caching IR root |
 | `ConstraintMarker` + marker dataclasses | Dialect operator metadata |
+| `SQLRulesWarning` | Warning class used by `on_unsupported="warn"` |
 | `sqlrules.conformance` | Test helpers for plugin authors (supported) |
 
 Prefer `registry.register_constraint(..., on_conflict=...)`.
@@ -197,5 +203,7 @@ All public exceptions inherit from `SQLRulesError`:
 - `ConfigurationError`
 - `PluginError`
 - `InternalCompilerError` (reserved)
+
+`SQLRulesWarning` is used when `on_unsupported="warn"`.
 
 See [ERRORS.md](ERRORS.md).

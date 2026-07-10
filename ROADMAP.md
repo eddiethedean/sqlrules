@@ -22,7 +22,8 @@
 ## 0.3 — Plugins ✅
 
 - Custom translators / plugin API
-- Dialect plugins (`sqlrules-postgresql`, `sqlrules-sqlite`)
+- Dialect plugins (`sqlrules-postgresql`, `sqlrules-sqlite`,
+  `sqlrules-mysql`, `sqlrules-mssql`)
 - Registry API + conflict policies
 - Plugin conformance tests
 - Versioned plugin API (`PLUGIN_API_VERSION`)
@@ -46,10 +47,10 @@
 
 - Stable public API
 - Stable plugin API
-- Excellent documentation
+- Opt-in `emit_type_checks` / `TypeSpec` (plugin-translated)
+- Documentation suitable for public adoption
 - Comprehensive test coverage
 
-Post-1.0 work (performance, DX, ecosystem examples, advanced constraints,
-opt-in `emit_type_checks` type-annotation rules) is tracked in
-`docs/MILESTONES.md` as optional follow-ons — not part of the 1.0
-definition.
+Post-1.0 work (performance, DX, ecosystem examples, advanced constraints)
+is tracked in `docs/MILESTONES.md` as optional follow-ons — not part of the
+1.0 definition.

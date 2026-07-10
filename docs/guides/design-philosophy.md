@@ -1,7 +1,12 @@
 # Design philosophy
 
-SQLRules does **one** job: compile a safe subset of Pydantic constraints into
-SQLAlchemy WHERE expressions.
+SQLRules does **one** job: compile a safe subset of Pydantic **Field
+constraint metadata** into SQLAlchemy WHERE expressions.
+
+```text
+Field(ge=18)           →  column >= 18
+UserFilter(age=25)     →  column == 25   # NOT what SQLRules does
+```
 
 ## Why it exists
 
@@ -17,9 +22,10 @@ truth: the model’s constraints become deterministic column expressions.
   and expressions.
 - **Refuse to guess.** If a Pydantic feature cannot be translated safely, the
   compiler raises (or warns/ignores for unknown *operators* when configured).
-- **Zero database dependency.** Compilation never connects to a database.
+- **No database I/O.** Compilation never connects to a database (it still
+  depends on the SQLAlchemy library for expression objects).
 - **Plugins for dialects.** Portable core; dialect-specific operators live in
-  versioned plugins.
+  versioned plugins. `dialect=` is a hint only — it does not load plugins.
 
 ## What SQLRules is not
 
@@ -28,13 +34,20 @@ queries, choosing dialects, and executing SQL through SQLAlchemy.
 
 ## When *not* to use it
 
-If you have a couple of static filters and will never share constraint
-metadata with a Pydantic model, write the SQLAlchemy expressions directly.
+Skip SQLRules when:
+
+- You need **request/instance values** as WHERE predicates.
+- You have a couple of static filters and will never share constraint
+  metadata with a Pydantic model — write SQLAlchemy expressions directly.
+- You need **portable regex** with core alone (`pattern` needs a plugin).
+- You expect `dialect=` to load plugins automatically.
+- You want a general-purpose query builder or SQL string generator.
+
 SQLRules pays off when the model is the shared source of truth across many
 fields or dialects.
 
 ## Deeper reading
 
-- [VISION](../VISION.md) · [PHILOSOPHY](../PHILOSOPHY.md)
-- [DESIGN_DECISIONS](../DESIGN_DECISIONS.md)
+- [VISION](../VISION.md) · [PHILOSOPHY](../PHILOSOPHY.md) · [NON_GOALS](../NON_GOALS.md)
+- [DESIGN_DECISIONS](../DESIGN_DECISIONS.md) (internals)
 - [ARCHITECTURE](../ARCHITECTURE.md)

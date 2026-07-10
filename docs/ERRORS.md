@@ -17,7 +17,7 @@ Goals:
 
 ------------------------------------------------------------------------
 
-# Exception Hierarchy
+## Exception Hierarchy
 
 ``` text
 SQLRulesError
@@ -36,7 +36,7 @@ All public exceptions inherit from `SQLRulesError`.
 
 ------------------------------------------------------------------------
 
-# InvalidModelError
+## InvalidModelError
 
 Raised when the input is not a supported Pydantic model.
 
@@ -46,7 +46,7 @@ Examples:
 
 ------------------------------------------------------------------------
 
-# MissingColumnError
+## MissingColumnError
 
 Raised when a constrained model field cannot be matched to a SQLAlchemy
 column. Unconstrained fields are skipped and do not trigger this error.
@@ -61,7 +61,7 @@ Example message:
 
 ------------------------------------------------------------------------
 
-# UnsupportedConstraintError
+## UnsupportedConstraintError
 
 Raised when SQLRules encounters a constraint operator with no translator,
 an unsupported type, or an invalid operator/type combination.
@@ -81,14 +81,14 @@ Example:
 
 ------------------------------------------------------------------------
 
-# TranslatorError
+## TranslatorError
 
 Raised when a registered translator fails while generating a SQLAlchemy
 expression (unexpected SQLAlchemy errors wrapped by the registry).
 
 ------------------------------------------------------------------------
 
-# InvalidTranslatorError
+## InvalidTranslatorError
 
 Raised when registering a translator that is not callable or does not
 accept at least three positional parameters (`constraint`, `column`,
@@ -96,19 +96,21 @@ accept at least three positional parameters (`constraint`, `column`,
 
 ------------------------------------------------------------------------
 
-# RegistryError
+## RegistryError
 
 Raised for translator registry failures.
 
 Examples:
 
-- Duplicate registrations without `replace=True`
+- Duplicate registrations when `on_conflict="raise"` (default)
+- Legacy `replace=True` on `register()` is equivalent to `on_conflict="replace"`
+  on `register_constraint()` — prefer `on_conflict` in new code
 
 Missing operators raise `UnsupportedConstraintError`, not `RegistryError`.
 
 ------------------------------------------------------------------------
 
-# ConfigurationError
+## ConfigurationError
 
 Raised when compiler configuration is inconsistent.
 
@@ -116,21 +118,21 @@ Raised for an invalid `on_unsupported` or `on_conflict` mode.
 
 ------------------------------------------------------------------------
 
-# PluginError
+## PluginError
 
 Raised when a plugin fails validation (missing `name` / `register`, or
 `api_version` mismatch with `PLUGIN_API_VERSION`).
 
 ------------------------------------------------------------------------
 
-# InternalCompilerError
+## InternalCompilerError
 
-Reserved for unexpected internal failures. Not raised by the 0.2
-compiler path.
+Reserved for unexpected internal failures. Not raised on the normal
+1.0 Application compile path.
 
 ------------------------------------------------------------------------
 
-# Compiler Policies
+## Compiler Policies
 
 The compiler supports three behaviors for unsupported **constraint
 operators**:
@@ -152,7 +154,7 @@ Unsupported **types** always raise, regardless of `on_unsupported`.
 
 ------------------------------------------------------------------------
 
-# Structured Diagnostics
+## Structured Diagnostics
 
 After `compile` / `bind` / `compile_model`, inspect skipped constraints:
 
@@ -166,7 +168,7 @@ for diag in compiler.diagnostics:
 `Diagnostic` fields: `severity` (`"warning"` | `"info"`), `field`,
 `operator`, `value`, `message`, `code`.
 
-Stable diagnostic codes (0.3):
+Stable diagnostic codes (1.0):
 
 | Code | When |
 |---|---|
@@ -180,7 +182,7 @@ instance; diagnostics collection is not locked.
 
 ------------------------------------------------------------------------
 
-# Error Message Guidelines
+## Error Message Guidelines
 
 Every public exception should include:
 
@@ -191,7 +193,7 @@ Every public exception should include:
 
 ------------------------------------------------------------------------
 
-# Logging
+## Logging
 
 SQLRules does not log by default.
 
@@ -199,7 +201,7 @@ Applications decide how to handle exceptions, warnings, and diagnostics.
 
 ------------------------------------------------------------------------
 
-# Testing
+## Testing
 
 Each actively raised exception should have tests covering:
 
@@ -210,7 +212,7 @@ Each actively raised exception should have tests covering:
 
 ------------------------------------------------------------------------
 
-# Design Principles
+## Design Principles
 
 - Fail fast
 - Never silently change semantics

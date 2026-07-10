@@ -46,10 +46,23 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the project maintainers via GitHub Issues (for public reports) or
-by contacting the repository owner privately.
+reported by contacting the repository owner privately (do **not** use public
+GitHub Issues for sensitive reports). Maintainers may also be reached through
+a private GitHub security advisory when appropriate.
 
 All complaints will be reviewed and investigated promptly and fairly.
+
+### Enforcement guidelines
+
+| Impact | Consequence |
+|---|---|
+| Minor / first offense | Private warning; clarification of standards |
+| Repeated or serious | Temporary restriction from community spaces |
+| Severe or patterned abuse | Permanent ban from community spaces |
+
+Project maintainers who do not follow or enforce this Code of Conduct in good
+faith may face temporary or permanent repercussions as determined by other
+maintainers.
 
 ## Attribution
 

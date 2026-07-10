@@ -12,7 +12,7 @@ helpers.
 
 ------------------------------------------------------------------------
 
-# Pipeline (actual modules)
+## Pipeline (actual modules)
 
 ``` text
 compile() / Compiler
@@ -31,14 +31,14 @@ plus `sqlrules.compiler`.
 
 ------------------------------------------------------------------------
 
-# Compiler
+## Compiler
 
 Orchestrates the two phases: `compile_model` (IR) and `bind` (columns +
 translate). See the public `Compiler` in [API.md](API.md).
 
 ------------------------------------------------------------------------
 
-# inspectors
+## inspectors
 
 `inspect_model(model) -> list[FieldDescriptor]`
 
@@ -46,7 +46,7 @@ Enumerates fields in declaration order, including string aliases.
 
 ------------------------------------------------------------------------
 
-# constraints
+## constraints
 
 `extract_constraints` / `ensure_supported_type` / `pattern_text`
 
@@ -55,34 +55,34 @@ Enumerates fields in declaration order, including string aliases.
 
 ------------------------------------------------------------------------
 
-# columns
+## columns
 
 `resolve_column(...)` maps field names / aliases / `column_map` to
 SQLAlchemy columns. Never treats non-column `Table` attributes as columns.
 
 ------------------------------------------------------------------------
 
-# translators
+## translators
 
 `TranslatorRegistry` and `default_registry` are **Plugin API**.
 
 ------------------------------------------------------------------------
 
-# cache
+## cache
 
 `ModelIRCache` — process-lifetime strong-key cache. Call `clear()` when
 using many ephemeral model classes. Not a public Application export.
 
 ------------------------------------------------------------------------
 
-# plugins / conformance
+## plugins / conformance
 
 `SQLRulesPlugin`, `PLUGIN_API_VERSION`, and `sqlrules.conformance` are
 Plugin API. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
 
 ------------------------------------------------------------------------
 
-# Design Principles
+## Design Principles
 
 - Small Application API
 - Explicit Plugin API

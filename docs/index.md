@@ -7,12 +7,12 @@
     <span class="sr-badge">Pydantic → SQLAlchemy</span>
     <span class="sr-badge">Python {{ python_requires }}</span>
   </div>
-  <p class="sr-hero-kicker">SQLRules documentation</p>
+  <p class="sr-hero-kicker">Constraint metadata → WHERE expressions</p>
   <p class="sr-hero-title">Compile constraints into WHERE rules</p>
-  <p class="sr-lead">SQLRules turns a safe subset of Pydantic field constraints into deterministic SQLAlchemy expressions—one package, no database connection, plugins for dialect operators.</p>
+  <p class="sr-lead">SQLRules turns a safe subset of Pydantic field constraints into deterministic SQLAlchemy expressions—no database connection, plugins for dialect operators. It compiles <strong>Field metadata</strong>, not model instance values.</p>
   <p>
-    <a class="sr-hero-cta" href="guides/getting-started.html">Get started →</a>
-    <a class="sr-hero-cta sr-hero-cta--secondary" href="guides/start-here.html" style="margin-left:0.75rem">Choose a path</a>
+    <a class="sr-hero-cta" href="guides/start-here.html">Start here →</a>
+    <a class="sr-hero-cta sr-hero-cta--secondary" href="guides/getting-started.html" style="margin-left:0.75rem">Getting started</a>
   </p>
 </div>
 ```
@@ -26,7 +26,7 @@ Pick the path that matches how you work:
 :link: guides/getting-started
 :link-type: doc
 
-**Compile filters from models.** Install `sqlrules`, map a Pydantic model to a table, and pass `where(rules)` into SQLAlchemy.
+**Compile constraints from models.** Install `sqlrules`, map a Pydantic model to a table, and pass `where(rules)` into SQLAlchemy.
 
 +++
 **Open getting started →**
@@ -72,13 +72,17 @@ Pick the path that matches how you work:
 :::{admonition} Not a query builder
 :class: note
 
-SQLRules does not connect to a database, generate SQL strings, or validate request payloads at runtime. It only compiles supported constraints into expressions. See [design philosophy](guides/design-philosophy.md).
+SQLRules does not connect to a database, generate SQL strings, or turn
+validated request payloads into `WHERE` predicates. It only compiles
+supported **constraint metadata** into expressions. See
+[design philosophy](guides/design-philosophy.md).
 :::
 
 ```{raw} html
 <div class="sr-callout">
-  <strong>Install:</strong> <code>pip install sqlrules</code>
-  — optional dialects via <code>pip install sqlrules-postgresql</code> (or sqlite / mysql / mssql).
+  <strong>Install:</strong> <code>pip install "sqlrules&gt;=1,&lt;2"</code>
+  — optional dialects via <code>pip install "sqlrules-postgresql&gt;=1,&lt;2"</code> (or sqlite / mysql / mssql).
+  If PyPI still serves &lt;1.0, install from the repository with <code>make install</code>.
   <code>pattern</code> needs a dialect plugin.
 </div>
 ```
@@ -103,21 +107,12 @@ See the [FAQ](guides/faq.md) or [troubleshooting](guides/troubleshooting.md).
 
 ```{toctree}
 :maxdepth: 1
-:caption: FAQ and troubleshooting
+:caption: How-to guides
 
+guides/orm-column-map
+guides/markers
 guides/faq
 guides/troubleshooting
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Guides
-
-SPEC
-CONSTRAINTS
-PLUGIN_SYSTEM
-TYPE_SUPPORT
-DIALECT_SUPPORT
 ```
 
 ```{toctree}
@@ -125,19 +120,25 @@ DIALECT_SUPPORT
 :caption: Reference
 
 reference/index
-reference/glossary
-reference/application
-reference/plugin-api
+SPEC
+CONSTRAINTS
+TYPE_SUPPORT
+DIALECT_SUPPORT
+PLUGIN_SYSTEM
 API
 IR_CONTRACT
 ERRORS
 SECURITY
+reference/glossary
+reference/application
+reference/plugin-api
 ```
 
 ```{toctree}
 :maxdepth: 1
-:caption: Internals and design
+:caption: Internals
 
+internals/index
 ARCHITECTURE
 COMPILER
 TRANSLATORS
@@ -154,6 +155,7 @@ DESIGN_DECISIONS
 :maxdepth: 1
 :caption: Project
 
+project/support
 project/roadmap
 MILESTONES
 project/changelog

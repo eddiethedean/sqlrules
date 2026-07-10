@@ -16,7 +16,7 @@ are reserved for later releases.
 
 ------------------------------------------------------------------------
 
-# Design Goals
+## Design Goals
 
 - Zero-cost when unused
 - Deterministic compilation
@@ -26,7 +26,7 @@ are reserved for later releases.
 
 ------------------------------------------------------------------------
 
-# Architecture
+## Architecture
 
 ``` text
                 SQLRules Compiler
@@ -44,7 +44,7 @@ are reserved for later releases.
 
 ------------------------------------------------------------------------
 
-# Plugin Interface
+## Plugin Interface
 
 A plugin is a Python object that exposes `name`, `api_version`, and
 `register(registry)`.
@@ -82,7 +82,7 @@ with ``hasattr``.
 
 ------------------------------------------------------------------------
 
-# Markers
+## Markers
 
 Dialect-oriented constraints use `sqlrules.markers` (for example
 `JsonContains`, `ArrayContains`). Markers implement the
@@ -97,7 +97,7 @@ Frozen operator names: `json_contains`, `json_has_key`, `array_contains`,
 
 ------------------------------------------------------------------------
 
-# Registry API
+## Registry API
 
 ``` python
 registry.register_constraint(
@@ -124,7 +124,7 @@ not present on `TranslatorRegistry` in API v1 — do not probe with
 
 ------------------------------------------------------------------------
 
-# Using Plugins
+## Using Plugins
 
 SQLRules does not auto-discover plugins. Register them explicitly:
 
@@ -148,7 +148,7 @@ caller-owned registries are never mutated.
 
 ------------------------------------------------------------------------
 
-# Dialect Plugins
+## Dialect Plugins
 
 Official packages (monorepo under `packages/`):
 
@@ -159,7 +159,7 @@ Official packages (monorepo under `packages/`):
 
 ------------------------------------------------------------------------
 
-# Conflict Resolution
+## Conflict Resolution
 
 `Compiler(on_conflict=...)` sets the default for plugin `register()` calls:
 
@@ -174,7 +174,7 @@ Plugins may still pass an explicit `on_conflict=` to
 
 ------------------------------------------------------------------------
 
-# Version Compatibility
+## Version Compatibility
 
 ``` python
 from sqlrules import PLUGIN_API_VERSION  # "1"
@@ -185,7 +185,7 @@ Major plugin API changes increment this value. Mismatched plugins raise
 
 ------------------------------------------------------------------------
 
-# Conformance Testing
+## Conformance Testing
 
 ``` python
 from sqlrules.conformance import run_basic_conformance
@@ -200,14 +200,14 @@ conformance-checking non-`pattern` operators.
 
 ------------------------------------------------------------------------
 
-# Security
+## Security
 
 Plugins execute Python code. SQLRules does not sandbox plugins.
 Install only trusted plugins.
 
 ------------------------------------------------------------------------
 
-# Non-Goals
+## Non-Goals
 
 The plugin system does not support:
 
@@ -219,7 +219,7 @@ The plugin system does not support:
 
 ------------------------------------------------------------------------
 
-# Design Principles
+## Design Principles
 
 - Small core
 - Extensible architecture

@@ -11,7 +11,7 @@ deterministically into SQLAlchemy boolean expressions.
 
 ------------------------------------------------------------------------
 
-# Guiding Principles
+## Guiding Principles
 
 - Prefer deterministic translations.
 - Never guess SQL semantics.
@@ -21,7 +21,7 @@ deterministically into SQLAlchemy boolean expressions.
 
 ------------------------------------------------------------------------
 
-# Supported Types (v0.2)
+## Supported types (1.0)
 
   Python Type    Supported  Notes
   ------------- ----------- -------------------------------------
@@ -42,7 +42,7 @@ deterministically into SQLAlchemy boolean expressions.
 
 ------------------------------------------------------------------------
 
-# Numeric Types
+## Numeric Types
 
 Supported constraints:
 
@@ -69,7 +69,7 @@ age: Annotated[int, Field(ge=18, le=65)]
 
 ------------------------------------------------------------------------
 
-# Strings
+## Strings
 
 Supported constraints:
 
@@ -100,7 +100,7 @@ func.length(users.c.name) >= 2
 
 ------------------------------------------------------------------------
 
-# Boolean
+## Boolean
 
 Boolean fields generally do not produce rules unless constrained through
 `Literal` or similar constructs.
@@ -120,7 +120,7 @@ column.in_([True])
 
 ------------------------------------------------------------------------
 
-# Date, DateTime, and Time
+## Date, DateTime, and Time
 
 Supported operators:
 
@@ -136,7 +136,7 @@ No timezone conversion is performed by SQLRules. Aware and naive
 
 ------------------------------------------------------------------------
 
-# UUID
+## UUID
 
 Supported:
 
@@ -150,7 +150,7 @@ Rejected:
 
 ------------------------------------------------------------------------
 
-# Enum
+## Enum
 
 Example:
 
@@ -168,7 +168,7 @@ column.in_(["ACTIVE", "DISABLED"])
 
 ------------------------------------------------------------------------
 
-# Literal
+## Literal
 
 Example:
 
@@ -184,7 +184,7 @@ column.in_(["A", "B", "C"])
 
 ------------------------------------------------------------------------
 
-# Optional Types
+## Optional Types
 
 `Optional[T]` / `T | None` is supported.
 
@@ -194,7 +194,7 @@ dialect translators emit `(column IS NULL) OR <type predicate>`.
 
 ------------------------------------------------------------------------
 
-# Type checks (`emit_type_checks`)
+## Type checks (`emit_type_checks`)
 
 Opt-in: `Compiler(emit_type_checks=True)` or
 `sqlrules.compile(..., emit_type_checks=True)`.
@@ -230,7 +230,7 @@ rules = compiler.compile(Filter, users)
 
 ------------------------------------------------------------------------
 
-# Containers
+## Containers
 
   Type     Status
   ------- --------
@@ -244,7 +244,7 @@ still raise. Use `sqlrules.markers` with a dialect plugin.
 
 ------------------------------------------------------------------------
 
-# Unsupported Pydantic Features
+## Unsupported Pydantic Features
 
 The following are intentionally unsupported:
 
@@ -261,25 +261,21 @@ These features require runtime execution or lack portable SQL semantics.
 
 ------------------------------------------------------------------------
 
-# Future Roadmap
+## Post-1.0 expansion
 
-## v0.3 ✅
+Historical 0.2–0.4 delivery notes live in [MILESTONES](MILESTONES.md), not
+here. This matrix is the **1.0** contract.
 
--   translator / dialect plugins
--   pattern translators via `sqlrules-postgresql` / `sqlrules-sqlite`
-
-## v0.4 ✅
-
--   JSON / ARRAY / range markers + dialect plugins
--   MySQL / SQL Server plugins
--   `PatternSpec` / `list` / `dict` support
+Planned *after* 1.0 (not available yet) only if SQL semantics are
+deterministic: `starts_with` / `ends_with` / `contains`, decimal precision
+constraints. See the project roadmap.
 
 Support should expand only when the resulting SQL semantics are
 well-defined across supported SQLAlchemy backends.
 
 ------------------------------------------------------------------------
 
-# Compatibility
+## Compatibility
 
 Target versions:
 
@@ -289,7 +285,7 @@ Target versions:
 
 ------------------------------------------------------------------------
 
-# Design Principles
+## Design Principles
 
 -   Explicit support matrix
 -   Stable translations

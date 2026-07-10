@@ -12,7 +12,7 @@ SQLRules exists to do one thing well:
 
 ------------------------------------------------------------------------
 
-# Decision 1: SQLRules is a Compiler, Not a Query Builder
+## Decision 1: SQLRules is a Compiler, Not a Query Builder
 
 ## Decision
 
@@ -42,7 +42,7 @@ select(users).where(users.c.age >= 18)
 
 ------------------------------------------------------------------------
 
-# Decision 2: Return a Dictionary Grouped by Field
+## Decision 2: Return a Dictionary Grouped by Field
 
 ## Decision
 
@@ -87,7 +87,7 @@ stmt = select(users).where(*rules["age"])
 
 ------------------------------------------------------------------------
 
-# Decision 3: SQLAlchemy Expressions, Not SQL Strings
+## Decision 3: SQLAlchemy Expressions, Not SQL Strings
 
 ## Decision
 
@@ -104,7 +104,7 @@ SQLRules never renders SQL strings directly.
 
 ------------------------------------------------------------------------
 
-# Decision 4: Pydantic v2 First
+## Decision 4: Pydantic v2 First
 
 ## Decision
 
@@ -129,7 +129,7 @@ separate adapter.
 
 ------------------------------------------------------------------------
 
-# Decision 5: Fail Fast by Default
+## Decision 5: Fail Fast by Default
 
 ## Decision
 
@@ -155,7 +155,7 @@ Optional modes:
 
 ------------------------------------------------------------------------
 
-# Decision 6: Only Deterministic Constraints Are Supported
+## Decision 6: Only Deterministic Constraints Are Supported
 
 ## Decision
 
@@ -188,7 +188,7 @@ be safely converted to SQL.
 
 ------------------------------------------------------------------------
 
-# Decision 7: Optionality Does Not Generate Rules by Default
+## Decision 7: Optionality Does Not Generate Rules by Default
 
 ## Decision
 
@@ -207,7 +207,7 @@ default behavior remains no rule.
 
 ------------------------------------------------------------------------
 
-# Decision 8: Keep the Intermediate Representation Dialect-Neutral
+## Decision 8: Keep the Intermediate Representation Dialect-Neutral
 
 ## Decision
 
@@ -231,7 +231,7 @@ SQL Server, or Oracle plugins.
 
 ------------------------------------------------------------------------
 
-# Decision 9: Plugins Are Explicit
+## Decision 9: Plugins Are Explicit
 
 ## Decision
 
@@ -256,7 +256,7 @@ See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md). Official starter packages:
 
 ------------------------------------------------------------------------
 
-# Decision 10: No Database Connections
+## Decision 10: No Database Connections
 
 ## Decision
 
@@ -274,7 +274,7 @@ column maps.
 
 ------------------------------------------------------------------------
 
-# Decision 11: Small Public API
+## Decision 11: Small Public API
 
 ## Decision
 
@@ -300,7 +300,7 @@ early.
 
 ------------------------------------------------------------------------
 
-# Decision 12: Two-Phase Compilation
+## Decision 12: Two-Phase Compilation
 
 ## Decision
 
@@ -329,7 +329,7 @@ aliases, ORM models, or column maps.
 
 ------------------------------------------------------------------------
 
-# Decision 13: Prefer Simple Translators
+## Decision 13: Prefer Simple Translators
 
 ## Decision
 
@@ -362,7 +362,7 @@ constraints such as:
 
 ------------------------------------------------------------------------
 
-# Decision 14: Stable Errors Matter
+## Decision 14: Stable Errors Matter
 
 ## Decision
 
@@ -391,7 +391,7 @@ Exceptions should include structured context such as:
 
 ------------------------------------------------------------------------
 
-# Decision 15: Documentation Drives Implementation
+## Decision 15: Documentation Drives Implementation
 
 ## Decision
 
@@ -408,7 +408,7 @@ New features should update relevant docs before implementation.
 
 ------------------------------------------------------------------------
 
-# Open Questions
+## Open Questions
 
 ## Should SQLRules Support Pydantic v1?
 
@@ -464,7 +464,7 @@ emerges.
 
 ------------------------------------------------------------------------
 
-# Summary
+## Summary
 
 SQLRules should stay small, explicit, deterministic, and composable.
 

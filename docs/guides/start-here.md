@@ -3,21 +3,28 @@
 Pick the path that matches what you need. Each link is a single next step—not
 the full documentation map.
 
-## I want to compile filters from a Pydantic model
+## I want to compile constraints from a Pydantic model
 
 [Getting started](getting-started.md) — install `sqlrules`, compile one model,
 and attach the rules to a SQLAlchemy `select()`.
 
+Remember: SQLRules compiles **Field metadata** (`ge=18`), not instance values
+(`UserFilter(age=25)`).
+
 ## I need dialect-specific operators (regex, JSON, arrays)
 
-[Plugin system](../PLUGIN_SYSTEM.md) — install a dialect package
-(`sqlrules-postgresql`, `sqlrules-sqlite`, `sqlrules-mysql`, or
-`sqlrules-mssql`) and register it on `Compiler`.
+[Use dialect markers](markers.md) · [Plugin system](../PLUGIN_SYSTEM.md) —
+install a dialect package (`sqlrules-postgresql`, `sqlrules-sqlite`,
+`sqlrules-mysql`, or `sqlrules-mssql`) and register it on `Compiler`.
+
+## I need ORM / renamed column binding
+
+[ORM / column_map](orm-column-map.md)
 
 ## I am evaluating SQLRules for my stack
 
-[Design philosophy](design-philosophy.md) · [Specification](../SPEC.md) ·
-[Security](../SECURITY.md) · [Non-goals](../NON_GOALS.md)
+[Design philosophy](design-philosophy.md) · [Support & compatibility](../project/support.md) ·
+[Specification](../SPEC.md) · [Security](../SECURITY.md)
 
 ## I am writing a custom translator or plugin
 
