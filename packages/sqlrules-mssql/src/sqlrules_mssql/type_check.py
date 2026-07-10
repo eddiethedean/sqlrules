@@ -143,8 +143,7 @@ def _predicate_float(
     _unsupported(
         field,
         spec,
-        "SQL Server float/Decimal type_check supports Float, Numeric, or Integer "
-        "columns.",
+        "SQL Server float/Decimal type_check supports Float, Numeric, or Integer columns.",
     )
     raise AssertionError("unreachable")
 
