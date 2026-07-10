@@ -1,0 +1,59 @@
+name: Publish one dialect package
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Dialect package directory name
+        required: true
+        type: choice
+        options:
+          - sqlrules-postgresql
+          - sqlrules-sqlite
+      delay_seconds:
+        description: Seconds to wait before upload
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  publish-one:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+      - name: Wait, build, upload
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          PKG: ${{ inputs.package }}
+          DELAY: ${{ inputs.delay_seconds }}
+        run: |
+          set -euo pipefail
+          stem="${PKG//-/_}"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/${PKG}/json" || true)
+          if [[ "$code" == "200" ]]; then
+            echo "${PKG} already on PyPI"
+            mkdir -p dist-one
+            python -m build "packages/${PKG}" --outdir dist-one
+            twine upload --skip-existing dist-one/${stem}-*
+            exit 0
+          fi
+          if [[ "${DELAY}" != "0" ]]; then
+            echo "Waiting ${DELAY}s..."
+            sleep "${DELAY}"
+          fi
+          mkdir -p dist-one
+          python -m build "packages/${PKG}" --outdir dist-one
+          twine upload --skip-existing dist-one/${stem}-*
+          curl -sS -f "https://pypi.org/pypi/${PKG}/1.0.0/json" >/dev/null
+          echo "OK ${PKG}==1.0.0"
