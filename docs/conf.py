@@ -99,8 +99,7 @@ html_theme_options = {
             "'Helvetica Neue', Arial, sans-serif"
         ),
         "font-stack--monospace": (
-            "ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', "
-            "Menlo, Consolas, monospace"
+            "ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', Menlo, Consolas, monospace"
         ),
     },
     "dark_css_variables": {
@@ -176,9 +175,7 @@ copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
 
 
-def _apply_myst_substitutions_in_source(
-    _app: Sphinx, _docname: str, source: list[str]
-) -> None:
+def _apply_myst_substitutions_in_source(_app: Sphinx, _docname: str, source: list[str]) -> None:
     """Expand myst_substitutions before parse (including raw HTML)."""
     text = source[0]
     for key, value in myst_substitutions.items():
