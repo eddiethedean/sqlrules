@@ -1,4 +1,4 @@
-from sqlrules.compiler import Compiler, compile, flatten, where
+from sqlrules.compiler import Compiler, clear_model_cache, compile, flatten, where
 from sqlrules.constraints import pattern_text
 from sqlrules.errors import (
     ConfigurationError,
@@ -34,7 +34,7 @@ from sqlrules.markers import (
 from sqlrules.plugins import PLUGIN_API_VERSION, SQLRulesPlugin
 from sqlrules.translators import SQLRulesWarning, TranslatorRegistry, default_registry
 
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "PLUGIN_API_VERSION",
@@ -68,6 +68,7 @@ __all__ = [
     "TranslatorRegistry",
     "UnsupportedConstraintError",
     "__version__",
+    "clear_model_cache",
     "compile",
     "default_registry",
     "flatten",

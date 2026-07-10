@@ -7,28 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-10
+
 ### Added
 
-- Documented Application / Plugin / Internal API tiers in `docs/API.md`
-- Re-exported Plugin API symbols: `pattern_text`, `TranslatorRegistry`,
-  `default_registry`
-- `docs/SECURITY.md` (plugin trust model, ReDoS notes)
-- Core optional extras: `postgresql`, `sqlite`, `mysql`, `mssql`, `dialects`
-- Plugin packages: `LICENSE`, `py.typed`, richer metadata; release workflow
-  publishes plugins on the same version tag as core
-- CI checks plugin version sync and packaging files
+- Application API `clear_model_cache()` for the process-wide Phase-1 IR cache
+- `docs/IR_CONTRACT.md` — frozen Plugin API v1 IR appendix
+- `scripts/check_versions.py` — core/plugin lockstep + extras pin checks
+- All-or-nothing PyPI publish via Trusted Publishing (OIDC)
+- Plugin wheel install + conformance smoke in CI; mypy on dialect packages
 
 ### Changed
 
-- `Compiler` always copies the base registry (caller-owned registries are
-  never mutated, with or without plugins)
-- `ModelIRCache` uses a strong `dict` (documented process-lifetime cache;
-  call `clear()` for ephemeral models) — `WeakKeyDictionary` could not
-  evict because `ModelIR` retains the model class
-- `dialect=` documented as a translator hint only (does not load plugins)
-- Core dependencies upper-bounded: `pydantic>=2,<3`, `sqlalchemy>=2,<3`
-- Roadmap / milestones: 1.0 is API freeze; former 0.5–0.8 moved post-1.0
-- Performance docs no longer claim CI regression gates
+- **Stable 1.0** release: Application + Plugin APIs frozen; classifiers
+  `Production/Stable`
+- Core and dialect packages versioned `1.0.0` in lockstep; pins
+  `sqlrules>=1,<2` / extras `sqlrules-*>=1,<2`
+- Builtin translator registry built once per process; module `compile()`
+  reuses shared default `Compiler` instances
+- `max_digits` / `decimal_places` and unknown Field metadata keys rejected at
+  extract (no invented operators)
+- Elevated pattern/ReDoS guidance in SECURITY and dialect READMEs
+- Core sdist no longer bundles `/packages`
+- `annotated-types` upper-bounded (`>=0.6,<1`)
+
+### Docs
+
+- Whole-model type matrix documented as intentional 1.0 contract
+- Registry mutation after `Compiler` init documented as unsupported
+- Prefer `register_constraint` in Plugin docs
 
 ## [0.4.0] - 2026-07-10
 
@@ -157,6 +164,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs clarify that `on_unsupported` does not soften unsupported types;
   plugin / two-phase compile designs are marked as future
 
+[1.0.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v1.0.0
 [0.4.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.4.0
 [0.3.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.3.0
 [0.2.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.2.0

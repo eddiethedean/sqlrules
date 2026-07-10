@@ -34,3 +34,10 @@ compiler = Compiler(plugins=[MysqlPlugin()], dialect="mysql")
 | `json_contains` | `JSON_CONTAINS(column, payload) = 1` |
 | `json_has_key` | `JSON_CONTAINS_PATH(column, 'one', '$.key') = 1` |
 | `fulltext_match` | `MATCH(column) AGAINST (value)` — requires a FULLTEXT index |
+
+## Security note
+
+`pattern` / `fulltext_match` values are bound parameters, but evaluation cost
+is engine-dependent. Prefer static/allowlisted patterns and queries from
+untrusted input. See
+[SECURITY](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).

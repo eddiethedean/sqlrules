@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import Mapping, Sequence
 from itertools import chain
 from typing import Any
@@ -33,6 +34,11 @@ class Compiler:
     ``dialect`` is an optional hint stored on ``CompilationContext`` for
     custom translators. It does **not** load dialect plugins or change
     built-in translations — pass ``plugins=[...]`` explicitly.
+
+    Do not mutate ``registry`` after construction; registration belongs in
+    ``plugins`` / ``register_constraint`` during init. Do not call
+    ``compile`` / ``bind`` / ``compile_model`` concurrently on the same
+    instance.
     """
 
     def __init__(
@@ -52,7 +58,8 @@ class Compiler:
             raise ConfigurationError(option="on_conflict", value=on_conflict)
 
         # Always copy so caller-owned and shared default registries are never mutated.
-        base = (registry if registry is not None else default_registry()).copy()
+        # default_registry() already returns a copy of the builtin template.
+        base = registry.copy() if registry is not None else default_registry()
         plugin_list = list(plugins or ())
         resolved: TranslatorRegistry
         if plugin_list:
@@ -196,6 +203,30 @@ class _PluginAwareRegistry(TranslatorRegistry):
         )
 
 
+_DEFAULT_COMPILERS: dict[tuple[OnUnsupported, bool], Compiler] = {}
+_DEFAULT_COMPILERS_LOCK = threading.Lock()
+
+
+def _default_compiler(*, on_unsupported: OnUnsupported, cache: bool) -> Compiler:
+    key = (on_unsupported, cache)
+    with _DEFAULT_COMPILERS_LOCK:
+        compiler = _DEFAULT_COMPILERS.get(key)
+        if compiler is None:
+            compiler = Compiler(on_unsupported=on_unsupported, cache=cache)
+            _DEFAULT_COMPILERS[key] = compiler
+        return compiler
+
+
+def clear_model_cache() -> None:
+    """Clear the process-wide default Phase-1 ``ModelIR`` cache.
+
+    Use this when creating many ephemeral models (for example
+    ``pydantic.create_model``) so cached IR does not grow without bound.
+    Compilers that were given a custom ``model_cache`` are unaffected.
+    """
+    default_cache().clear()
+
+
 def compile(
     model: type[BaseModel],
     table: Any,
@@ -204,7 +235,7 @@ def compile(
     on_unsupported: OnUnsupported = "raise",
     cache: bool = True,
 ) -> RulesDict:
-    return Compiler(on_unsupported=on_unsupported, cache=cache).compile(
+    return _default_compiler(on_unsupported=on_unsupported, cache=cache).compile(
         model, table, column_map=column_map
     )
 

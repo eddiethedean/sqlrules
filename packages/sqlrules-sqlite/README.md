@@ -51,3 +51,10 @@ with engine.raw_connection() as conn:
 
 Case-insensitive patterns (`re.IGNORECASE` / `PatternSpec.ignore_case`) are
 encoded with a `(?i)` prefix understood by `register_regexp`.
+
+## Security note
+
+`register_regexp` installs a Python `re.search` UDF. Untrusted
+`Field(pattern=...)` values can cause **CPU denial of service** (ReDoS) in
+your process — not SQL injection. Prefer static/allowlisted patterns. See
+[SECURITY](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).

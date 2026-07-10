@@ -51,3 +51,10 @@ rules = compiler.compile(RowFilter, table)
 | `array_overlap` | array `overlap` / `&&` |
 | `range_contains` | range `@>` |
 | `range_overlap` | range `&&` |
+
+## Security note
+
+`pattern` becomes a PostgreSQL regex (`~` / `~*`). Untrusted pattern strings
+can cause expensive engine-side evaluation (ReDoS-class cost). Prefer
+static/allowlisted patterns. See
+[SECURITY](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).

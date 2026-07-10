@@ -15,6 +15,7 @@ Primary surface for application code:
 | `compile` | One-shot compile (no plugins) |
 | `where` / `flatten` | Flatten a rules dict (identical aliases; both supported) |
 | `Compiler` | Reusable compiler with plugins / registry / cache |
+| `clear_model_cache` | Clear the process-wide default Phase-1 IR cache |
 | Exception hierarchy under `SQLRulesError` | Fail-fast errors |
 | `__version__` | Package version |
 | Markers (`JsonContains`, …) | `Annotated` metadata for dialect operators |
@@ -39,7 +40,8 @@ sqlrules.compile(
 | `cache` | Cache Phase-1 model IR (default `True`) |
 
 Rule dictionary keys are always the Python field names. String field aliases
-are used only for column binding. Unconstrained fields are omitted.
+are used only for column binding. Unconstrained fields are omitted from the
+rules dict but **must still use a supported type annotation**.
 
 Unsupported **types** always raise, regardless of `on_unsupported`.
 
@@ -53,6 +55,17 @@ sqlrules.flatten(rules) -> list[ColumnElement[bool]]
 ```
 
 Identical aliases. Both are part of the stable Application API.
+
+### `clear_model_cache`
+
+```python
+sqlrules.clear_model_cache() -> None
+```
+
+Clears the process-wide default Phase-1 `ModelIR` cache. Call this when
+creating many ephemeral models (for example `pydantic.create_model`) so
+cached IR does not grow without bound. Compilers constructed with a custom
+`model_cache=` are unaffected.
 
 ### `Compiler`
 
@@ -77,13 +90,18 @@ compiler.diagnostics  # from the last bind/compile (translate phase)
 | Parameter | Description |
 |---|---|
 | `plugins` | Optional `SQLRulesPlugin` instances registered at init |
-| `on_conflict` | Default for plugin `register()`: `"raise"`, `"replace"`, `"ignore"` |
+| `on_conflict` | Default for plugin `register()` / `register_constraint()`: `"raise"`, `"replace"`, `"ignore"` |
 | `dialect` | **Hint only** for custom translators on `CompilationContext`. Does **not** load plugins or change built-ins. Pass `plugins=[...]` explicitly. |
 | `registry` | Optional base `TranslatorRegistry`; always **copied** into the compiler |
 
+**Mutation:** do not call `compiler.registry.register(...)` (or
+`register_constraint`) after construction. Register translators via
+`plugins=` at init.
+
 **Concurrency:** do not call `compile` / `bind` / `compile_model` concurrently
 on the same `Compiler` instance. The shared Phase-1 IR cache is thread-safe
-across instances; call `ModelIRCache.clear()` if you create many ephemeral models.
+across instances; call `clear_model_cache()` if you create many ephemeral
+models.
 
 ------------------------------------------------------------------------
 
@@ -93,15 +111,18 @@ For dialect packages and custom translators. Import from `sqlrules`:
 
 | Symbol | Role |
 |---|---|
-| `PLUGIN_API_VERSION` | Contract version string (`"1"`) |
+| `PLUGIN_API_VERSION` | Contract version string (`"1"`) — exact match required |
 | `SQLRulesPlugin` | Protocol: `name`, `api_version`, `register(registry)` |
 | `TranslatorRegistry` | Register / lookup / copy translators |
-| `default_registry` | Built-in portable translators |
+| `default_registry` | Copy of built-in portable translators |
 | `pattern_text` | Unpack `PatternSpec` or `str` → `(pattern, ignore_case)` |
 | `Constraint`, `PatternSpec`, `CompilationContext` | IR types used by translators |
 | `ModelIR` | Two-phase / caching IR root |
 | `ConstraintMarker` + marker dataclasses | Dialect operator metadata |
 | `sqlrules.conformance` | Test helpers for plugin authors (supported) |
+
+Prefer `registry.register_constraint(..., on_conflict=...)`.
+`register(..., replace=)` remains as a thin compatibility alias.
 
 ```python
 from sqlrules import (
@@ -127,12 +148,14 @@ compiler = Compiler(plugins=[MyPlugin()], dialect="postgresql")
 
 ### `PLUGIN_API_VERSION` policy
 
-Version `"1"` includes `PatternSpec` for `pattern` values. Always use
+Version `"1"` requires an **exact** string match (`api_version == "1"`).
+It includes `PatternSpec` for `pattern` values. Always use
 `pattern_text(constraint.value)` — do not assume a bare `str`.
 
-Bump `PLUGIN_API_VERSION` when changing translator signatures, registry
-methods, or IR value types for built-in operators. See
-[PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
+Bump `PLUGIN_API_VERSION` to a new string (for example `"2"`) only when
+changing translator signatures, registry methods, or IR value types for
+built-in operators. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) and
+[IR_CONTRACT.md](IR_CONTRACT.md).
 
 Frozen marker operator names: `json_contains`, `json_has_key`,
 `array_contains`, `array_overlap`, `range_contains`, `range_overlap`,

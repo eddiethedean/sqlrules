@@ -107,7 +107,7 @@ compiler = Compiler(plugins=[PostgresPlugin()], dialect="postgresql")
 rules = compiler.compile(RowFilter, table)
 ```
 
-## Supported constraints (0.4)
+## Supported constraints (1.0)
 
 | Constraint | SQLAlchemy expression |
 |---|---|

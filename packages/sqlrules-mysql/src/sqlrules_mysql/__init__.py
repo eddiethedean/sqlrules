@@ -6,7 +6,7 @@ from sqlrules_mysql.fulltext import translate_fulltext_match
 from sqlrules_mysql.json import translate_json_contains, translate_json_has_key
 from sqlrules_mysql.pattern import translate_pattern
 
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 
 
 class MysqlPlugin:

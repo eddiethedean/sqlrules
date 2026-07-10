@@ -35,13 +35,14 @@
 - MySQL / MariaDB / SQL Server enhancements
 - Shared `ConstraintMarker` / `sqlrules.markers` API
 
-## Pre-1.0 — Contract hardening
+## Pre-1.0 — Contract hardening ✅
 
 - Application / Plugin / Internal API tiers documented
 - Plugin packaging + coordinated release
 - Cache / dialect / registry ownership clarified
+- IR contract, lockstep CI, Trusted Publishing release, hot-path registry
 
-## 1.0 — Stable
+## 1.0 — Stable ✅
 
 - Stable public API
 - Stable plugin API

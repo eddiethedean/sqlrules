@@ -1,3 +1,4 @@
+from decimal import Decimal
 from enum import Enum
 from typing import Annotated, Literal
 
@@ -84,4 +85,49 @@ def test_optional_literal_and_enum() -> None:
 
 
 def test_version_exposed() -> None:
-    assert sqlrules.__version__ == "0.4.0"
+    assert sqlrules.__version__ == "1.0.0"
+    assert callable(sqlrules.clear_model_cache)
+
+
+def test_clear_model_cache_drops_default_entries() -> None:
+    from sqlrules.cache import default_cache
+
+    class Filter(BaseModel):
+        age: Annotated[int, Field(ge=18)]
+
+    default_cache().clear()
+    sqlrules.Compiler(cache=True).compile_model(Filter)
+    assert default_cache().get(Filter) is not None
+    sqlrules.clear_model_cache()
+    assert default_cache().get(Filter) is None
+
+
+def test_default_registry_returns_independent_copies() -> None:
+    a = sqlrules.default_registry()
+    b = sqlrules.default_registry()
+    assert a is not b
+    assert set(a.operators()) == set(b.operators())
+
+
+def test_unknown_field_metadata_key_rejected() -> None:
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class WeirdMeta:
+        not_a_sqlrules_op: int = 1
+
+    class Filter(BaseModel):
+        age: Annotated[int, WeirdMeta()]
+
+    table = Table("t", MetaData(), Column("age", Integer))
+    with pytest.raises(UnsupportedConstraintError, match="not_a_sqlrules_op|Unknown metadata"):
+        sqlrules.compile(Filter, table, cache=False)
+
+
+def test_max_digits_only_rejected_at_extract() -> None:
+    class Filter(BaseModel):
+        score: Annotated[Decimal, Field(max_digits=5)]
+
+    table = Table("t", MetaData(), Column("score", Integer))
+    with pytest.raises(UnsupportedConstraintError, match="max_digits"):
+        sqlrules.compile(Filter, table, cache=False)

@@ -127,6 +127,7 @@ reference/index
 reference/glossary
 reference/autodoc
 API
+IR_CONTRACT
 ERRORS
 SECURITY
 ```

@@ -37,7 +37,13 @@ two-phase `compile_model` / `bind`.
 
 ## Why did an unconstrained field disappear from the rules dict?
 
-Fields with no supported constraints are omitted. That is intentional.
+Fields with no supported constraints are omitted from the rules dict. Their
+**types** must still be in the support matrix (whole-model rule).
+
+## How do I clear the model IR cache?
+
+Call `sqlrules.clear_model_cache()` when creating many ephemeral models so the
+process-wide Phase-1 cache does not grow without bound.
 
 ## Where is the stable API boundary?
 

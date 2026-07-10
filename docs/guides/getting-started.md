@@ -69,7 +69,12 @@ expressions for `.where(...)`.
 
 Unsupported **operators** raise by default. Use
 `on_unsupported="warn"` or `"ignore"` to skip unknown operators. Unsupported
-**types** always raise.
+**types** always raise — including on unconstrained fields (whole-model type
+matrix).
+
+Untrusted `Field(pattern=...)` values are a CPU/ReDoS cost risk once a dialect
+plugin translates them; prefer static patterns. See
+[SECURITY](../SECURITY.md).
 
 ## Next steps
 

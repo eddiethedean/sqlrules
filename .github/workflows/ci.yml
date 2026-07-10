@@ -37,45 +37,14 @@ jobs:
         run: ruff format --check .
 
       - name: Mypy
-        run: mypy src/sqlrules
+        run: |
+          mypy src/sqlrules
+          mypy --disable-error-code=redundant-cast \
+            packages/sqlrules-postgresql/src packages/sqlrules-sqlite/src \
+            packages/sqlrules-mysql/src packages/sqlrules-mssql/src
 
       - name: Version sync
-        run: |
-          python - <<'PY'
-          import re
-          import tomllib
-          from pathlib import Path
-
-          def init_version(path: Path) -> str:
-              text = path.read_text()
-              marker = '__version__ = "'
-              start = text.index(marker) + len(marker)
-              end = text.index('"', start)
-              return text[start:end]
-
-          core = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
-          assert core == init_version(Path("src/sqlrules/__init__.py")), core
-          print(f"core version ok: {core}")
-
-          for pkg in (
-              "sqlrules-postgresql",
-              "sqlrules-sqlite",
-              "sqlrules-mysql",
-              "sqlrules-mssql",
-          ):
-              root = Path("packages") / pkg
-              meta = tomllib.loads((root / "pyproject.toml").read_text())["project"]
-              version = meta["version"]
-              init = next((root / "src").rglob("__init__.py"))
-              assert version == init_version(init), (pkg, version)
-              deps = " ".join(meta["dependencies"])
-              assert re.search(r"sqlrules>=0\.\d+,<0\.\d+", deps) or re.search(
-                  r"sqlrules>=1,<2", deps
-              ), (pkg, deps)
-              assert (root / "LICENSE").is_file(), pkg
-              assert list((root / "src").rglob("py.typed")), pkg
-              print(f"{pkg} version/packaging ok: {version}")
-          PY
+        run: python scripts/check_versions.py
 
   test:
     name: Test
@@ -140,8 +109,13 @@ jobs:
 
       - name: Install wheel and import
         run: |
-          python -m pip install dist/*.whl
+          python -m pip install dist/*.whl dist-plugins/*.whl
           python - <<'PY'
+          from typing import Annotated
+
+          from pydantic import BaseModel, Field
+          from sqlalchemy import Column, MetaData, String, Table
+
           import sqlrules
           from sqlrules import (
               compile,
@@ -149,20 +123,39 @@ jobs:
               flatten,
               Compiler,
               PLUGIN_API_VERSION,
+              clear_model_cache,
               pattern_text,
               TranslatorRegistry,
               default_registry,
           )
+          from sqlrules.conformance import run_basic_conformance
+          from sqlrules_postgresql import PostgresPlugin
+          from sqlrules_sqlite import SQLitePlugin
+          from sqlrules_mysql import MysqlPlugin
+          from sqlrules_mssql import MssqlPlugin
 
           assert sqlrules.__version__
           assert callable(compile)
           assert callable(where)
           assert callable(flatten)
+          assert callable(clear_model_cache)
           assert callable(pattern_text)
           assert Compiler is not None
           assert TranslatorRegistry is not None
           assert callable(default_registry)
           assert PLUGIN_API_VERSION == "1"
+
+          class LengthFilter(BaseModel):
+              name: Annotated[str, Field(min_length=2)]
+
+          length_table = Table("items", MetaData(), Column("name", String))
+          for plugin, operator, model, table in (
+              (PostgresPlugin(), "pattern", None, None),
+              (SQLitePlugin(), "pattern", None, None),
+              (MysqlPlugin(), "pattern", None, None),
+              (MssqlPlugin(), "min_length", LengthFilter, length_table),
+          ):
+              run_basic_conformance(plugin, operator=operator, model=model, table=table)
           print("wheel import ok:", sqlrules.__version__)
           PY
 

@@ -7,7 +7,7 @@ from sqlrules_postgresql.jsonb import translate_json_contains, translate_json_ha
 from sqlrules_postgresql.pattern import translate_pattern
 from sqlrules_postgresql.range import translate_range_contains, translate_range_overlap
 
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 
 
 class PostgresPlugin:

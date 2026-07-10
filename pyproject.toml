@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqlrules"
-version = "0.4.0"
+version = "1.0.0"
 description = "Compile constrained Pydantic models into SQLAlchemy WHERE-rule dictionaries."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,7 +21,7 @@ keywords = [
   "filters",
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
@@ -38,7 +38,7 @@ classifiers = [
 dependencies = [
   "pydantic>=2.0,<3",
   "sqlalchemy>=2.0,<3",
-  "annotated-types>=0.6",
+  "annotated-types>=0.6,<1",
 ]
 
 [project.optional-dependencies]
@@ -59,15 +59,15 @@ docs = [
   "sphinx-design>=0.5,<1",
   "linkify-it-py>=2.0",
 ]
-postgresql = ["sqlrules-postgresql>=0.4,<0.5"]
-sqlite = ["sqlrules-sqlite>=0.4,<0.5"]
-mysql = ["sqlrules-mysql>=0.4,<0.5"]
-mssql = ["sqlrules-mssql>=0.4,<0.5"]
+postgresql = ["sqlrules-postgresql>=1,<2"]
+sqlite = ["sqlrules-sqlite>=1,<2"]
+mysql = ["sqlrules-mysql>=1,<2"]
+mssql = ["sqlrules-mssql>=1,<2"]
 dialects = [
-  "sqlrules-postgresql>=0.4,<0.5",
-  "sqlrules-sqlite>=0.4,<0.5",
-  "sqlrules-mysql>=0.4,<0.5",
-  "sqlrules-mssql>=0.4,<0.5",
+  "sqlrules-postgresql>=1,<2",
+  "sqlrules-sqlite>=1,<2",
+  "sqlrules-mysql>=1,<2",
+  "sqlrules-mssql>=1,<2",
 ]
 
 [project.urls]
@@ -83,7 +83,6 @@ include = [
   "/tests",
   "/docs",
   "/benchmarks",
-  "/packages",
   "/README.md",
   "/ROADMAP.md",
   "/LICENSE",

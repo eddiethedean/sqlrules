@@ -28,6 +28,10 @@ pre-commit install
 ruff check .
 ruff format --check .
 mypy src/sqlrules
+mypy --disable-error-code=redundant-cast \
+  packages/sqlrules-postgresql/src packages/sqlrules-sqlite/src \
+  packages/sqlrules-mysql/src packages/sqlrules-mssql/src
+python scripts/check_versions.py
 pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests \
   packages/sqlrules-mysql/tests packages/sqlrules-mssql/tests
 sphinx-build -W -b html docs docs/_build/html
@@ -39,8 +43,8 @@ python -m build packages/sqlrules-mssql --outdir dist-plugins
 twine check dist-plugins/*
 ```
 
-CI verifies core + plugin `pyproject.toml` / `__version__` sync, plugin
-`LICENSE` / `py.typed`, and that built wheels import cleanly.
+CI enforces core ↔ plugin version lockstep, extras pins, plugin `LICENSE` /
+`py.typed`, mypy on plugins, and wheel import + conformance smoke tests.
 
 ## Plugins
 
@@ -49,9 +53,8 @@ CI verifies core + plugin `pyproject.toml` / `__version__` sync, plugin
 - Use `pattern_text()` for `pattern` values (`PatternSpec` is part of API v1).
 - Run `sqlrules.conformance.run_basic_conformance(plugin)` for API shape;
   add golden SQL asserts for dialect correctness.
-- Official dialect packages live under `packages/`. While on 0.x they pin
-  `sqlrules>=0.4,<0.5`. At 1.0 they must pin `sqlrules>=1,<2` and share the
-  same release tag version as core.
+- Official dialect packages live under `packages/`. They pin
+  `sqlrules>=1,<2` and must share the same release tag version as core.
 
 ## Pull requests
 
@@ -59,20 +62,23 @@ CI verifies core + plugin `pyproject.toml` / `__version__` sync, plugin
 - Add or update tests for every constraint or error path you touch.
 - Match existing code style and documentation tone.
 
-## Releasing
+## Releasing (1.0+)
 
-Pushing an annotated version tag publishes **core and all four dialect
-plugins** (versions must match the tag):
+1. Bump **all five** packages together (`pyproject.toml` + `__version__`).
+2. Keep pins on the major line: plugins `sqlrules>=1,<2`; core extras
+   `sqlrules-*>=1,<2`.
+3. Run `python scripts/check_versions.py` and the full check list above.
+4. Configure **PyPI Trusted Publishing** (OIDC) for `sqlrules` and each
+   `sqlrules-*` project: publisher = GitHub, repository =
+   `eddiethedean/sqlrules`, workflow = `release.yml`, environment empty
+   unless you add one. Do **not** rely on a long-lived `PYPI_API_TOKEN`.
+5. Tag and push:
 
 ```bash
-# Confirm pyproject / __version__ match across core + packages/*
-git tag -a v0.4.1 -m "sqlrules 0.4.1"
-git push origin v0.4.1
+git tag -a v1.0.1 -m "sqlrules 1.0.1"
+git push origin v1.0.1
 ```
 
 The [release workflow](https://github.com/eddiethedean/sqlrules/blob/main/.github/workflows/release.yml)
-runs CI, publishes core, then publishes each plugin whose version equals
-the tag.
-
-At 1.0, bump core and plugins together and change plugin dependency pins
-to `sqlrules>=1,<2`.
+runs CI, builds **core + all plugins**, then uploads every artifact in one
+all-or-nothing publish step (Trusted Publishing).

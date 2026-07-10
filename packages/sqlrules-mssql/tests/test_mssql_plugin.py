@@ -13,7 +13,7 @@ from sqlrules.conformance import assert_builtins_preserved, assert_plugin_api_co
 
 
 def test_version() -> None:
-    assert __version__ == "0.4.0"
+    assert __version__ == "1.0.0"
 
 
 def test_plugin_api() -> None:

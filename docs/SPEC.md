@@ -16,7 +16,7 @@ Ordering is deterministic and follows model field declaration order.
 Within a field, expressions follow constraint extraction order.
 Fields that produce no expressions are omitted from the dictionary.
 
-## Supported constraints (v0.4)
+## Supported constraints (v1.0)
 
 - `gt`
 - `ge`
@@ -30,12 +30,16 @@ Fields that produce no expressions are omitted from the dictionary.
 
 `pattern` is extracted into IR as `PatternSpec` but has no portable core
 translator. It raises by default; use `on_unsupported="warn"` / `"ignore"`,
-register a custom translator, or install a dialect plugin.
+register a custom translator, or install a dialect plugin. Treat untrusted
+patterns as a CPU/ReDoS cost risk (see [SECURITY.md](SECURITY.md)).
 
 Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
 `FullTextMatch`, …) are extracted into IR and require a dialect plugin.
 
-## Supported types (v0.4)
+`max_digits` and `decimal_places` are rejected at extract time (no portable
+SQL mapping in 1.0).
+
+## Supported types (v1.0)
 
 - `bool`, `int`, `float`, `Decimal`, `str`
 - `date`, `datetime`, `time`
@@ -44,6 +48,10 @@ Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
 - `list` / `dict` (allowed annotations; portable constraints raise;
   unconstrained containers are skipped like unconstrained scalars;
   dialect markers require a plugin)
+
+**Whole-model rule:** every field annotation must be in this matrix, including
+fields with no constraints. Unsupported types (for example `timedelta`) always
+raise. Split filter models from DTOs that carry unsupported types.
 
 ## `where` / `flatten`
 

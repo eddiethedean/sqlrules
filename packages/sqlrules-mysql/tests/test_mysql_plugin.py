@@ -12,7 +12,7 @@ from sqlrules.conformance import run_basic_conformance
 
 
 def test_version() -> None:
-    assert __version__ == "0.4.0"
+    assert __version__ == "1.0.0"
 
 
 def test_conformance() -> None:

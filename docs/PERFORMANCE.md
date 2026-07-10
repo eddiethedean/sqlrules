@@ -90,7 +90,7 @@ Avoid caching SQLAlchemy column objects, which are table-specific.
 Enabled by default (`cache=True`). Thread-safe via a lock-guarded
 ``dict`` keyed by model class. Entries are **strong** references for the
 process lifetime (``ModelIR`` retains the model type). Call
-``ModelIRCache.clear()`` when creating many ephemeral models.
+``sqlrules.clear_model_cache()`` when creating many ephemeral models.
 
 ------------------------------------------------------------------------
 

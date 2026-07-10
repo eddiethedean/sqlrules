@@ -6,7 +6,7 @@ from sqlrules_sqlite.json import translate_json_contains, translate_json_has_key
 from sqlrules_sqlite.pattern import translate_pattern
 from sqlrules_sqlite.regexp import register_regexp
 
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 
 
 class SQLitePlugin:

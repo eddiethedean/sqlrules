@@ -56,6 +56,11 @@ _CONSTRAINT_KEYS: frozenset[str] = frozenset(
         "min_length",
         "max_length",
         "pattern",
+    }
+)
+# Known Field keys that are intentionally unsupported (reject at extract).
+_UNSUPPORTED_CONSTRAINT_KEYS: frozenset[str] = frozenset(
+    {
         "max_digits",
         "decimal_places",
     }
@@ -218,6 +223,16 @@ def _constraints_from_mapping(field_name: str, data: dict[str, Any]) -> list[Con
     for key, value in data.items():
         if value is None or key in _IGNORED_METADATA_KEYS:
             continue
+        if key in _UNSUPPORTED_CONSTRAINT_KEYS:
+            raise UnsupportedConstraintError(
+                field=field_name,
+                operator=key,
+                value=value,
+                suggestion=(
+                    f"{key!r} is not supported by SQLRules 1.0 "
+                    "(no portable SQL mapping). Remove it or wait for a future release."
+                ),
+            )
         if key == "pattern":
             constraints.append(
                 Constraint(field_name, "pattern", _normalize_pattern(field_name, value))
@@ -225,8 +240,15 @@ def _constraints_from_mapping(field_name: str, data: dict[str, Any]) -> list[Con
         elif key in _CONSTRAINT_KEYS:
             constraints.append(Constraint(field_name, key, value))
         else:
-            # Unknown keys remain unsupported operators (fail-fast).
-            constraints.append(Constraint(field_name, key, value))
+            raise UnsupportedConstraintError(
+                field=field_name,
+                operator=key,
+                value=value,
+                suggestion=(
+                    f"Unknown metadata key {key!r} is not a SQLRules constraint. "
+                    "Use Field constraints, annotated-types, or sqlrules.markers."
+                ),
+            )
     return constraints
 
 

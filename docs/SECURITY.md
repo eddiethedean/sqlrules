@@ -19,13 +19,23 @@ SQL. Security boundaries are:
    (ReDoS / expensive regex), not injection. Treat patterns from
    untrusted input as a cost-control problem.
 
-## Recommendations
+### Pattern / REGEXP cost (elevated)
 
-- Prefer official packages under `packages/` or audited plugins.
-- Do not pass untrusted regular expressions into model constraints in
-  hot paths without limits.
-- Applications remain responsible for SQLAlchemy execution, connection
-  security, and authorization.
+| Surface | Risk |
+|---|---|
+| PostgreSQL `~` / `~*` | Engine-side regex cost |
+| MySQL `REGEXP` | Engine-side regex cost |
+| SQLite `REGEXP` via `sqlrules_sqlite.register_regexp` | **Python `re.search` per row** in-process — catastrophic backtracking can stall the application worker |
+
+**Recommendations**
+
+- Prefer **static / allowlisted** patterns authored with the model, not
+  patterns taken from end-user input.
+- Do not expose free-form regex from untrusted clients on hot query paths.
+- For SQLite, understand that `register_regexp` is not a sandbox; it runs
+  Python's `re` in your process.
+- Official dialect packages are released in lockstep with core — pin the
+  same major line (`sqlrules>=1,<2` and matching dialect extras).
 
 ## Non-goals
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import operator
 import sys
+import threading
 import types
 import warnings
 from collections.abc import Callable
@@ -229,6 +230,24 @@ class TranslatorRegistry:
 
 
 def default_registry() -> TranslatorRegistry:
+    """Return a **copy** of the built-in portable translator registry.
+
+    The builtin template is built once per process. Callers may mutate the
+    returned registry without affecting other callers or ``Compiler``.
+    """
+    return _builtin_registry().copy()
+
+
+def _builtin_registry() -> TranslatorRegistry:
+    global _BUILTIN_REGISTRY
+    if _BUILTIN_REGISTRY is None:
+        with _BUILTIN_REGISTRY_LOCK:
+            if _BUILTIN_REGISTRY is None:
+                _BUILTIN_REGISTRY = _build_builtin_registry()
+    return _BUILTIN_REGISTRY
+
+
+def _build_builtin_registry() -> TranslatorRegistry:
     registry = TranslatorRegistry()
     registry.register("gt", _binary(operator.gt))
     registry.register("ge", _binary(operator.ge))
@@ -241,3 +260,7 @@ def default_registry() -> TranslatorRegistry:
     registry.register("enum", _in_values)
     # pattern is extracted into IR but has no portable core translator.
     return registry
+
+
+_BUILTIN_REGISTRY: TranslatorRegistry | None = None
+_BUILTIN_REGISTRY_LOCK = threading.Lock()

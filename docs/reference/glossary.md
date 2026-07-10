@@ -18,4 +18,5 @@
 | **`dialect`** | Optional string hint for translators—not automatic engine detection. |
 | **Rules dict** | `dict[str, list[ColumnElement[bool]]]` keyed by Python field names. |
 
-See also [API](../API.md) and [INTERNAL_API](../INTERNAL_API.md).
+See also [API](../API.md), [IR_CONTRACT](../IR_CONTRACT.md), and
+[INTERNAL_API](../INTERNAL_API.md).

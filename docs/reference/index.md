@@ -18,6 +18,7 @@ file an issue if the signatures are wrong.
 
 - [SPEC](../SPEC.md) — return shape, binding, unsupported policy
 - [API](../API.md) — Application / Plugin / Internal tiers
+- [IR_CONTRACT](../IR_CONTRACT.md) — frozen Plugin API v1 IR schema
 - [CONSTRAINTS](../CONSTRAINTS.md) — operator → expression map
 - [TYPE_SUPPORT](../TYPE_SUPPORT.md) · [ERRORS](../ERRORS.md)
 
