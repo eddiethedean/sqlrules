@@ -21,7 +21,7 @@ Compile a constrained Pydantic model into a field-keyed rule dictionary.
 |---|---|
 | `model` | Pydantic `BaseModel` subclass |
 | `table` | SQLAlchemy `Table`, alias, ORM class, or object with `.c` |
-| `column_map` | Optional explicit `field_name` or alias → column mapping |
+| `column_map` | Optional explicit `field_name` or alias → column mapping. If a key matches but the value is not a column, raises `MissingColumnError` (no fallthrough). |
 | `on_unsupported` | `"raise"` (default), `"warn"`, or `"ignore"` for unknown **operators** only |
 | `cache` | Cache Phase-1 model IR (default `True`) |
 
@@ -50,14 +50,15 @@ compiler = sqlrules.Compiler(
     on_unsupported="raise",
     registry=None,
     cache=True,
+    model_cache=None,  # optional shared ModelIRCache; default is process-wide
 )
 rules = compiler.compile(model, table, column_map=None)
 
 # Two-phase (advanced):
-model_ir = compiler.compile_model(model)
+model_ir = compiler.compile_model(model)  # also clears diagnostics
 rules = compiler.bind(model_ir, table, column_map=None)
 
-# Diagnostics from the last compile/bind (warn/ignore skips):
+# Diagnostics from the last compile_model / compile / bind:
 compiler.diagnostics
 ```
 
@@ -67,6 +68,11 @@ optional custom translator registry, and optional Phase-1 metadata cache.
 `compile_model` / `bind` separate static IR extraction from table binding so
 the same `ModelIR` can be reused across tables.
 
+**Concurrency:** do not call `compile` / `bind` / `compile_model` concurrently
+on the same `Compiler` instance (diagnostics are per-instance and not locked).
+The shared Phase-1 IR cache is thread-safe for concurrent reads/writes across
+instances.
+
 ## Other exports
 
 Also exported for advanced use and typing:
@@ -75,6 +81,9 @@ Also exported for advanced use and typing:
 - `SQLRulesWarning`
 - `CompilationContext`, `Constraint`, `FieldDescriptor`, `FieldIR`, `ModelIR`,
   `Diagnostic` (IR helpers)
+
+`DiagnosticsCollector` and `ModelIRCache` are internal (import from
+`sqlrules.ir` / `sqlrules.cache` only if you accept instability).
 
 ## Exceptions
 

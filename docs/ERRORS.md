@@ -145,7 +145,7 @@ Unsupported **types** always raise, regardless of `on_unsupported`.
 
 # Structured Diagnostics
 
-After `compile` / `bind`, inspect skipped constraints:
+After `compile` / `bind` / `compile_model`, inspect skipped constraints:
 
 ```python
 compiler = sqlrules.Compiler(on_unsupported="warn")
@@ -157,8 +157,11 @@ for diag in compiler.diagnostics:
 `Diagnostic` fields: `severity` (`"warning"` | `"info"`), `field`,
 `operator`, `value`, `message`.
 
-Diagnostics are separate from exceptions and do not change the rules
-dict return type.
+`compile_model` clears diagnostics. Diagnostics are separate from
+exceptions and do not change the rules dict return type.
+
+Do not call `compile` / `bind` concurrently on the same `Compiler`
+instance; diagnostics collection is not locked.
 
 ------------------------------------------------------------------------
 

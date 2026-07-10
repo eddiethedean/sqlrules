@@ -23,10 +23,14 @@ pre-commit install
 
 ```bash
 ruff check .
-ruff format .
+ruff format --check .
 mypy src/sqlrules
 pytest
+python -m build && twine check dist/*
 ```
+
+CI also verifies `pyproject.toml` / `__version__` sync and that the built
+wheel imports cleanly.
 
 ## Pull requests
 
@@ -36,17 +40,17 @@ pytest
 
 ## Releasing
 
-0.1.x releases are published to PyPI by pushing a version tag. Before tagging:
+Releases are published to PyPI by pushing a version tag. Before tagging:
 
 1. Confirm `pyproject.toml` and `sqlrules.__version__` match the changelog.
 2. Run the full check suite (`ruff`, `mypy`, `pytest`).
 3. Ensure CI is green on `main`.
 
-Then create and push the tag (example for 0.1.0):
+Then create and push the tag (example for 0.2.0):
 
 ```bash
-git tag -a v0.1.0 -m "sqlrules 0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.0 -m "sqlrules 0.2.0"
+git push origin v0.2.0
 ```
 
 The [release workflow](.github/workflows/release.yml) runs CI, builds the

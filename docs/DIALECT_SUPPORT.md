@@ -31,7 +31,7 @@ compiler deterministic.
 
 # Planned Dialects
 
-0.1 emits portable SQLAlchemy Core expressions. The table below describes
+Core emits portable SQLAlchemy Core expressions. The table below describes
 **intended** dialect posture, not a certified multi-backend test matrix.
 
   Dialect             Status        Notes

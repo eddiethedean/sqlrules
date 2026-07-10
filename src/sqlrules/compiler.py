@@ -53,6 +53,7 @@ class Compiler:
 
     def compile_model(self, model: type[BaseModel]) -> ModelIR:
         """Phase 1: inspect the model and extract constraint IR (no table binding)."""
+        self._collector.clear()
         if self.cache_enabled:
             cached = self._model_cache.get(model)
             if cached is not None:

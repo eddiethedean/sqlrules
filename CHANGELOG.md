@@ -13,23 +13,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Compiler.bind()` (column resolve + translate)
 - In-process metadata cache for Phase-1 `ModelIR` (default on; disable with
   `cache=False`)
-- Structured diagnostics: `Diagnostic`, `compiler.diagnostics` for skipped
-  constraints under `on_unsupported="warn"` / `"ignore"`
+- Structured diagnostics: public `Diagnostic` via `compiler.diagnostics` for
+  skipped constraints under `on_unsupported="warn"` / `"ignore"`
 - Type support for `UUID` and `time` (range comparisons for `time`;
   Literal/Enum for `UUID`)
 - First-class `pattern` constraint IR (no portable core translator; register
   a custom translator or use a future dialect plugin)
-- IR types: `ModelIR`, `FieldIR`, `Diagnostic`, `DiagnosticsCollector`
+- IR types: `ModelIR`, `FieldIR`, `Diagnostic`
 - Local benchmark suite: `python -m benchmarks.bench_compile`
 
 ### Changed
 
 - Unsupported-constraint error messages no longer hard-code a release version
 - `CompilationContext` carries an optional diagnostics collector
+- Unconstrained `UUID` / `time` fields are skipped (no longer type-rejected);
+  `timedelta` and containers still always raise
+- Validation-only metadata flags (`strip_whitespace`, `allow_inf_nan`, …) are
+  ignored when extracting constraints
+- `pattern` values from `re.Pattern` are normalized to strings in IR
+- Invalid `column_map` entries raise instead of falling through to table columns
 
 ### Fixed
 
-- N/A (feature release)
+- Reject `multiple_of` on `date` / `datetime` / `time` (previously emitted
+  nonsensical modulo SQL)
+- Module-level `sqlrules.compile(..., on_unsupported="warn")` now attributes
+  warnings to the caller, not `compiler.py`
+- `compile_model` clears stale diagnostics from prior binds
 
 ## [0.1.0] - 2026-07-10
 

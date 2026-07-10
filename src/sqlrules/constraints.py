@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
@@ -30,6 +31,7 @@ _UNSUPPORTED_TYPES: frozenset[type[Any]] = frozenset({timedelta})
 _UNSUPPORTED_ORIGINS: frozenset[Any] = frozenset({list, dict, tuple, set, frozenset})
 _LENGTH_OPERATORS: frozenset[str] = frozenset({"min_length", "max_length"})
 _NUMERIC_OPERATORS: frozenset[str] = frozenset({"gt", "ge", "lt", "le", "multiple_of"})
+_TEMPORAL_TYPES: frozenset[type[Any]] = frozenset({date, datetime, time})
 _VALIDATOR_TYPE_NAMES = frozenset(
     {
         "AfterValidator",
@@ -38,6 +40,33 @@ _VALIDATOR_TYPE_NAMES = frozenset(
         "WrapValidator",
         "FieldValidator",
         "Strict",
+    }
+)
+# Keys that map to IR constraint operators.
+_CONSTRAINT_KEYS: frozenset[str] = frozenset(
+    {
+        "gt",
+        "ge",
+        "lt",
+        "le",
+        "multiple_of",
+        "min_length",
+        "max_length",
+        "pattern",
+        "max_digits",
+        "decimal_places",
+    }
+)
+# Pydantic / StringConstraints flags that are validation-only (not SQL operators).
+_IGNORED_METADATA_KEYS: frozenset[str] = frozenset(
+    {
+        "strip_whitespace",
+        "to_upper",
+        "to_lower",
+        "strict",
+        "allow_inf_nan",
+        "ascii_only",
+        "coerce_numbers_to_str",
     }
 )
 
@@ -142,9 +171,35 @@ def ensure_supported_type(field: FieldDescriptor) -> None:
     )
 
 
+def _normalize_pattern(field_name: str, pattern: Any) -> str:
+    if isinstance(pattern, str):
+        return pattern
+    if isinstance(pattern, re.Pattern):
+        return str(pattern.pattern)
+    raise UnsupportedConstraintError(
+        field=field_name,
+        operator="pattern",
+        value=pattern,
+        suggestion="pattern must be a str or re.Pattern.",
+    )
+
+
 def _constraints_from_mapping(field_name: str, data: dict[str, Any]) -> list[Constraint]:
-    """Normalize metadata dict keys into IR constraints (including pattern)."""
-    return [Constraint(field_name, key, value) for key, value in data.items() if value is not None]
+    """Map whitelisted metadata keys into IR; ignore validation-only flags."""
+    constraints: list[Constraint] = []
+    for key, value in data.items():
+        if value is None or key in _IGNORED_METADATA_KEYS:
+            continue
+        if key == "pattern":
+            constraints.append(
+                Constraint(field_name, "pattern", _normalize_pattern(field_name, value))
+            )
+        elif key in _CONSTRAINT_KEYS:
+            constraints.append(Constraint(field_name, key, value))
+        else:
+            # Unknown keys remain unsupported operators (fail-fast).
+            constraints.append(Constraint(field_name, key, value))
+    return constraints
 
 
 def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
@@ -163,7 +218,7 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
 
     # First-class pattern attribute (e.g. _PydanticGeneralMetadata(pattern=...)).
     pattern = getattr(item, "pattern", None)
-    if isinstance(pattern, str):
+    if pattern is not None and isinstance(pattern, (str, re.Pattern)):
         constraints = _constraints_from_mapping(
             field_name,
             {
@@ -172,7 +227,9 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
                 if key != "pattern" and value is not None
             },
         )
-        constraints.append(Constraint(field_name, "pattern", pattern))
+        constraints.append(
+            Constraint(field_name, "pattern", _normalize_pattern(field_name, pattern))
+        )
         return constraints
 
     data = getattr(item, "__dict__", None)
@@ -223,6 +280,17 @@ def _reject_type_operator_mismatch(field: FieldDescriptor, constraint: Constrain
             operator=constraint.operator,
             value=constraint.value,
             suggestion=("UUID fields only support Literal/Enum-style constraints in SQLRules."),
+        )
+
+    if annotation in _TEMPORAL_TYPES and constraint.operator == "multiple_of":
+        raise UnsupportedConstraintError(
+            field=field.name,
+            operator=constraint.operator,
+            value=constraint.value,
+            suggestion=(
+                "multiple_of is not valid for date/datetime/time fields; "
+                "use gt/ge/lt/le range constraints."
+            ),
         )
 
     if constraint.operator in _LENGTH_OPERATORS and annotation is not str:

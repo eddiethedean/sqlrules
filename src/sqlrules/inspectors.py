@@ -24,7 +24,7 @@ def _field_aliases(field: Any) -> tuple[str | None, tuple[str, ...]]:
 
     for attr in ("validation_alias", "serialization_alias"):
         value = getattr(field, attr, None)
-        # AliasPath / AliasChoices are not used for column binding in 0.1.
+        # AliasPath / AliasChoices are not used for column binding.
         if isinstance(value, (AliasPath, AliasChoices)):
             continue
         candidate = _string_alias(value)

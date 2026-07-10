@@ -129,6 +129,8 @@ Supported operators:
 -   lt
 -   le
 
+`multiple_of` is rejected for temporal types.
+
 No timezone conversion is performed by SQLRules. Aware and naive
 `datetime` values are passed through unchanged.
 

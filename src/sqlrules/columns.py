@@ -55,8 +55,9 @@ def resolve_column(
         for candidate in candidates:
             if candidate in column_map:
                 column = _as_column_element(column_map[candidate])
-                if column is not None:
-                    return column
+                if column is None:
+                    raise MissingColumnError(field=field_name)
+                return column
 
     columns = getattr(table, "c", None)
     if columns is not None:

@@ -17,18 +17,21 @@ python -m benchmarks.bench_compile
 
 ## Compatibility
 
-- Cross-version Pydantic v2 tests via CI matrix
-- SQLAlchemy Core expression construction
-- SQLite dialect compilation smoke tests
+- CI matrix covers Python 3.10–3.13 with current Pydantic v2 / SQLAlchemy 2.x
+  from package dependencies (no separate Pydantic version matrix)
+- SQLAlchemy Core expression construction in unit tests
+- Occasional SQLite dialect `.compile(...)` smoke assertions in tests
 
 ## Quality gates
 
-CI runs on Python 3.10–3.13:
+CI (`.github/workflows/ci.yml`) runs:
 
-- `ruff check`
-- `ruff format --check`
-- `mypy` (strict)
-- `pytest` with coverage fail-under 95%
+- **Lint** (Python 3.12): `ruff check`, `ruff format --check`, `mypy`,
+  version sync between `pyproject.toml` and `sqlrules.__version__`
+- **Test** matrix (Python 3.10–3.13): `pytest` with coverage fail-under 95%
+- **Package**: `python -m build`, `twine check`, install wheel and import
+
+Benchmarks are local-only and are not a CI gate.
 
 ## Principles
 

@@ -37,13 +37,14 @@ Rule Dictionary
 
 ## Stage 1 -- Model Introspection
 
-Inputs: - Pydantic BaseModel subclass - SQLAlchemy Table, Alias, ORM
-class, or column mapping
+Inputs: - Pydantic BaseModel subclass
 
 Responsibilities: - Validate the input model. - Enumerate model
 fields. - Preserve declaration order.
 
-Output: - Iterable of field definitions.
+Output: - Iterable of field definitions (later cached as `ModelIR`).
+
+Table / column binding happens in Phase 2 (`bind`), not Stage 1.
 
 ## Stage 2 -- Field Extraction
 
@@ -141,11 +142,15 @@ Translation remains deterministic.
 
 ## Extension Points
 
+Available today:
+
+-   Inject a custom `TranslatorRegistry` via `Compiler(registry=...)`
+    (including a `pattern` translator).
+
 Future plugin hooks:
 
--   Register custom translators.
--   Register dialect-specific translators.
--   Override built-in mappings.
+-   Register dialect-specific translators via a plugin API.
+-   Override built-in mappings through versioned plugins.
 -   Add new IR transforms.
 
 ## Design Principles

@@ -115,7 +115,7 @@ column.in_(["ACTIVE", "DISABLED"])
 
 ------------------------------------------------------------------------
 
-## Date / DateTime
+## Date / DateTime / Time
 
 Supported operators:
 
@@ -124,7 +124,8 @@ Supported operators:
 -   lt
 -   le
 
-Translation is identical to numeric comparison.
+Translation is identical to numeric comparison. `multiple_of` is rejected
+for temporal types.
 
 ------------------------------------------------------------------------
 
@@ -169,15 +170,20 @@ If no translator exists, behavior depends on the compiler policy.
 
 ------------------------------------------------------------------------
 
-# Custom Translators (Future)
+# Custom Translators
 
-Applications may register additional translators.
+Applications may register additional translators on a
+`TranslatorRegistry` and pass it to `Compiler(registry=...)`.
 
 ``` python
+from sqlrules.translators import default_registry
+
+registry = default_registry()
 registry.register(
-    operator="between",
-    translator=BetweenTranslator(),
+    "pattern",
+    lambda constraint, column, context: column.op("~")(constraint.value),
 )
+compiler = sqlrules.Compiler(registry=registry)
 ```
 
 Custom translators should coexist with built-in translators without

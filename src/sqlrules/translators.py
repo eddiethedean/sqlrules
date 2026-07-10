@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import operator
+import sys
+import types
 import warnings
 from collections.abc import Callable
 from typing import Any, cast
@@ -16,6 +18,19 @@ Translator = Callable[[Constraint, ColumnElement[Any], CompilationContext], Colu
 
 class SQLRulesWarning(UserWarning):
     """Warning emitted when an unsupported constraint is skipped."""
+
+
+def _warning_stacklevel() -> int:
+    """Stacklevel that attributes warnings to the first frame outside sqlrules."""
+    frame: types.FrameType | None = sys._getframe(1)
+    level = 1
+    while frame is not None:
+        module = frame.f_globals.get("__name__", "")
+        if not (isinstance(module, str) and module.startswith("sqlrules")):
+            return level
+        frame = frame.f_back
+        level += 1
+    return 2
 
 
 def _binary(op: Callable[[Any, Any], Any]) -> Translator:
@@ -123,9 +138,7 @@ class TranslatorRegistry:
                     value=constraint.value,
                     message=message,
                 )
-                # sqlrules.compile → Compiler.bind → translate → warn
-                # stacklevel=4 attributes the warning to the caller's code.
-                warnings.warn(message, SQLRulesWarning, stacklevel=4)
+                warnings.warn(message, SQLRulesWarning, stacklevel=_warning_stacklevel())
             else:
                 context.record(
                     severity="info",

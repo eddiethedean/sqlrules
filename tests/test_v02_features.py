@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import warnings
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
+from enum import Enum
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -238,3 +240,139 @@ def test_context_record_noop_without_collector() -> None:
 
     ctx = CompilationContext(on_unsupported="ignore")
     ctx.record(severity="info", field="x", operator="pattern", message="noop")
+
+
+def test_temporal_multiple_of_rejected(items: Table) -> None:
+    class DateFilter(BaseModel):
+        created: Annotated[datetime, Field(multiple_of=1)]  # type: ignore[type-var]
+
+    class TimeFilter(BaseModel):
+        starts: Annotated[time, Field(multiple_of=1)]  # type: ignore[type-var]
+
+    with pytest.raises(UnsupportedConstraintError, match="multiple_of"):
+        sqlrules.compile(DateFilter, items, cache=False)
+    with pytest.raises(UnsupportedConstraintError, match="multiple_of"):
+        sqlrules.compile(TimeFilter, items, cache=False)
+
+
+def test_re_pattern_normalized_to_string(items: Table) -> None:
+    import re
+
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=re.compile(r"^A"))]
+
+    compiler = sqlrules.Compiler(cache=False)
+    model_ir = compiler.compile_model(Filter)
+    assert model_ir.fields[0].constraints == (Constraint("name", "pattern", r"^A"),)
+
+
+def test_invalid_pattern_type_rejected() -> None:
+    from sqlrules.constraints import _normalize_pattern
+
+    with pytest.raises(UnsupportedConstraintError, match="pattern"):
+        _normalize_pattern("name", 123)
+
+
+def test_validation_only_flags_ignored(items: Table) -> None:
+    from pydantic import StringConstraints
+
+    class StrFilter(BaseModel):
+        name: Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
+
+    class FloatFilter(BaseModel):
+        score: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+
+    assert "name" in sqlrules.compile(StrFilter, items, cache=False)
+    assert "score" in sqlrules.compile(FloatFilter, items, cache=False)
+
+
+def test_module_warn_attributes_outside_sqlrules(items: Table) -> None:
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=r"^A")]
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sqlrules.compile(Filter, items, on_unsupported="warn", cache=False)
+
+    assert caught
+    path = caught[0].filename.replace("\\", "/")
+    assert "/src/sqlrules/" not in path
+    assert not path.endswith("/sqlrules/compiler.py")
+
+
+def test_uuid_enum_and_length_reject(items: Table) -> None:
+    class IdEnum(Enum):
+        A = UUID("12345678-1234-5678-1234-567812345678")
+        B = UUID("12345678-1234-5678-1234-567812345679")
+
+    class EnumFilter(BaseModel):
+        id: IdEnum
+
+    rules = sqlrules.compile(EnumFilter, items, cache=False)
+    assert "id" in rules
+
+    class LenFilter(BaseModel):
+        id: Annotated[UUID, Field(min_length=1)]  # type: ignore[type-var]
+
+    with pytest.raises(UnsupportedConstraintError, match="min_length"):
+        sqlrules.compile(LenFilter, items, cache=False)
+
+
+def test_pattern_on_non_str_rejected(items: Table) -> None:
+    class Filter(BaseModel):
+        age: Annotated[int, Field(pattern=r"x")]  # type: ignore[type-var]
+
+    with pytest.raises(UnsupportedConstraintError, match="pattern"):
+        sqlrules.compile(Filter, items, cache=False)
+
+
+def test_phase1_pattern_phase2_policy(items: Table) -> None:
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=r"^A")]
+
+    model_ir = sqlrules.Compiler(cache=False).compile_model(Filter)
+    assert model_ir.fields[0].constraints[0].operator == "pattern"
+
+    with pytest.raises(UnsupportedConstraintError, match="pattern"):
+        sqlrules.Compiler(on_unsupported="raise", cache=False).bind(model_ir, items)
+
+    with pytest.warns(SQLRulesWarning, match="pattern"):
+        assert sqlrules.Compiler(on_unsupported="warn", cache=False).bind(model_ir, items) == {}
+
+
+def test_shared_default_cache_across_compilers(items: Table) -> None:
+    from sqlrules.cache import default_cache
+
+    class Filter(BaseModel):
+        age: Annotated[int, Field(ge=18)]
+
+    default_cache().clear()
+    c1 = sqlrules.Compiler(cache=True)
+    c2 = sqlrules.Compiler(cache=True)
+    ir1 = c1.compile_model(Filter)
+    ir2 = c2.compile_model(Filter)
+    assert ir1 is ir2
+
+
+def test_compile_model_clears_diagnostics(items: Table) -> None:
+    class Bad(BaseModel):
+        name: Annotated[str, Field(pattern=r"^A")]
+
+    class Good(BaseModel):
+        age: Annotated[int, Field(ge=18)]
+
+    compiler = sqlrules.Compiler(on_unsupported="ignore", cache=False)
+    compiler.compile(Bad, items)
+    assert compiler.diagnostics
+    compiler.compile_model(Good)
+    assert compiler.diagnostics == ()
+
+
+def test_constrained_time_missing_column_raises() -> None:
+    table = Table("t", MetaData(), Column("other", Integer))
+
+    class Filter(BaseModel):
+        starts: Annotated[time, Field(ge=time(9, 0))]
+
+    with pytest.raises(sqlrules.MissingColumnError):
+        sqlrules.compile(Filter, table, cache=False)

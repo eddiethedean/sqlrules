@@ -241,6 +241,17 @@ def test_column_map_skips_non_column_values() -> None:
         sqlrules.compile(Filter, table, column_map={"age": "not-a-column"})  # type: ignore[dict-item]
 
 
+def test_column_map_invalid_value_does_not_fall_through() -> None:
+    """A present but invalid column_map entry must not bind the table column."""
+    table = Table("users", MetaData(), Column("age", Integer))
+
+    class Filter(BaseModel):
+        age: Annotated[int, Field(ge=18)]
+
+    with pytest.raises(MissingColumnError):
+        sqlrules.compile(Filter, table, column_map={"age": "not-a-column"})  # type: ignore[dict-item]
+
+
 def test_resolve_column_alias_kwarg_without_aliases_list() -> None:
     from sqlrules.columns import resolve_column
 
