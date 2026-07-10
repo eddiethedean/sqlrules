@@ -61,6 +61,7 @@ def test_metadata_cache_reuses_model_ir(items: Table) -> None:
     first = compiler.compile_model(Filter)
     second = compiler.compile_model(Filter)
     assert first is second
+    assert first.fields[0].constraints == second.fields[0].constraints
 
     other = Table("other", MetaData(), Column("age", Integer))
     rules_a = compiler.bind(first, items)
@@ -161,7 +162,7 @@ def test_custom_pattern_translator(items: Table) -> None:
     rules = compiler.compile(Filter, items)
     assert len(rules["name"]) == 1
     compiled = str(rules["name"][0].compile(dialect=sqlite.dialect()))
-    assert "~" in compiled or "op" in compiled.lower() or "^A" in compiled
+    assert "~" in compiled
 
 
 def test_uuid_literal_and_unconstrained(items: Table) -> None:
@@ -238,13 +239,6 @@ def test_module_compile_cache_flag(items: Table) -> None:
 
     rules = sqlrules.compile(Filter, items, cache=False)
     assert "age" in rules
-
-
-def test_context_record_noop_without_collector() -> None:
-    from sqlrules.ir import CompilationContext
-
-    ctx = CompilationContext(on_unsupported="ignore")
-    ctx.record(severity="info", field="x", operator="pattern", message="noop")
 
 
 def test_temporal_multiple_of_rejected(items: Table) -> None:

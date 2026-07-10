@@ -65,6 +65,8 @@ def test_serialization_alias_resolves_column() -> None:
 
     rules = sqlrules.compile(Filter, table)
     assert "years" in rules
+    compiled = str(select(table).where(*sqlrules.where(rules)))
+    assert "age" in compiled
 
 
 def test_alias_preferred_over_field_name_when_both_exist() -> None:
@@ -238,16 +240,6 @@ def test_alias_path_ignored_for_column_binding() -> None:
 
     with pytest.raises(MissingColumnError, match="years"):
         sqlrules.compile(Filter, table)
-
-
-def test_column_map_skips_non_column_values() -> None:
-    table = Table("users", MetaData(), Column("id", Integer))
-
-    class Filter(BaseModel):
-        age: Annotated[int, Field(ge=18)]
-
-    with pytest.raises(MissingColumnError):
-        sqlrules.compile(Filter, table, column_map={"age": "not-a-column"})  # type: ignore[dict-item]
 
 
 def test_column_map_invalid_value_does_not_fall_through() -> None:

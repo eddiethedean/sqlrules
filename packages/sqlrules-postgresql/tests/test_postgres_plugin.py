@@ -41,6 +41,7 @@ def test_pattern_compiles() -> None:
     ).compile(Filter, table)
     compiled = str(rules["name"][0].compile(dialect=postgresql.dialect()))
     assert "~" in compiled
+    assert "~*" not in compiled
 
 
 def test_pattern_ignore_case_uses_star() -> None:
@@ -80,9 +81,18 @@ def test_json_array_range_operators() -> None:
     assert len(rules["span"]) == 2
 
     dialect = postgresql.dialect()
-    meta_sql = " ".join(str(expr.compile(dialect=dialect)) for expr in rules["meta"])
-    assert "@>" in meta_sql or "?" in meta_sql or "has_key" in meta_sql.lower()
-    tags_sql = " ".join(str(expr.compile(dialect=dialect)) for expr in rules["tags"])
-    assert "@>" in tags_sql or "&&" in tags_sql
-    span_sql = " ".join(str(expr.compile(dialect=dialect)) for expr in rules["span"])
-    assert "@>" in span_sql or "&&" in span_sql
+    contains_sql = str(rules["meta"][0].compile(dialect=dialect))
+    has_key_sql = str(rules["meta"][1].compile(dialect=dialect))
+    assert "@>" in contains_sql
+    assert "?" in has_key_sql
+    assert "@>" not in has_key_sql
+
+    array_contains_sql = str(rules["tags"][0].compile(dialect=dialect))
+    array_overlap_sql = str(rules["tags"][1].compile(dialect=dialect))
+    assert "@>" in array_contains_sql and "&&" not in array_contains_sql
+    assert "&&" in array_overlap_sql
+
+    range_contains_sql = str(rules["span"][0].compile(dialect=dialect))
+    range_overlap_sql = str(rules["span"][1].compile(dialect=dialect))
+    assert "@>" in range_contains_sql and "&&" not in range_contains_sql
+    assert "&&" in range_overlap_sql

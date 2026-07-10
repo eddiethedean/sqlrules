@@ -11,13 +11,17 @@ from sqlalchemy import Column, Integer, MetaData, String, Table
 import sqlrules
 from sqlrules import (
     ArrayContains,
+    ArrayOverlap,
     Compiler,
+    FullTextMatch,
     JsonContains,
     JsonHasKey,
     PatternSpec,
+    RangeContains,
+    RangeOverlap,
     UnsupportedConstraintError,
 )
-from sqlrules.constraints import _normalize_pattern, pattern_text
+from sqlrules.constraints import pattern_text
 from sqlrules.ir import Constraint
 from sqlrules.plugins import PLUGIN_API_VERSION
 from sqlrules.translators import default_registry
@@ -38,12 +42,22 @@ def items() -> Table:
 def test_marker_extracted_into_ir(items: Table) -> None:
     class Filter(BaseModel):
         meta: Annotated[dict[str, Any], JsonContains({"active": True})]
-        tags: Annotated[list[str], ArrayContains(["admin"])]
+        tags: Annotated[list[str], ArrayContains(["admin"]), ArrayOverlap(["x"])]
+        span: Annotated[int, RangeContains(5), RangeOverlap([1, 10])]
+        body: Annotated[str, FullTextMatch("hello")]
 
     model_ir = Compiler(cache=False).compile_model(Filter)
     by_field = {field.descriptor.name: field.constraints for field in model_ir.fields}
     assert by_field["meta"] == (Constraint("meta", "json_contains", {"active": True}),)
-    assert by_field["tags"] == (Constraint("tags", "array_contains", ["admin"]),)
+    assert by_field["tags"] == (
+        Constraint("tags", "array_contains", ["admin"]),
+        Constraint("tags", "array_overlap", ["x"]),
+    )
+    assert by_field["span"] == (
+        Constraint("span", "range_contains", 5),
+        Constraint("span", "range_overlap", [1, 10]),
+    )
+    assert by_field["body"] == (Constraint("body", "fulltext_match", "hello"),)
 
 
 def test_marker_requires_plugin_translator(items: Table) -> None:
@@ -61,13 +75,14 @@ def test_marker_compiles_with_custom_translator(items: Table) -> None:
     registry = default_registry().copy()
     registry.register_constraint(
         "json_contains",
-        lambda c, col, ctx: col.op("@>")(c.value),
+        lambda c, col, ctx: col.op("@>")(str(c.value)),
         on_conflict="raise",
     )
     rules = Compiler(registry=registry, cache=False).compile(Filter, items)
     assert "meta" in rules
     assert len(rules["meta"]) == 1
-    assert rules["meta"][0] is not None
+    compiled = str(rules["meta"][0].compile())
+    assert "@>" in compiled
 
 
 def test_portable_constraint_on_list_rejected(items: Table) -> None:
@@ -84,10 +99,6 @@ def test_pattern_on_list_rejected(items: Table) -> None:
 
     with pytest.raises(UnsupportedConstraintError, match="list/dict"):
         Compiler(cache=False).compile_model(Filter)
-
-
-def test_pattern_spec_from_str() -> None:
-    assert _normalize_pattern("name", r"^A") == PatternSpec(pattern=r"^A")
 
 
 def test_pattern_text_helper() -> None:

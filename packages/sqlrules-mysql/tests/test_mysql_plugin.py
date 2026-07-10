@@ -39,7 +39,12 @@ def test_pattern_and_json_compile() -> None:
     ).compile(Filter, table)
     dialect = mysql.dialect()
     assert "REGEXP" in str(rules["name"][0].compile(dialect=dialect))
-    meta_sql = " ".join(str(expr.compile(dialect=dialect)) for expr in rules["meta"])
-    assert "json_contains" in meta_sql.lower()
-    body_sql = str(rules["body"][0].compile(dialect=dialect))
-    assert "match" in body_sql.lower() or "against" in body_sql.lower()
+
+    contains_sql = str(rules["meta"][0].compile(dialect=dialect)).lower()
+    has_key_sql = str(rules["meta"][1].compile(dialect=dialect)).lower()
+    assert "json_contains(" in contains_sql
+    assert "json_contains_path" not in contains_sql
+    assert "json_contains_path" in has_key_sql
+
+    body_sql = str(rules["body"][0].compile(dialect=dialect)).lower()
+    assert "match" in body_sql and "against" in body_sql

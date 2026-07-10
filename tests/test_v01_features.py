@@ -141,6 +141,14 @@ def test_field_alias_resolves_column(people: Table) -> None:
 
     rules = sqlrules.compile(Filter, people)
     assert "years" in rules
+    compiled = str(
+        rules["years"][0].compile(
+            dialect=sqlite.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    assert "user_age" in compiled
+    assert ">= 18" in compiled or ">=18" in compiled.replace(" ", "")
 
 
 def test_unsupported_container_type(people: Table) -> None:
