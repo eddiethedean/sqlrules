@@ -31,6 +31,26 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build twine
 
+      - name: Verify tag matches package version
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          assert tag.startswith("v"), tag
+          expected = tag[1:]
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          init = Path("src/sqlrules/__init__.py").read_text()
+          marker = '__version__ = "'
+          start = init.index(marker) + len(marker)
+          end = init.index('"', start)
+          init_version = init[start:end]
+          assert version == expected == init_version, (version, expected, init_version)
+          print(f"tag/version ok: {tag} -> {version}")
+          PY
+
       - name: Build distributions
         run: python -m build
 

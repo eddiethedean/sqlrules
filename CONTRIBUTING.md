@@ -65,8 +65,16 @@ git tag -a v0.3.0 -m "sqlrules 0.3.0"
 git push origin v0.3.0
 ```
 
-The [release workflow](.github/workflows/release.yml) runs CI, builds the
-sdist/wheel, and publishes with `PYPI_API_TOKEN`.
+The [release workflow](.github/workflows/release.yml) runs CI, verifies the
+tag matches `pyproject.toml` / `__version__`, builds the sdist/wheel, and
+publishes **core** `sqlrules` with `PYPI_API_TOKEN`.
 
-Dialect plugin packages under `packages/` are versioned independently but
-should stay compatible with the declared `sqlrules` dependency range.
+Dialect plugin packages under `packages/` are versioned independently and
+are **not** published by the core release workflow. Publish them separately
+after core `0.3.0` is on PyPI (they depend on `sqlrules>=0.3,<0.4`):
+
+```bash
+python -m build packages/sqlrules-postgresql
+python -m build packages/sqlrules-sqlite
+twine upload dist-plugins/*   # after building with --outdir dist-plugins
+```

@@ -108,5 +108,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs clarify that `on_unsupported` does not soften unsupported types;
   plugin / two-phase compile designs are marked as future
 
+[0.3.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.3.0
 [0.2.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.2.0
 [0.1.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.1.0
