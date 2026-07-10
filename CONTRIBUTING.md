@@ -16,6 +16,7 @@ Thanks for helping improve SQLRules.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+pip install -e ".[docs]"   # optional: Sphinx / Read the Docs local builds
 pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite \
   -e packages/sqlrules-mysql -e packages/sqlrules-mssql
 pre-commit install
@@ -29,6 +30,7 @@ ruff format --check .
 mypy src/sqlrules
 pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests \
   packages/sqlrules-mysql/tests packages/sqlrules-mssql/tests
+sphinx-build -W -b html docs docs/_build/html
 python -m build && twine check dist/*
 python -m build packages/sqlrules-postgresql --outdir dist-plugins
 python -m build packages/sqlrules-sqlite --outdir dist-plugins
@@ -68,8 +70,9 @@ git tag -a v0.4.1 -m "sqlrules 0.4.1"
 git push origin v0.4.1
 ```
 
-The [release workflow](.github/workflows/release.yml) runs CI, publishes
-core, then publishes each plugin whose version equals the tag.
+The [release workflow](https://github.com/eddiethedean/sqlrules/blob/main/.github/workflows/release.yml)
+runs CI, publishes core, then publishes each plugin whose version equals
+the tag.
 
 At 1.0, bump core and plugins together and change plugin dependency pins
 to `sqlrules>=1,<2`.

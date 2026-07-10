@@ -18,3 +18,4 @@ build/
 .vscode/
 *.swp
 *.swo
+docs/_build/

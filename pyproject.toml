@@ -51,6 +51,13 @@ dev = [
   "build>=1.2",
   "twine>=5.0",
 ]
+docs = [
+  "sphinx>=8.0,<9",
+  "myst-parser>=4.0,<5",
+  "furo>=2024.8.6",
+  "sphinx-copybutton>=0.5.2",
+  "linkify-it-py>=2.0",
+]
 postgresql = ["sqlrules-postgresql>=0.4,<0.5"]
 sqlite = ["sqlrules-sqlite>=0.4,<0.5"]
 mysql = ["sqlrules-mysql>=0.4,<0.5"]
@@ -64,7 +71,7 @@ dialects = [
 
 [project.urls]
 Homepage = "https://github.com/eddiethedean/sqlrules"
-Documentation = "https://github.com/eddiethedean/sqlrules#readme"
+Documentation = "https://sqlrules.readthedocs.io"
 Repository = "https://github.com/eddiethedean/sqlrules"
 Changelog = "https://github.com/eddiethedean/sqlrules/blob/main/CHANGELOG.md"
 Issues = "https://github.com/eddiethedean/sqlrules/issues"
@@ -77,6 +84,7 @@ include = [
   "/benchmarks",
   "/packages",
   "/README.md",
+  "/ROADMAP.md",
   "/LICENSE",
   "/CHANGELOG.md",
   "/CONTRIBUTING.md",

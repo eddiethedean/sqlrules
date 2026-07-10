@@ -49,5 +49,5 @@
 - Comprehensive test coverage
 
 Post-1.0 work (performance, DX, ecosystem examples, advanced constraints)
-is tracked in [MILESTONES.md](MILESTONES.md) as optional follow-ons — not
-part of the 1.0 definition.
+is tracked in `docs/MILESTONES.md` as optional follow-ons — not part of the
+1.0 definition.

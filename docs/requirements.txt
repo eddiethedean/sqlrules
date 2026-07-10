@@ -1,0 +1,7 @@
+# Prefer installing via `pip install -e ".[docs]"` (used by .readthedocs.yaml).
+# This file documents the docs stack for local/ad-hoc installs.
+sphinx>=8.0,<9
+myst-parser>=4.0,<5
+furo>=2024.8.6
+sphinx-copybutton>=0.5.2
+linkify-it-py>=2.0

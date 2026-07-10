@@ -109,10 +109,17 @@ constraints into SQLAlchemy expressions.
 
 ## Documentation
 
-See [`docs/index.md`](docs/index.md) for the full documentation set,
-including the [spec](docs/SPEC.md), [API](docs/API.md),
-[plugin system](docs/PLUGIN_SYSTEM.md), [architecture](docs/ARCHITECTURE.md),
-and [roadmap](docs/ROADMAP.md).
+Full docs: [sqlrules.readthedocs.io](https://sqlrules.readthedocs.io)
+
+Source lives under [`docs/`](docs/index.md) (spec, API, plugins, architecture).
+See also the [roadmap](ROADMAP.md).
+
+Build locally:
+
+```bash
+pip install -e ".[docs]"
+sphinx-build -W -b html docs docs/_build/html
+```
 
 ## Development
 

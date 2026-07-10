@@ -3,42 +3,61 @@
 SQLRules compiles a safe subset of Pydantic constraints into SQLAlchemy
 WHERE expressions.
 
-## Start here
+```{toctree}
+:maxdepth: 1
+:caption: Start here
 
-- [README](../README.md) — quick start and install
-- [SPEC](SPEC.md) — contract
-- [API](API.md) — public surface
-- [CONSTRAINTS](CONSTRAINTS.md) — constraint → expression map
-- [PLUGIN_SYSTEM](PLUGIN_SYSTEM.md) — versioned plugins and dialect packages
+SPEC
+API
+reference
+CONSTRAINTS
+PLUGIN_SYSTEM
+```
 
-## Architecture
+```{toctree}
+:maxdepth: 1
+:caption: Architecture
 
-- [ARCHITECTURE](ARCHITECTURE.md) — high-level pipeline
-- [COMPILER](COMPILER.md) — compilation stages
-- [TRANSLATORS](TRANSLATORS.md) — IR → SQLAlchemy
-- [INTERNAL_API](INTERNAL_API.md) — internal components
-- [ERRORS](ERRORS.md) — exception hierarchy and policies
+ARCHITECTURE
+COMPILER
+TRANSLATORS
+INTERNAL_API
+ERRORS
+```
 
-## Compatibility
+```{toctree}
+:maxdepth: 1
+:caption: Compatibility
 
-- [TYPE_SUPPORT](TYPE_SUPPORT.md) — supported Python / Pydantic types
-- [DIALECT_SUPPORT](DIALECT_SUPPORT.md) — portable vs dialect-specific behavior
-- [SECURITY](SECURITY.md) — trust model and ReDoS notes
-- [TESTING](TESTING.md) — test strategy
+TYPE_SUPPORT
+DIALECT_SUPPORT
+SECURITY
+TESTING
+```
 
-## Design
+```{toctree}
+:maxdepth: 1
+:caption: Design
 
-- [VISION](VISION.md)
-- [PHILOSOPHY](PHILOSOPHY.md)
-- [NON_GOALS](NON_GOALS.md)
-- [DESIGN_DECISIONS](DESIGN_DECISIONS.md)
+VISION
+PHILOSOPHY
+NON_GOALS
+DESIGN_DECISIONS
+```
 
-## Planning
+```{toctree}
+:maxdepth: 1
+:caption: Planning
 
-- [ROADMAP](ROADMAP.md)
-- [MILESTONES](MILESTONES.md)
-- [PERFORMANCE](PERFORMANCE.md)
+roadmap
+MILESTONES
+PERFORMANCE
+changelog
+```
 
-## Contributing
+```{toctree}
+:maxdepth: 1
+:caption: Project
 
-- [CONTRIBUTING](../CONTRIBUTING.md)
+CONTRIBUTING
+```

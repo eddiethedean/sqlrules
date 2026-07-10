@@ -66,7 +66,7 @@ class CompanyPlugin:
 
 `api_version` must equal `sqlrules.PLUGIN_API_VERSION` (`"1"`).
 
-### Version policy
+## Version policy
 
 API v1 includes ``PatternSpec`` for ``pattern`` constraint values. Always
 use ``pattern_text(constraint.value)``; do not assume a bare ``str``.

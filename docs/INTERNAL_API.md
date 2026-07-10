@@ -27,7 +27,7 @@ compile() / Compiler
 
 There are no separate `IRBuilder` / `RuleAssembler` / `ModelInspector`
 classes — those names are historical. Behavior lives in the modules above
-plus [`compiler.py`](../src/sqlrules/compiler.py).
+plus `sqlrules.compiler`.
 
 ------------------------------------------------------------------------
 
