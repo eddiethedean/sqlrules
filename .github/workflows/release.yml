@@ -59,7 +59,11 @@ jobs:
           done
           twine check dist-all/*
 
-      - name: Publish to PyPI (Trusted Publishing)
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist-all/
+          # Prefer API token when present (creates new dialect projects on first
+          # upload). OIDC Trusted Publishing also works once each project has a
+          # publisher configured; omit password then and rely on id-token.
+          password: ${{ secrets.PYPI_API_TOKEN }}

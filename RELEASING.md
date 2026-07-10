@@ -24,10 +24,13 @@ make check
 make dist
 ```
 
-6. Confirm **PyPI Trusted Publishing** (OIDC) is configured for **each** of
-   these projects: `sqlrules`, `sqlrules-postgresql`, `sqlrules-sqlite`,
-   `sqlrules-mysql`, `sqlrules-mssql`. Publisher = GitHub, repository =
-   `eddiethedean/sqlrules`, workflow = `release.yml`.
+6. Confirm **PyPI credentials** for publishing:
+   - **API token** (current path): repository secret `PYPI_API_TOKEN` with
+     upload rights (can create new dialect projects on first upload), **or**
+   - **Trusted Publishing** (OIDC): configure a publisher on each of
+     `sqlrules`, `sqlrules-postgresql`, `sqlrules-sqlite`, `sqlrules-mysql`,
+     `sqlrules-mssql` for workflow `release.yml`, then remove the
+     `password:` input from the publish step so OIDC is used.
 
 ## Tag and publish
 
