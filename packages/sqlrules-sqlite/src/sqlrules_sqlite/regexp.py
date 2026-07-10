@@ -13,6 +13,9 @@ def register_regexp(connection: sqlite3.Connection) -> None:
 
     The helper interprets an optional ``(?i)`` prefix (inserted by the
     pattern translator for case-insensitive ``PatternSpec`` values).
+
+    Invalid patterns raise ``re.error`` (surfaced by SQLite as an
+    operational error) instead of silently matching nothing.
     """
 
     def regexp(pattern: str | None, value: str | None) -> bool:
@@ -22,9 +25,6 @@ def register_regexp(connection: sqlite3.Connection) -> None:
         if pattern.startswith("(?i)"):
             flags |= re.IGNORECASE
             pattern = pattern[4:]
-        try:
-            return re.search(pattern, value, flags) is not None
-        except re.error:
-            return False
+        return re.search(pattern, value, flags) is not None
 
     connection.create_function("REGEXP", 2, regexp)

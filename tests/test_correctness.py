@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 import pytest
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, Integer, MetaData, String, Table, select
+from sqlalchemy import Column, Float, Integer, MetaData, Numeric, String, Table, select
 from sqlalchemy.sql.elements import ColumnElement
 
 import sqlrules
@@ -280,6 +280,85 @@ def test_multiple_of_non_comparable_value() -> None:
             Column("age", Integer),
             CompilationContext(),
         )
+
+
+def test_multiple_of_nan_and_inf_rejected() -> None:
+    table = Table("users", MetaData(), Column("score", Float))
+
+    class NanFilter(BaseModel):
+        score: Annotated[float, Field(multiple_of=float("nan"))]
+
+    class InfFilter(BaseModel):
+        score: Annotated[float, Field(multiple_of=float("inf"))]
+
+    with pytest.raises(UnsupportedConstraintError, match="multiple_of"):
+        sqlrules.compile(NanFilter, table)
+    with pytest.raises(UnsupportedConstraintError, match="multiple_of"):
+        sqlrules.compile(InfFilter, table)
+
+
+def test_multiple_of_decimal_nan_rejected() -> None:
+    from decimal import Decimal
+
+    table = Table("users", MetaData(), Column("score", Numeric))
+
+    class Filter(BaseModel):
+        score: Annotated[Decimal, Field(multiple_of=Decimal("nan"))]
+
+    with pytest.raises(UnsupportedConstraintError, match="multiple_of"):
+        sqlrules.compile(Filter, table)
+
+
+def test_flag_enum_rejected() -> None:
+    from enum import Flag
+
+    table = Table("users", MetaData(), Column("perms", Integer))
+
+    class Perm(Flag):
+        R = 1
+        W = 2
+
+    class Filter(BaseModel):
+        perms: Perm
+
+    with pytest.raises(UnsupportedConstraintError, match="Flag"):
+        sqlrules.compile(Filter, table)
+
+
+def test_verbose_pattern_rejected() -> None:
+    import re
+
+    table = Table("users", MetaData(), Column("name", String))
+
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=re.compile(r"^ a $", re.VERBOSE))]
+
+    with pytest.raises(UnsupportedConstraintError, match="VERBOSE"):
+        sqlrules.compile(Filter, table)
+
+
+def test_pattern_only_missing_column_ignored() -> None:
+    table = Table("users", MetaData(), Column("other", Integer))
+
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=r"^A")]
+
+    assert sqlrules.compile(Filter, table, on_unsupported="ignore", cache=False) == {}
+
+
+def test_empty_enum_rejected() -> None:
+    from enum import Enum
+
+    table = Table("users", MetaData(), Column("status", String))
+
+    class Empty(Enum):
+        pass
+
+    class Filter(BaseModel):
+        status: Empty
+
+    with pytest.raises(UnsupportedConstraintError, match="Enum"):
+        sqlrules.compile(Filter, table)
 
 
 def test_predicate_unsupported() -> None:

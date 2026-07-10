@@ -133,12 +133,18 @@ def _predicate_float(
             "SQL Server strict float/Decimal type_check requires a numeric column.",
         )
     if _is_type(column, String):
-        return cast(ColumnElement[bool], column.isnot(None) & (column != ""))
+        _unsupported(
+            field,
+            spec,
+            "SQL Server lax float/Decimal type_check on String columns is not "
+            "supported (no portable numeric shape check). Use a numeric column "
+            "or strict=True with Float/Numeric/Integer.",
+        )
     _unsupported(
         field,
         spec,
-        "SQL Server float/Decimal type_check supports numeric columns; "
-        "String lax checks are intentionally limited (no portable regex).",
+        "SQL Server float/Decimal type_check supports Float, Numeric, or Integer "
+        "columns.",
     )
     raise AssertionError("unreachable")
 

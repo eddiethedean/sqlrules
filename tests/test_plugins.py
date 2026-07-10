@@ -266,6 +266,18 @@ def test_validate_plugin_rejects_empty_name() -> None:
         validate_plugin(EmptyName())
 
 
+def test_validate_plugin_rejects_class_instead_of_instance() -> None:
+    class MyPlugin:
+        name = "my"
+        api_version = PLUGIN_API_VERSION
+
+        def register(self, registry: TranslatorRegistry) -> None:
+            return None
+
+    with pytest.raises(sqlrules.PluginError, match="instance"):
+        validate_plugin(MyPlugin)
+
+
 def test_validate_plugin_rejects_non_callable_register() -> None:
     class BadRegister:
         name = "bad"

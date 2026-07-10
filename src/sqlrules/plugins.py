@@ -37,6 +37,15 @@ class SQLRulesPlugin(Protocol):
 
 def validate_plugin(plugin: Any) -> SQLRulesPlugin:
     """Validate a plugin object against the versioned plugin API."""
+    if isinstance(plugin, type):
+        raise PluginError(
+            message=(
+                f"Plugin {plugin!r} is a class; pass an instance "
+                f"(e.g. {getattr(plugin, '__name__', 'Plugin')}())."
+            ),
+            plugin=plugin,
+        )
+
     if not isinstance(plugin, SQLRulesPlugin):
         raise PluginError(
             message=(

@@ -22,7 +22,7 @@ def test_plugin_api() -> None:
     assert_builtins_preserved(plugin, on_conflict="replace")
 
 
-def test_length_uses_len() -> None:
+def test_length_uses_trailing_space_aware_len() -> None:
     class Filter(BaseModel):
         name: Annotated[str, Field(min_length=2, max_length=10)]
 
@@ -37,6 +37,7 @@ def test_length_uses_len() -> None:
     max_sql = str(rules["name"][1].compile(dialect=dialect)).lower()
     assert "len(" in min_sql and ">=" in min_sql
     assert "len(" in max_sql and "<=" in max_sql
+    assert "||" in min_sql or "concat" in min_sql or "+" in min_sql
     assert "length(" not in min_sql
     assert "length(" not in max_sql
 
@@ -56,7 +57,48 @@ def test_json_operators_compile() -> None:
     contains_sql = str(rules["meta"][0].compile(dialect=dialect)).lower()
     has_key_sql = str(rules["meta"][1].compile(dialect=dialect)).lower()
     assert "json_value" in contains_sql
-    assert "json_value" in has_key_sql or "json_query" in has_key_sql
+    assert "openjson" in has_key_sql
+
+
+def test_json_contains_none_uses_openjson_null_type() -> None:
+    class Filter(BaseModel):
+        meta: Annotated[dict[str, Any], JsonContains({"a": None})]
+
+    table = Table("items", MetaData(), Column("meta", Text))
+    rules = Compiler(
+        plugins=[MssqlPlugin()],
+        dialect="mssql",
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(
+        rules["meta"][0].compile(
+            dialect=mssql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    ).lower()
+    assert "openjson" in compiled
+    assert "null" in compiled
+    assert "'none'" not in compiled
+
+
+def test_json_contains_nested_uses_compact_json_query() -> None:
+    class Filter(BaseModel):
+        meta: Annotated[dict[str, Any], JsonContains({"nested": {"x": 1}})]
+
+    table = Table("items", MetaData(), Column("meta", Text))
+    rules = Compiler(
+        plugins=[MssqlPlugin()],
+        dialect="mssql",
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(
+        rules["meta"][0].compile(
+            dialect=mssql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    assert '{"x":1}' in compiled
+    assert '{"x": 1}' not in compiled
 
 
 def test_pattern_remains_unsupported() -> None:
@@ -72,7 +114,7 @@ def test_pattern_remains_unsupported() -> None:
         ).compile(Filter, table)
 
 
-def test_empty_json_contains() -> None:
+def test_empty_json_contains_requires_object() -> None:
     class Filter(BaseModel):
         meta: Annotated[dict[str, Any], JsonContains({})]
 
@@ -88,8 +130,23 @@ def test_empty_json_contains() -> None:
             dialect=mssql.dialect(),
             compile_kwargs={"literal_binds": True},
         )
-    )
-    assert "1" in compiled or "true" in compiled.lower()
+    ).lower()
+    assert "isjson" in compiled
+    assert "json_query" in compiled
+
+
+def test_type_check_lax_float_string_unsupported() -> None:
+    class Filter(BaseModel):
+        score: float
+
+    table = Table("rows", MetaData(), Column("score", String))
+    with pytest.raises(UnsupportedConstraintError, match="float"):
+        Compiler(
+            plugins=[MssqlPlugin()],
+            dialect="mssql",
+            emit_type_checks=True,
+            cache=False,
+        ).compile(Filter, table)
 
 
 def test_type_check_int_integer_column() -> None:

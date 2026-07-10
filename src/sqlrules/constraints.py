@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from enum import Enum
+from enum import Enum, Flag
 from types import UnionType
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 from uuid import UUID
@@ -223,12 +223,38 @@ def ensure_supported_type(field: FieldDescriptor) -> None:
     )
 
 
+# Flags that change pattern text semantics and are not represented in PatternSpec.
+_UNSUPPORTED_PATTERN_FLAGS = re.VERBOSE | re.DOTALL | re.MULTILINE
+
+
 def _normalize_pattern(field_name: str, pattern: Any) -> PatternSpec:
     if isinstance(pattern, PatternSpec):
         return pattern
     if isinstance(pattern, str):
         return PatternSpec(pattern=pattern, ignore_case=False)
     if isinstance(pattern, re.Pattern):
+        unsupported = pattern.flags & _UNSUPPORTED_PATTERN_FLAGS
+        if unsupported:
+            names = [
+                name
+                for name, bit in (
+                    ("VERBOSE", re.VERBOSE),
+                    ("DOTALL", re.DOTALL),
+                    ("MULTILINE", re.MULTILINE),
+                )
+                if unsupported & bit
+            ]
+            raise UnsupportedConstraintError(
+                field=field_name,
+                operator="pattern",
+                value=pattern,
+                suggestion=(
+                    "re.Pattern flags "
+                    + ", ".join(names)
+                    + " are not supported; use a plain pattern string or "
+                    "IGNORECASE only."
+                ),
+            )
         return PatternSpec(
             pattern=str(pattern.pattern),
             ignore_case=bool(pattern.flags & re.IGNORECASE),
@@ -476,10 +502,35 @@ def extract_constraints(
     args = get_args(annotation)
 
     if origin is Literal:
+        if not args:
+            raise UnsupportedConstraintError(
+                field=field.name,
+                operator="literal",
+                value=args,
+                suggestion="Literal must declare at least one value.",
+            )
         constraints.append(Constraint(field.name, "literal", args))
 
     if isinstance(annotation, type) and issubclass(annotation, Enum):
+        if issubclass(annotation, Flag):
+            raise UnsupportedConstraintError(
+                field=field.name,
+                operator="enum",
+                value=annotation,
+                suggestion=(
+                    "Flag/IntFlag enums are not supported (combined flag values "
+                    "are not discrete IN-list members). Use a plain Enum, or a "
+                    "custom translator."
+                ),
+            )
         values = tuple(member.value for member in annotation)
+        if not values:
+            raise UnsupportedConstraintError(
+                field=field.name,
+                operator="enum",
+                value=annotation,
+                suggestion="Enum must declare at least one member.",
+            )
         constraints.append(Constraint(field.name, "enum", values))
 
     if emit_type_checks and _should_emit_type_check(annotation):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 from collections.abc import Mapping, Sequence
 from itertools import chain
 from typing import Any
@@ -174,16 +173,24 @@ class Compiler:
                 continue
 
             descriptor = field_ir.descriptor
-            column = resolve_column(
-                descriptor.name,
-                table,
-                column_map,
-                alias=descriptor.alias,
-                aliases=descriptor.aliases,
-            )
-
             expressions: list[ColumnElement[bool]] = []
+            column: ColumnElement[Any] | None = None
+
             for constraint in field_ir.constraints:
+                # Resolve the column only when a translator will run, so
+                # on_unsupported=warn|ignore can skip missing columns for
+                # entirely unsupported fields (e.g. pattern-only).
+                if self.registry.lookup(constraint.operator) is None:
+                    self.registry.handle_missing_translator(constraint, self.context)
+                    continue
+                if column is None:
+                    column = resolve_column(
+                        descriptor.name,
+                        table,
+                        column_map,
+                        alias=descriptor.alias,
+                        aliases=descriptor.aliases,
+                    )
                 expression = self.registry.translate(constraint, column, self.context)
                 if expression is not None:
                     expressions.append(expression)
@@ -266,29 +273,6 @@ class _PluginAwareRegistry(TranslatorRegistry):
         )
 
 
-_DEFAULT_COMPILERS: dict[tuple[OnUnsupported, bool, bool], Compiler] = {}
-_DEFAULT_COMPILERS_LOCK = threading.Lock()
-
-
-def _default_compiler(
-    *,
-    on_unsupported: OnUnsupported,
-    cache: bool,
-    emit_type_checks: bool,
-) -> Compiler:
-    key = (on_unsupported, cache, emit_type_checks)
-    with _DEFAULT_COMPILERS_LOCK:
-        compiler = _DEFAULT_COMPILERS.get(key)
-        if compiler is None:
-            compiler = Compiler(
-                on_unsupported=on_unsupported,
-                cache=cache,
-                emit_type_checks=emit_type_checks,
-            )
-            _DEFAULT_COMPILERS[key] = compiler
-        return compiler
-
-
 def clear_model_cache() -> None:
     """Clear the process-wide default Phase-1 ``ModelIR`` cache.
 
@@ -313,6 +297,10 @@ def compile(
     Compiles **Field constraint metadata** into SQLAlchemy expressions.
     Does not apply model instance / request values.
 
+    Creates a fresh ``Compiler`` per call so concurrent module-level
+    ``compile()`` invocations do not share mutable diagnostics state.
+    Phase-1 IR still uses the process-wide cache when ``cache=True``.
+
     Args:
         model: Pydantic ``BaseModel`` subclass.
         table: SQLAlchemy ``Table``, selectable, ORM class, or object with
@@ -336,11 +324,9 @@ def compile(
         ConfigurationError: Invalid ``on_unsupported`` value.
 
     Note:
-        Module-level ``compile`` reuses shared default ``Compiler`` instances
-        keyed by ``(on_unsupported, cache, emit_type_checks)``. For plugins,
-        construct ``Compiler(plugins=[...])`` explicitly.
+        For plugins, construct ``Compiler(plugins=[...])`` explicitly.
     """
-    return _default_compiler(
+    return Compiler(
         on_unsupported=on_unsupported,
         cache=cache,
         emit_type_checks=emit_type_checks,

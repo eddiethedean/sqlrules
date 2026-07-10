@@ -4,6 +4,7 @@ import re
 import sqlite3
 from typing import Annotated, Any
 
+import pytest
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, MetaData, String, Table, create_engine, select
 from sqlalchemy.dialects import sqlite
@@ -100,11 +101,93 @@ def test_json_operators_compile() -> None:
     assert "json_extract" not in has_key_sql
 
 
-def test_empty_json_contains() -> None:
+def test_json_contains_executes_for_bool_str_int_null() -> None:
+    class Filter(BaseModel):
+        meta: Annotated[
+            dict[str, Any],
+            JsonContains({"active": True, "name": "hello", "n": 1, "missing": None}),
+        ]
+
+    metadata = MetaData()
+    table = Table("items", metadata, Column("id", String), Column("meta", String))
+    rules = Compiler(
+        plugins=[SQLitePlugin()],
+        dialect="sqlite",
+        cache=False,
+    ).compile(Filter, table)
+
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(
+            table.insert(),
+            [
+                {
+                    "id": "match",
+                    "meta": '{"active": true, "name": "hello", "n": 1, "missing": null}',
+                },
+                {
+                    "id": "partial",
+                    "meta": '{"active": true, "name": "hello", "n": 2}',
+                },
+                {"id": "null", "meta": None},
+            ],
+        )
+        rows = [
+            row[0]
+            for row in conn.execute(select(table.c.id).where(*rules["meta"]).order_by(table.c.id))
+        ]
+    assert rows == ["match"]
+
+
+def test_json_contains_dotted_key_and_array_payload() -> None:
+    class Filter(BaseModel):
+        meta: Annotated[dict[str, Any], JsonContains({"a.b": 1})]
+        tags: Annotated[list[Any], JsonContains([1, 2])]
+
+    metadata = MetaData()
+    table = Table(
+        "items",
+        metadata,
+        Column("id", String),
+        Column("meta", String),
+        Column("tags", String),
+    )
+    rules = Compiler(
+        plugins=[SQLitePlugin()],
+        dialect="sqlite",
+        cache=False,
+    ).compile(Filter, table)
+
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(
+            table.insert(),
+            [
+                {"id": "match", "meta": '{"a.b": 1}', "tags": "[1,2]"},
+                {"id": "nested", "meta": '{"a": {"b": 1}}', "tags": "[1,2]"},
+                {"id": "spaced", "meta": '{"a.b": 1}', "tags": "[1, 2]"},
+            ],
+        )
+        meta_rows = [
+            row[0]
+            for row in conn.execute(select(table.c.id).where(*rules["meta"]).order_by(table.c.id))
+        ]
+        tag_rows = [
+            row[0]
+            for row in conn.execute(select(table.c.id).where(*rules["tags"]).order_by(table.c.id))
+        ]
+    assert meta_rows == ["match", "spaced"]
+    assert tag_rows == ["match", "nested", "spaced"]
+
+
+def test_empty_json_contains_requires_object() -> None:
     class Filter(BaseModel):
         meta: Annotated[dict[str, Any], JsonContains({})]
 
-    table = Table("items", MetaData(), Column("meta", String))
+    metadata = MetaData()
+    table = Table("items", metadata, Column("id", String), Column("meta", String))
     rules = Compiler(
         plugins=[SQLitePlugin()],
         dialect="sqlite",
@@ -115,8 +198,34 @@ def test_empty_json_contains() -> None:
             dialect=sqlite.dialect(),
             compile_kwargs={"literal_binds": True},
         )
-    )
-    assert compiled.strip() in {"1", "true", "True"}
+    ).lower()
+    assert "json_type" in compiled
+    assert "object" in compiled
+
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(
+            table.insert(),
+            [
+                {"id": "obj", "meta": "{}"},
+                {"id": "arr", "meta": "[]"},
+                {"id": "null", "meta": None},
+            ],
+        )
+        rows = [
+            row[0]
+            for row in conn.execute(select(table.c.id).where(*rules["meta"]).order_by(table.c.id))
+        ]
+    assert rows == ["obj"]
+
+
+def test_register_regexp_invalid_pattern_raises() -> None:
+    conn = sqlite3.connect(":memory:")
+    register_regexp(conn)
+    with pytest.raises(sqlite3.OperationalError):
+        conn.execute("SELECT 'Abc' REGEXP '['").fetchone()
+    conn.close()
 
 
 def test_type_check_int_integer_column() -> None:

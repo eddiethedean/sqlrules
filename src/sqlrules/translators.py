@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import inspect
+import math
 import operator
 import sys
 import threading
 import types
 import warnings
 from collections.abc import Callable
+from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 from sqlalchemy import func
@@ -51,27 +53,32 @@ def _binary(op: Callable[[Any, Any], Any]) -> Translator:
     return translate
 
 
+def _is_positive_finite(value: Any) -> bool:
+    """Return True when ``value`` is a finite number strictly greater than zero."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        return False
+    if isinstance(value, Decimal):
+        try:
+            return value.is_finite() and value > 0
+        except InvalidOperation:
+            return False
+    if isinstance(value, float):
+        return math.isfinite(value) and value > 0
+    return value > 0
+
+
 def _multiple_of(
     constraint: Constraint,
     column: ColumnElement[Any],
     context: CompilationContext,
 ) -> ColumnElement[bool]:
     value = constraint.value
-    try:
-        non_positive = value <= 0
-    except TypeError as exc:
+    if not _is_positive_finite(value):
         raise UnsupportedConstraintError(
             field=constraint.field,
             operator="multiple_of",
             value=value,
-            suggestion="multiple_of requires a positive numeric value.",
-        ) from exc
-    if non_positive:
-        raise UnsupportedConstraintError(
-            field=constraint.field,
-            operator="multiple_of",
-            value=value,
-            suggestion="multiple_of requires a positive numeric value.",
+            suggestion="multiple_of requires a finite positive numeric value.",
         )
     return cast(ColumnElement[bool], (column % value) == 0)
 
@@ -177,6 +184,43 @@ class TranslatorRegistry:
         clone._translators = dict(self._translators)
         return clone
 
+    def handle_missing_translator(
+        self,
+        constraint: Constraint,
+        context: CompilationContext,
+    ) -> None:
+        """Apply ``on_unsupported`` policy when no translator is registered."""
+        message = (
+            f"Field {constraint.field!r}: constraint {constraint.operator!r} "
+            "is not supported and will be skipped."
+        )
+        if context.on_unsupported == "raise":
+            raise UnsupportedConstraintError(
+                field=constraint.field,
+                operator=constraint.operator,
+                value=constraint.value,
+                suggestion=("Remove the constraint, or set on_unsupported='warn'/'ignore'."),
+            )
+        if context.on_unsupported == "warn":
+            context.record(
+                severity="warning",
+                field=constraint.field,
+                operator=constraint.operator,
+                value=constraint.value,
+                message=message,
+                code="unsupported_constraint",
+            )
+            warnings.warn(message, SQLRulesWarning, stacklevel=_warning_stacklevel())
+            return
+        context.record(
+            severity="info",
+            field=constraint.field,
+            operator=constraint.operator,
+            value=constraint.value,
+            message=message,
+            code="unsupported_constraint",
+        )
+
     def translate(
         self,
         constraint: Constraint,
@@ -185,40 +229,11 @@ class TranslatorRegistry:
     ) -> ColumnElement[bool] | None:
         translator = self.lookup(constraint.operator)
         if translator is None:
-            message = (
-                f"Field {constraint.field!r}: constraint {constraint.operator!r} "
-                "is not supported and will be skipped."
-            )
-            if context.on_unsupported == "raise":
-                raise UnsupportedConstraintError(
-                    field=constraint.field,
-                    operator=constraint.operator,
-                    value=constraint.value,
-                    suggestion=("Remove the constraint, or set on_unsupported='warn'/'ignore'."),
-                )
-            if context.on_unsupported == "warn":
-                context.record(
-                    severity="warning",
-                    field=constraint.field,
-                    operator=constraint.operator,
-                    value=constraint.value,
-                    message=message,
-                    code="unsupported_constraint",
-                )
-                warnings.warn(message, SQLRulesWarning, stacklevel=_warning_stacklevel())
-            else:
-                context.record(
-                    severity="info",
-                    field=constraint.field,
-                    operator=constraint.operator,
-                    value=constraint.value,
-                    message=message,
-                    code="unsupported_constraint",
-                )
+            self.handle_missing_translator(constraint, context)
             return None
 
         try:
-            return translator(constraint, column, context)
+            result = translator(constraint, column, context)
         except UnsupportedConstraintError:
             raise
         except Exception as exc:  # pragma: no cover - defensive wrapper
@@ -227,6 +242,16 @@ class TranslatorRegistry:
                 operator=constraint.operator,
                 message=str(exc),
             ) from exc
+        if not isinstance(result, ColumnElement):
+            raise TranslatorError(
+                field=constraint.field,
+                operator=constraint.operator,
+                message=(
+                    f"translator returned {type(result).__name__!r}, "
+                    "expected a SQLAlchemy ColumnElement"
+                ),
+            )
+        return result
 
 
 def default_registry() -> TranslatorRegistry:
