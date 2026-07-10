@@ -1,5 +1,5 @@
 from sqlrules.compiler import Compiler, clear_model_cache, compile, flatten, where
-from sqlrules.constraints import pattern_text
+from sqlrules.constraints import pattern_text, type_spec
 from sqlrules.errors import (
     ConfigurationError,
     InternalCompilerError,
@@ -20,6 +20,7 @@ from sqlrules.ir import (
     FieldIR,
     ModelIR,
     PatternSpec,
+    TypeSpec,
 )
 from sqlrules.markers import (
     ArrayContains,
@@ -66,6 +67,7 @@ __all__ = [
     "SQLRulesWarning",
     "TranslatorError",
     "TranslatorRegistry",
+    "TypeSpec",
     "UnsupportedConstraintError",
     "__version__",
     "clear_model_cache",
@@ -73,5 +75,6 @@ __all__ = [
     "default_registry",
     "flatten",
     "pattern_text",
+    "type_spec",
     "where",
 ]

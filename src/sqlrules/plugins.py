@@ -16,7 +16,7 @@ API v1 covers:
 - Translator signature ``(Constraint, ColumnElement, CompilationContext)``
 - IR value types for built-in operators, including ``PatternSpec`` for
   ``pattern`` (use ``pattern_text()``; do not assume ``constraint.value``
-  is a bare ``str``)
+  is a bare ``str``) and ``TypeSpec`` for ``type_check`` (use ``type_spec()``)
 - Stable marker operator names (``json_contains``, ``array_contains``, …)
 
 Bump this string on incompatible changes to any of the above. Package

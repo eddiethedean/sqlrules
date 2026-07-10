@@ -31,6 +31,7 @@ compiler = Compiler(plugins=[MysqlPlugin()], dialect="mysql")
 | IR operator | Notes |
 |---|---|
 | `pattern` | `REGEXP` (case-insensitive under typical collations) |
+| `type_check` | Shape/type predicates from `TypeSpec` (partial matrix) |
 | `json_contains` | `JSON_CONTAINS(column, payload) = 1` |
 | `json_has_key` | `JSON_CONTAINS_PATH(column, 'one', '$.key') = 1` |
 | `fulltext_match` | `MATCH(column) AGAINST (value)` — requires a FULLTEXT index |

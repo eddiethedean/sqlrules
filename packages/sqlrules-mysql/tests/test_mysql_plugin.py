@@ -48,3 +48,26 @@ def test_pattern_and_json_compile() -> None:
 
     body_sql = str(rules["body"][0].compile(dialect=dialect)).lower()
     assert "match" in body_sql and "against" in body_sql
+
+
+def test_type_check_int_and_lax_string() -> None:
+    from sqlalchemy import Integer
+
+    class Typed(BaseModel):
+        age: int
+
+    class Textual(BaseModel):
+        age: int
+
+    typed_table = Table("users", MetaData(), Column("age", Integer))
+    text_table = Table("rows", MetaData(), Column("age", String))
+    compiler = Compiler(
+        plugins=[MysqlPlugin()],
+        dialect="mysql",
+        emit_type_checks=True,
+        cache=False,
+    )
+    typed_sql = str(compiler.compile(Typed, typed_table)["age"][0].compile(dialect=mysql.dialect()))
+    text_sql = str(compiler.compile(Textual, text_table)["age"][0].compile(dialect=mysql.dialect()))
+    assert "IS NOT NULL" in typed_sql.upper()
+    assert "REGEXP" in text_sql

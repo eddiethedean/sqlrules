@@ -90,3 +90,20 @@ def test_empty_json_contains() -> None:
         )
     )
     assert "1" in compiled or "true" in compiled.lower()
+
+
+def test_type_check_int_integer_column() -> None:
+    from sqlalchemy import Integer
+
+    class Filter(BaseModel):
+        age: int
+
+    table = Table("users", MetaData(), Column("age", Integer))
+    rules = Compiler(
+        plugins=[MssqlPlugin()],
+        dialect="mssql",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(rules["age"][0].compile(dialect=mssql.dialect()))
+    assert "IS NOT NULL" in compiled.upper()

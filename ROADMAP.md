@@ -49,6 +49,7 @@
 - Excellent documentation
 - Comprehensive test coverage
 
-Post-1.0 work (performance, DX, ecosystem examples, advanced constraints)
-is tracked in `docs/MILESTONES.md` as optional follow-ons — not part of the
-1.0 definition.
+Post-1.0 work (performance, DX, ecosystem examples, advanced constraints,
+opt-in `emit_type_checks` type-annotation rules) is tracked in
+`docs/MILESTONES.md` as optional follow-ons — not part of the 1.0
+definition.

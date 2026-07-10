@@ -46,6 +46,7 @@ with engine.raw_connection() as conn:
 | IR operator | Notes |
 |---|---|
 | `pattern` | `column REGEXP pattern`; call `register_regexp(connection)` |
+| `type_check` | `typeof` / `REGEXP` shape checks; text forms need `register_regexp` |
 | `json_contains` | JSON1 `json_extract` equality for object keys |
 | `json_has_key` | `json_type(column, '$.key') IS NOT NULL` |
 

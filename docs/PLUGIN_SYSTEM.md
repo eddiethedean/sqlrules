@@ -68,8 +68,9 @@ class CompanyPlugin:
 
 ## Version policy
 
-API v1 includes ``PatternSpec`` for ``pattern`` constraint values. Always
-use ``pattern_text(constraint.value)``; do not assume a bare ``str``.
+API v1 includes ``PatternSpec`` for ``pattern`` and ``TypeSpec`` for
+``type_check`` constraint values. Always use ``pattern_text`` /
+``type_spec``; do not assume bare ``str`` / ``type`` values.
 
 Bump ``PLUGIN_API_VERSION`` when changing translator signatures, registry
 methods, or IR value types for built-in operators. Core package minor

@@ -28,6 +28,7 @@ sqlrules.compile(
     column_map=None,
     on_unsupported="raise",
     cache=True,
+    emit_type_checks=False,
 ) -> dict[str, list[ColumnElement[bool]]]
 ```
 
@@ -38,10 +39,12 @@ sqlrules.compile(
 | `column_map` | Optional explicit field/alias → column mapping |
 | `on_unsupported` | `"raise"` (default), `"warn"`, or `"ignore"` for unknown **operators** |
 | `cache` | Cache Phase-1 model IR (default `True`) |
+| `emit_type_checks` | When `True`, emit `type_check` IR for supported scalars (needs a plugin translator) |
 
 Rule dictionary keys are always the Python field names. String field aliases
 are used only for column binding. Unconstrained fields are omitted from the
-rules dict but **must still use a supported type annotation**.
+rules dict (unless `emit_type_checks=True`) but **must still use a supported
+type annotation**.
 
 Unsupported **types** always raise, regardless of `on_unsupported`.
 
@@ -78,6 +81,7 @@ compiler = sqlrules.Compiler(
     dialect=None,
     cache=True,
     model_cache=None,
+    emit_type_checks=False,
 )
 rules = compiler.compile(model, table, column_map=None)
 
@@ -93,6 +97,7 @@ compiler.diagnostics  # from the last bind/compile (translate phase)
 | `on_conflict` | Default for plugin `register()` / `register_constraint()`: `"raise"`, `"replace"`, `"ignore"` |
 | `dialect` | **Hint only** for custom translators on `CompilationContext`. Does **not** load plugins or change built-ins. Pass `plugins=[...]` explicitly. |
 | `registry` | Optional base `TranslatorRegistry`; always **copied** into the compiler |
+| `emit_type_checks` | Opt-in `type_check` IR from scalar annotations (`TypeSpec`) |
 
 **Mutation:** do not call `compiler.registry.register(...)` (or
 `register_constraint`) after construction. Register translators via

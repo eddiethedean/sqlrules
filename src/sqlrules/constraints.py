@@ -22,7 +22,7 @@ from annotated_types import (
 from pydantic.fields import FieldInfo
 
 from sqlrules.errors import UnsupportedConstraintError
-from sqlrules.ir import Constraint, FieldDescriptor, PatternSpec
+from sqlrules.ir import Constraint, FieldDescriptor, PatternSpec, TypeSpec
 from sqlrules.markers import ConstraintMarker
 
 _SUPPORTED_TYPES: frozenset[type[Any]] = frozenset(
@@ -42,7 +42,6 @@ _VALIDATOR_TYPE_NAMES = frozenset(
         "PlainValidator",
         "WrapValidator",
         "FieldValidator",
-        "Strict",
     }
 )
 # Keys that map to IR constraint operators.
@@ -134,6 +133,40 @@ def _concrete_type(field: FieldDescriptor) -> Any:
     return annotation
 
 
+def _annotation_allows_none(annotation: Any) -> bool:
+    """Return True when the raw annotation admits ``None`` (Optional / ``T | None``)."""
+    current = annotation
+    while True:
+        origin = get_origin(current)
+        if origin is Annotated:
+            args = get_args(current)
+            if not args:
+                return False
+            current = args[0]
+            continue
+        if origin is Union or origin is UnionType:
+            return any(arg is type(None) for arg in get_args(current))
+        return False
+
+
+def _is_strict_marker(item: Any) -> bool:
+    if isinstance(item, type):
+        return False
+    return type(item).__name__ == "Strict" and hasattr(item, "strict")
+
+
+def resolve_field_strict(field: FieldDescriptor, *, model_strict: bool = False) -> bool:
+    """Resolve Pydantic strictness: field ``Strict`` / ``strict=`` then model config."""
+    for item in _iter_metadata(_field_metadata(field)):
+        if _is_strict_marker(item):
+            return bool(item.strict)
+        data = getattr(item, "__dict__", None)
+        if isinstance(data, dict) and "strict" in data and data["strict"] is not None:
+            # e.g. StringConstraints(strict=True, ...) when not already a Strict marker
+            return bool(data["strict"])
+    return model_strict
+
+
 def _is_container_type(annotation: Any) -> bool:
     origin = get_origin(annotation)
     if origin in _SUPPORTED_CONTAINER_ORIGINS:
@@ -217,6 +250,13 @@ def pattern_text(value: Any) -> tuple[str, bool]:
     raise TypeError(f"pattern value must be str or PatternSpec, got {type(value)!r}")
 
 
+def type_spec(value: Any) -> TypeSpec:
+    """Return a ``TypeSpec`` from a ``type_check`` constraint value."""
+    if isinstance(value, TypeSpec):
+        return value
+    raise TypeError(f"type_check value must be TypeSpec, got {type(value)!r}")
+
+
 def _constraints_from_mapping(field_name: str, data: dict[str, Any]) -> list[Constraint]:
     """Map whitelisted metadata keys into IR; ignore validation-only flags."""
     constraints: list[Constraint] = []
@@ -262,6 +302,10 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
     if _is_constraint_marker(item):
         return [Constraint(field_name, item.operator, item.value)]
 
+    if _is_strict_marker(item):
+        # Strictness is resolved separately for type_check; not an SQL operator.
+        return []
+
     if isinstance(item, Predicate):
         return [Constraint(field_name, "predicate", item.func)]
 
@@ -296,6 +340,17 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
         return _constraints_from_mapping(field_name, data)
 
     return [Constraint(field_name, type_name, item)]
+
+
+def _should_emit_type_check(annotation: Any) -> bool:
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return False
+    if _is_container_type(annotation):
+        return False
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return False
+    return annotation in _SUPPORTED_TYPES
 
 
 def _reject_type_operator_mismatch(field: FieldDescriptor, constraint: Constraint) -> None:
@@ -388,7 +443,12 @@ def _reject_type_operator_mismatch(field: FieldDescriptor, constraint: Constrain
         )
 
 
-def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
+def extract_constraints(
+    field: FieldDescriptor,
+    *,
+    emit_type_checks: bool = False,
+    model_strict: bool = False,
+) -> list[Constraint]:
     constraints: list[Constraint] = []
 
     for item in _iter_metadata(_field_metadata(field)):
@@ -421,6 +481,20 @@ def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
     if isinstance(annotation, type) and issubclass(annotation, Enum):
         values = tuple(member.value for member in annotation)
         constraints.append(Constraint(field.name, "enum", values))
+
+    if emit_type_checks and _should_emit_type_check(annotation):
+        strict = resolve_field_strict(field, model_strict=model_strict)
+        constraints.append(
+            Constraint(
+                field.name,
+                "type_check",
+                TypeSpec(
+                    python_type=annotation,
+                    strict=strict,
+                    allow_none=_annotation_allows_none(field.annotation),
+                ),
+            )
+        )
 
     for constraint in constraints:
         if constraint.operator in _PORTABLE_OPERATORS:

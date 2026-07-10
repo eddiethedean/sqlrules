@@ -30,6 +30,7 @@ compiler = Compiler(plugins=[MssqlPlugin()], dialect="mssql")
 | IR operator | Notes |
 |---|---|
 | `min_length` / `max_length` | `LEN(column)` instead of portable `length()` |
+| `type_check` | Limited shape checks (typed columns; LIKE for some String forms) |
 | `json_contains` | Shallow `JSON_VALUE` / `JSON_QUERY` checks |
 | `json_has_key` | `JSON_VALUE` / `JSON_QUERY` IS NOT NULL |
 

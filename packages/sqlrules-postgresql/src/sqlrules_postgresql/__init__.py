@@ -6,6 +6,7 @@ from sqlrules_postgresql.array import translate_array_contains, translate_array_
 from sqlrules_postgresql.jsonb import translate_json_contains, translate_json_has_key
 from sqlrules_postgresql.pattern import translate_pattern
 from sqlrules_postgresql.range import translate_range_contains, translate_range_overlap
+from sqlrules_postgresql.type_check import translate_type_check
 
 __version__ = "1.0.0"
 
@@ -20,6 +21,11 @@ class PostgresPlugin:
         registry.register_constraint(
             "pattern",
             translate_pattern,
+            on_conflict="replace",
+        )
+        registry.register_constraint(
+            "type_check",
+            translate_type_check,
             on_conflict="replace",
         )
         for operator, translator in (
@@ -43,4 +49,5 @@ __all__ = [
     "translate_pattern",
     "translate_range_contains",
     "translate_range_overlap",
+    "translate_type_check",
 ]

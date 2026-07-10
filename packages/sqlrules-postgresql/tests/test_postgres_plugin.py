@@ -96,3 +96,85 @@ def test_json_array_range_operators() -> None:
     range_overlap_sql = str(rules["span"][1].compile(dialect=dialect))
     assert "@>" in range_contains_sql and "&&" not in range_contains_sql
     assert "&&" in range_overlap_sql
+
+
+def test_type_check_int_and_str() -> None:
+    from sqlalchemy import Integer
+
+    class Filter(BaseModel):
+        age: int
+        name: str
+
+    table = Table(
+        "users",
+        MetaData(),
+        Column("age", Integer),
+        Column("name", String),
+    )
+    rules = Compiler(
+        plugins=[PostgresPlugin()],
+        dialect="postgresql",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+    dialect = postgresql.dialect()
+    age_sql = str(rules["age"][0].compile(dialect=dialect))
+    name_sql = str(rules["name"][0].compile(dialect=dialect))
+    assert "IS NOT NULL" in age_sql.upper()
+    assert "IS NOT NULL" in name_sql.upper()
+
+
+def test_type_check_lax_int_on_string() -> None:
+    class Filter(BaseModel):
+        age: int
+
+    table = Table("rows", MetaData(), Column("age", String))
+    rules = Compiler(
+        plugins=[PostgresPlugin()],
+        dialect="postgresql",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(rules["age"][0].compile(dialect=postgresql.dialect()))
+    assert "~" in compiled
+
+
+def test_type_check_strict_bool() -> None:
+    from pydantic import ConfigDict
+    from sqlalchemy import Boolean
+
+    class Filter(BaseModel):
+        model_config = ConfigDict(strict=True)
+        active: bool
+
+    table = Table("rows", MetaData(), Column("active", Boolean))
+    rules = Compiler(
+        plugins=[PostgresPlugin()],
+        dialect="postgresql",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(
+        rules["active"][0].compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    assert "IN" in compiled.upper()
+
+
+def test_type_check_optional_or_null() -> None:
+    from sqlalchemy import Integer
+
+    class Filter(BaseModel):
+        age: int | None = None
+
+    table = Table("rows", MetaData(), Column("age", Integer))
+    rules = Compiler(
+        plugins=[PostgresPlugin()],
+        dialect="postgresql",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(rules["age"][0].compile(dialect=postgresql.dialect()))
+    assert "IS NULL" in compiled.upper()

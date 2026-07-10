@@ -4,6 +4,7 @@ from sqlrules.plugins import PLUGIN_API_VERSION
 from sqlrules.translators import TranslatorRegistry
 from sqlrules_mssql.json import translate_json_contains, translate_json_has_key
 from sqlrules_mssql.length import translate_max_length, translate_min_length
+from sqlrules_mssql.type_check import translate_type_check
 
 __version__ = "1.0.0"
 
@@ -13,7 +14,7 @@ class MssqlPlugin:
 
     Does not register ``pattern`` — SQL Server has no portable regex operator
     that SQLRules can emit deterministically. Provide a custom translator if
-    needed.
+    needed. ``type_check`` is registered with a limited approximation matrix.
     """
 
     name = "mssql"
@@ -28,6 +29,11 @@ class MssqlPlugin:
         registry.register_constraint(
             "max_length",
             translate_max_length,
+            on_conflict="replace",
+        )
+        registry.register_constraint(
+            "type_check",
+            translate_type_check,
             on_conflict="replace",
         )
         registry.register_constraint(
@@ -49,4 +55,5 @@ __all__ = [
     "translate_json_has_key",
     "translate_max_length",
     "translate_min_length",
+    "translate_type_check",
 ]

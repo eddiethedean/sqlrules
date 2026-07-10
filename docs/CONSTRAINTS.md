@@ -12,6 +12,7 @@
 | `Literal[...]` | `column.in_(...)` |
 | `Enum` | `column.in_(member values)` |
 | `pattern` | IR (`PatternSpec`); translators via plugins / custom registry |
+| `type_check` | IR (`TypeSpec`) when `emit_type_checks=True`; translators via plugins |
 
 ## Dialect markers (`sqlrules.markers`)
 
@@ -32,13 +33,17 @@ Accepted input forms for portable constraints include `Field(...)`,
 Constraints without a deterministic SQL equivalent are rejected by default.
 See [TYPE_SUPPORT.md](TYPE_SUPPORT.md) and [ERRORS.md](ERRORS.md).
 
-To translate `pattern` or markers, use a dialect plugin:
+To translate `pattern`, `type_check`, or markers, use a dialect plugin:
 
 ```python
 from sqlrules import Compiler, JsonContains
 from sqlrules_postgresql import PostgresPlugin
 
-compiler = Compiler(plugins=[PostgresPlugin()], dialect="postgresql")
+compiler = Compiler(
+    plugins=[PostgresPlugin()],
+    dialect="postgresql",
+    emit_type_checks=True,
+)
 ```
 
 ```python

@@ -170,6 +170,9 @@ See [`examples/postgresql_pattern.py`](examples/postgresql_pattern.py).
 `pattern` is extracted into IR (`PatternSpec`) but has **no portable core
 translator**. Install a dialect plugin or register a custom translator.
 
+With `emit_type_checks=True`, supported scalar annotations also emit
+`type_check` (`TypeSpec`) IR — likewise plugin-translated only.
+
 Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
 `FullTextMatch`, …) are re-exported from `sqlrules` (and live in
 `sqlrules.markers`); they require a dialect plugin.
@@ -187,7 +190,7 @@ off when the model *is* the source of truth for many fields or dialects.
 ## Public API
 
 ```python
-sqlrules.compile(model, table, *, column_map=None, on_unsupported="raise", cache=True)
+sqlrules.compile(model, table, *, column_map=None, on_unsupported="raise", cache=True, emit_type_checks=False)
 sqlrules.where(rules)           # prefer this to flatten expressions
 sqlrules.flatten(rules)         # alias of where()
 sqlrules.clear_model_cache()    # drop process-wide Phase-1 IR cache
@@ -198,6 +201,7 @@ compiler = sqlrules.Compiler(
     dialect=None,            # hint only — does not load plugins
     on_unsupported="raise",
     cache=True,
+    emit_type_checks=False,  # opt-in type_check IR (needs plugin translator)
 )
 ```
 

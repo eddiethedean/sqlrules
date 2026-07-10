@@ -13,6 +13,7 @@ version `"1"` may rely on. Semver for plugins follows
 | `FieldDescriptor` | Field name, annotation, metadata, aliases |
 | `Constraint` | `(field, operator, value)` |
 | `PatternSpec` | `(pattern: str, ignore_case: bool)` for `pattern` |
+| `TypeSpec` | `(python_type, strict, allow_none)` for `type_check` |
 | `CompilationContext` | `on_unsupported`, diagnostics collector, optional `dialect` hint |
 | `Diagnostic` | Structured skip/warn records (Plugin-visible; prefer not to depend on fields from Application code) |
 
@@ -24,6 +25,10 @@ SQLAlchemy columns.
 Portable operators extracted by core: `gt`, `ge`, `lt`, `le`,
 `multiple_of`, `min_length`, `max_length`, `pattern`, `literal`, `enum`.
 
+Opt-in operator (when `emit_type_checks=True`): `type_check` with
+`TypeSpec` values. Core extracts IR only — no portable translator
+(same pattern as `pattern`).
+
 Frozen marker operator names: `json_contains`, `json_has_key`,
 `array_contains`, `array_overlap`, `range_contains`, `range_overlap`,
 `fulltext_match`.
@@ -31,13 +36,16 @@ Frozen marker operator names: `json_contains`, `json_has_key`,
 `pattern` values are `PatternSpec` (or legacy `str` via `pattern_text()`).
 Always call `pattern_text(constraint.value)` in translators.
 
+`type_check` values are `TypeSpec`. Always call `type_spec(constraint.value)`
+in translators.
+
 ## Application vs Plugin use
 
 - **Application:** prefer `compile` / `Compiler` / markers / exceptions.
   Treat IR types as advanced (two-phase `compile_model` / `bind`).
-- **Plugin:** may depend on `Constraint`, `PatternSpec`,
-  `CompilationContext`, `ModelIR`, `TranslatorRegistry`, markers, and
-  `pattern_text`.
+- **Plugin:** may depend on `Constraint`, `PatternSpec`, `TypeSpec`,
+  `CompilationContext`, `ModelIR`, `TranslatorRegistry`, markers,
+  `pattern_text`, and `type_spec`.
 
 ## Whole-model type matrix
 

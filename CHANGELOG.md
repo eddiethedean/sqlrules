@@ -9,12 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in `emit_type_checks` on `Compiler` / `compile()`: extracts `type_check`
+  IR (`TypeSpec`) from supported scalar annotations, honoring Field /
+  `Strict()` / `model_config` strictness and `Optional` → `allow_none`
+- `TypeSpec` / `type_spec()` helper; dialect plugins translate `type_check`
+  (PostgreSQL reference matrix; SQLite / MySQL / MSSQL partial support)
 - `examples/` runnable scripts; Makefile (`install` / `test` / `docs` / `dist`)
 - Root `SECURITY.md`, `CODE_OF_CONDUCT.md`, `RELEASING.md`; GitHub issue templates
 - Docs: Application vs Plugin autodoc pages; pattern footgun in getting started
 
 ### Changed
 
+- Phase-1 IR cache keyed by `(model, emit_type_checks)` so type-check IR
+  does not collide with default compiles
+- `Strict()` metadata is no longer turned into a fake IR operator
 - README copy-paste complete snippets, repo map, `pattern` callout, prefer `where`
 - CONTRIBUTING focused on contributors; release steps moved to RELEASING.md
 - Docs sidebar nests design/architecture under “Internals and design”

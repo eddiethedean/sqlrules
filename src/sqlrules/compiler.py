@@ -35,6 +35,10 @@ class Compiler:
     custom translators. It does **not** load dialect plugins or change
     built-in translations — pass ``plugins=[...]`` explicitly.
 
+    ``emit_type_checks`` (default ``False``) extracts ``type_check`` IR from
+    supported scalar annotations. Translation requires a dialect plugin or
+    custom translator (same pattern as ``pattern``).
+
     Do not mutate ``registry`` after construction; registration belongs in
     ``plugins`` / ``register_constraint`` during init. Do not call
     ``compile`` / ``bind`` / ``compile_model`` concurrently on the same
@@ -51,6 +55,7 @@ class Compiler:
         dialect: str | None = None,
         cache: bool = True,
         model_cache: ModelIRCache | None = None,
+        emit_type_checks: bool = False,
     ) -> None:
         if on_unsupported not in {"raise", "warn", "ignore"}:
             raise ConfigurationError(option="on_unsupported", value=on_unsupported)
@@ -79,6 +84,7 @@ class Compiler:
         self.on_conflict = on_conflict
         self.dialect = dialect
         self.cache_enabled = cache
+        self.emit_type_checks = emit_type_checks
         self._model_cache = model_cache if model_cache is not None else default_cache()
         self._collector = DiagnosticsCollector()
         self.context = CompilationContext(
@@ -96,19 +102,26 @@ class Compiler:
         """Phase 1: inspect the model and extract constraint IR (no table binding)."""
         self._collector.clear()
         if self.cache_enabled:
-            cached = self._model_cache.get(model)
+            cached = self._model_cache.get(model, emit_type_checks=self.emit_type_checks)
             if cached is not None:
                 return cached
 
+        model_strict = bool(getattr(model, "model_config", {}).get("strict", False))
         fields: list[FieldIR] = []
         for descriptor in inspect_model(model):
             ensure_supported_type(descriptor)
-            constraints = tuple(extract_constraints(descriptor))
+            constraints = tuple(
+                extract_constraints(
+                    descriptor,
+                    emit_type_checks=self.emit_type_checks,
+                    model_strict=model_strict,
+                )
+            )
             fields.append(FieldIR(descriptor=descriptor, constraints=constraints))
 
         model_ir = ModelIR(model=model, fields=tuple(fields))
         if self.cache_enabled:
-            return self._model_cache.put(model, model_ir)
+            return self._model_cache.put(model, model_ir, emit_type_checks=self.emit_type_checks)
         return model_ir
 
     def bind(
@@ -203,16 +216,25 @@ class _PluginAwareRegistry(TranslatorRegistry):
         )
 
 
-_DEFAULT_COMPILERS: dict[tuple[OnUnsupported, bool], Compiler] = {}
+_DEFAULT_COMPILERS: dict[tuple[OnUnsupported, bool, bool], Compiler] = {}
 _DEFAULT_COMPILERS_LOCK = threading.Lock()
 
 
-def _default_compiler(*, on_unsupported: OnUnsupported, cache: bool) -> Compiler:
-    key = (on_unsupported, cache)
+def _default_compiler(
+    *,
+    on_unsupported: OnUnsupported,
+    cache: bool,
+    emit_type_checks: bool,
+) -> Compiler:
+    key = (on_unsupported, cache, emit_type_checks)
     with _DEFAULT_COMPILERS_LOCK:
         compiler = _DEFAULT_COMPILERS.get(key)
         if compiler is None:
-            compiler = Compiler(on_unsupported=on_unsupported, cache=cache)
+            compiler = Compiler(
+                on_unsupported=on_unsupported,
+                cache=cache,
+                emit_type_checks=emit_type_checks,
+            )
             _DEFAULT_COMPILERS[key] = compiler
         return compiler
 
@@ -234,10 +256,13 @@ def compile(
     column_map: Mapping[str, ColumnElement[Any]] | None = None,
     on_unsupported: OnUnsupported = "raise",
     cache: bool = True,
+    emit_type_checks: bool = False,
 ) -> RulesDict:
-    return _default_compiler(on_unsupported=on_unsupported, cache=cache).compile(
-        model, table, column_map=column_map
-    )
+    return _default_compiler(
+        on_unsupported=on_unsupported,
+        cache=cache,
+        emit_type_checks=emit_type_checks,
+    ).compile(model, table, column_map=column_map)
 
 
 def flatten(rules: RulesDict) -> list[ColumnElement[bool]]:

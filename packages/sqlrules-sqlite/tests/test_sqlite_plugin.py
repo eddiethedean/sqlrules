@@ -117,3 +117,35 @@ def test_empty_json_contains() -> None:
         )
     )
     assert compiled.strip() in {"1", "true", "True"}
+
+
+def test_type_check_int_integer_column() -> None:
+    from sqlalchemy import Integer
+
+    class Filter(BaseModel):
+        age: int
+
+    table = Table("users", MetaData(), Column("age", Integer))
+    rules = Compiler(
+        plugins=[SQLitePlugin()],
+        dialect="sqlite",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(rules["age"][0].compile(dialect=sqlite.dialect()))
+    assert "IS NOT NULL" in compiled.upper()
+
+
+def test_type_check_lax_int_string_uses_regexp() -> None:
+    class Filter(BaseModel):
+        age: int
+
+    table = Table("rows", MetaData(), Column("age", String))
+    rules = Compiler(
+        plugins=[SQLitePlugin()],
+        dialect="sqlite",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+    compiled = str(rules["age"][0].compile(dialect=sqlite.dialect()))
+    assert "REGEXP" in compiled

@@ -17,6 +17,15 @@ class PatternSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class TypeSpec:
+    """Normalized ``type_check`` constraint value (Pydantic type + strictness)."""
+
+    python_type: type
+    strict: bool = False
+    allow_none: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class Constraint:
     field: str
     operator: str

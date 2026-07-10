@@ -248,6 +248,8 @@ No new major features.
 
 # Post-1.0 Ideas
 
+-   Opt-in `emit_type_checks` / `TypeSpec` type-annotation WHERE rules
+    (strict/lax approximations via dialect plugins)
 -   Rust acceleration for metadata extraction
 -   optional IR serialization
 -   code generation helpers

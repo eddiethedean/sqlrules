@@ -186,12 +186,47 @@ column.in_(["A", "B", "C"])
 
 # Optional Types
 
-`Optional[T]` is supported.
+`Optional[T]` / `T | None` is supported.
 
-By itself, optionality does not generate SQL rules.
+By itself, optionality does not generate SQL rules unless
+`emit_type_checks=True`, in which case `TypeSpec.allow_none` is set and
+dialect translators emit `(column IS NULL) OR <type predicate>`.
 
-Future compiler options may allow generation of `IS NOT NULL`
-expressions.
+------------------------------------------------------------------------
+
+# Type checks (`emit_type_checks`)
+
+Opt-in: `Compiler(emit_type_checks=True)` or
+`sqlrules.compile(..., emit_type_checks=True)`.
+
+When enabled, supported **scalar** annotations emit a `type_check`
+constraint with `TypeSpec(python_type, strict, allow_none)`:
+
+- Strictness from `Field(strict=…)`, `Strict()`, then
+  `model_config = ConfigDict(strict=…)`
+- `Literal` / `Enum` / `list` / `dict` do **not** get `type_check`
+  (domain already covered or marker-only)
+
+Core extracts IR only — there is **no portable translator**. Install a
+dialect plugin (or register a custom `type_check` translator).
+
+Approximations are dialect-specific and intentionally incomplete versus
+full Pydantic coercion. Unsupported `(type, strict)` pairs raise
+`UnsupportedConstraintError` rather than guessing. See dialect plugin
+READMEs for the matrix.
+
+Example:
+
+```python
+from sqlrules import Compiler
+from sqlrules_postgresql import PostgresPlugin
+
+class Filter(BaseModel):
+    age: int
+
+compiler = Compiler(plugins=[PostgresPlugin()], emit_type_checks=True)
+rules = compiler.compile(Filter, users)
+```
 
 ------------------------------------------------------------------------
 

@@ -5,6 +5,7 @@ from sqlrules.translators import TranslatorRegistry
 from sqlrules_sqlite.json import translate_json_contains, translate_json_has_key
 from sqlrules_sqlite.pattern import translate_pattern
 from sqlrules_sqlite.regexp import register_regexp
+from sqlrules_sqlite.type_check import translate_type_check
 
 __version__ = "1.0.0"
 
@@ -12,9 +13,9 @@ __version__ = "1.0.0"
 class SQLitePlugin:
     """Register SQLite-specific constraint translators.
 
-    The ``pattern`` translator emits ``column REGEXP pattern``. Call
-    :func:`register_regexp` on each SQLite connection before executing
-    the resulting SQL.
+    The ``pattern`` and text-shaped ``type_check`` translators emit
+    ``column REGEXP pattern``. Call :func:`register_regexp` on each SQLite
+    connection before executing the resulting SQL.
     """
 
     name = "sqlite"
@@ -24,6 +25,11 @@ class SQLitePlugin:
         registry.register_constraint(
             "pattern",
             translate_pattern,
+            on_conflict="replace",
+        )
+        registry.register_constraint(
+            "type_check",
+            translate_type_check,
             on_conflict="replace",
         )
         registry.register_constraint(
@@ -45,4 +51,5 @@ __all__ = [
     "translate_json_contains",
     "translate_json_has_key",
     "translate_pattern",
+    "translate_type_check",
 ]

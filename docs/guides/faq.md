@@ -40,6 +40,9 @@ two-phase `compile_model` / `bind`.
 Fields with no supported constraints are omitted from the rules dict. Their
 **types** must still be in the support matrix (whole-model rule).
 
+Pass `emit_type_checks=True` to emit `type_check` IR for supported scalar
+annotations (requires a dialect plugin or custom translator to bind).
+
 ## How do I clear the model IR cache?
 
 Call `sqlrules.clear_model_cache()` when creating many ephemeral models so the
