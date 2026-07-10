@@ -36,8 +36,8 @@ Core emits portable SQLAlchemy Core expressions. The table below describes
 
   Dialect             Status        Notes
   ------------ -------------------- --------------------------------
-  SQLite             Core (dev)     Primary local/CI smoke target
-  PostgreSQL         Core (planned) Enhanced features via future plugin
+  SQLite             Core + plugin  `sqlrules-sqlite` adds `pattern` (REGEXP)
+  PostgreSQL         Core + plugin  `sqlrules-postgresql` adds `pattern` (`~`)
   MySQL              Core (planned) Enhanced features via future plugin
   MariaDB            Core (planned) Follows MySQL where practical
   SQL Server         Core (planned) Enhanced features via future plugin
@@ -63,31 +63,35 @@ These should compile identically across supported databases:
 
 # PostgreSQL
 
-Potential enhancements:
+Package: `sqlrules-postgresql`
 
--   Native regular expressions
+0.3 enhancement:
+
+-   Native regular expressions via `pattern` → `column ~ value`
+
+Potential later enhancements (0.4+):
+
 -   ARRAY operators
 -   JSONB operators
 -   Range types
 -   Full-text search
 
-Suggested package:
-
-    sqlrules-postgresql
-
 ------------------------------------------------------------------------
 
 # SQLite
+
+Package: `sqlrules-sqlite`
 
 Goals:
 
 -   Reliable test platform
 -   Portable numeric comparisons
 -   Portable string-length operations
+-   `pattern` via `REGEXP` (application must enable REGEXP on the connection)
 
 Limitations:
 
--   REGEXP requires an extension
+-   REGEXP requires an extension / `create_function`
 -   Limited advanced JSON functionality
 
 ------------------------------------------------------------------------

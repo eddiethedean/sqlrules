@@ -227,10 +227,10 @@ These features require runtime execution or lack portable SQL semantics.
 
 # Future Roadmap
 
-## v0.3
+## v0.3 ✅
 
 -   translator / dialect plugins
--   pattern translators via plugins
+-   pattern translators via `sqlrules-postgresql` / `sqlrules-sqlite`
 
 ## Later
 

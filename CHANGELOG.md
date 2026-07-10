@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0/).
 
+## [0.3.0] - 2026-07-10
+
+### Added
+
+- Versioned plugin API: `SQLRulesPlugin`, `PLUGIN_API_VERSION` (`"1"`),
+  and `PluginError`
+- `Compiler(plugins=..., on_conflict=..., dialect=...)` for explicit
+  plugin registration (no auto-discovery)
+- Expanded registry API: `register_constraint`, conflict policies
+  (`raise` / `replace` / `ignore`), `copy()`, `operators()`, and
+  `__contains__`
+- `InvalidTranslatorError` raised for non-callable or wrong-arity
+  translators at registration time
+- `Diagnostic.code` (e.g. `unsupported_constraint` on warn/ignore skips)
+- Optional `CompilationContext.dialect` hint (never auto-detected)
+- Plugin conformance helpers in `sqlrules.conformance`
+- Official starter dialect packages:
+  - `sqlrules-postgresql` (`pattern` → `~`)
+  - `sqlrules-sqlite` (`pattern` → `REGEXP`)
+
+### Changed
+
+- Package version bumped to 0.3.0
+
 ## [0.2.0] - 2026-07-10
 
 ### Added

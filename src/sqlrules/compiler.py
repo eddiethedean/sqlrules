@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from itertools import chain
 from typing import Any
 
@@ -18,8 +18,10 @@ from sqlrules.ir import (
     DiagnosticsCollector,
     FieldIR,
     ModelIR,
+    OnConflict,
     OnUnsupported,
 )
+from sqlrules.plugins import SQLRulesPlugin, validate_plugin
 from sqlrules.translators import TranslatorRegistry, default_registry
 
 RulesDict = dict[str, list[ColumnElement[bool]]]
@@ -30,20 +32,45 @@ class Compiler:
         self,
         *,
         registry: TranslatorRegistry | None = None,
+        plugins: Sequence[SQLRulesPlugin] | None = None,
+        on_conflict: OnConflict = "raise",
         on_unsupported: OnUnsupported = "raise",
+        dialect: str | None = None,
         cache: bool = True,
         model_cache: ModelIRCache | None = None,
     ) -> None:
         if on_unsupported not in {"raise", "warn", "ignore"}:
             raise ConfigurationError(option="on_unsupported", value=on_unsupported)
-        self.registry = registry or default_registry()
+        if on_conflict not in {"raise", "replace", "ignore"}:
+            raise ConfigurationError(option="on_conflict", value=on_conflict)
+
+        base = registry if registry is not None else default_registry()
+        plugin_list = list(plugins or ())
+        resolved: TranslatorRegistry
+        if plugin_list:
+            # Copy so plugins cannot mutate a caller-owned or shared registry.
+            aware = _PluginAwareRegistry(
+                base.copy(),
+                default_on_conflict=on_conflict,
+            )
+            for plugin in plugin_list:
+                validate_plugin(plugin).register(aware)
+            # Freeze to a plain registry after registration.
+            resolved = aware.copy()
+        else:
+            resolved = base
+        self.registry = resolved
+
         self.on_unsupported = on_unsupported
+        self.on_conflict = on_conflict
+        self.dialect = dialect
         self.cache_enabled = cache
         self._model_cache = model_cache if model_cache is not None else default_cache()
         self._collector = DiagnosticsCollector()
         self.context = CompilationContext(
             on_unsupported=on_unsupported,
             collector=self._collector,
+            dialect=dialect,
         )
 
     @property
@@ -83,6 +110,7 @@ class Compiler:
         self.context = CompilationContext(
             on_unsupported=self.on_unsupported,
             collector=self._collector,
+            dialect=self.dialect,
         )
 
         rules: RulesDict = {}
@@ -118,6 +146,43 @@ class Compiler:
         column_map: Mapping[str, ColumnElement[Any]] | None = None,
     ) -> RulesDict:
         return self.bind(self.compile_model(model), table, column_map=column_map)
+
+
+class _PluginAwareRegistry(TranslatorRegistry):
+    """Registry that applies Compiler.on_conflict as the default for register()."""
+
+    def __init__(
+        self,
+        base: TranslatorRegistry,
+        *,
+        default_on_conflict: OnConflict,
+    ) -> None:
+        super().__init__()
+        self._translators = dict(base._translators)
+        self._default_on_conflict = default_on_conflict
+
+    def register(
+        self,
+        operator_name: str,
+        translator: Any,
+        *,
+        replace: bool = False,
+    ) -> None:
+        on_conflict: OnConflict = "replace" if replace else self._default_on_conflict
+        self.register_constraint(operator_name, translator, on_conflict=on_conflict)
+
+    def register_constraint(
+        self,
+        operator_name: str,
+        translator: Any,
+        *,
+        on_conflict: OnConflict | None = None,
+    ) -> None:
+        super().register_constraint(
+            operator_name,
+            translator,
+            on_conflict=on_conflict if on_conflict is not None else self._default_on_conflict,
+        )
 
 
 def compile(

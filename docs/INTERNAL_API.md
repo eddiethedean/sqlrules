@@ -145,16 +145,19 @@ Suggested methods:
 
 ``` python
 register(...)
+register_constraint(..., on_conflict=...)
 lookup(...)
 translate(...)
+operators()
+copy()
 ```
 
 Registry responsibilities:
 
 -   operator lookup
--   dialect overrides
--   plugin registration
--   conflict detection
+-   conflict detection (`raise` / `replace` / `ignore`)
+-   translator validation
+-   hosting plugin registrations (via `Compiler(plugins=...)`)
 
 ------------------------------------------------------------------------
 
@@ -189,6 +192,7 @@ Suggested contents:
 
 -   compiler options (`on_unsupported`)
 -   diagnostics collector
+-   optional `dialect` hint (explicit; never auto-detected)
 
 Avoid global state.
 
@@ -202,7 +206,8 @@ Internal diagnostics record:
 -   ignored skips (`severity="info"`)
 
 Exposed after compile via `Compiler.diagnostics`. Diagnostics are
-separate from exceptions.
+separate from exceptions. Each diagnostic may include a stable `code`
+(for example `unsupported_constraint`).
 
 ------------------------------------------------------------------------
 

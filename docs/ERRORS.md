@@ -25,10 +25,11 @@ SQLRulesError
 ├── MissingColumnError
 ├── UnsupportedConstraintError
 ├── TranslatorError
-├── InvalidTranslatorError   (reserved in 0.2)
+├── InvalidTranslatorError
 ├── RegistryError
 ├── ConfigurationError
-└── InternalCompilerError    (reserved in 0.2)
+├── PluginError
+└── InternalCompilerError    (reserved)
 ```
 
 All public exceptions inherit from `SQLRulesError`.
@@ -89,8 +90,9 @@ expression (unexpected SQLAlchemy errors wrapped by the registry).
 
 # InvalidTranslatorError
 
-Reserved for future validation of custom translators. Not raised by the
-0.2 compiler path.
+Raised when registering a translator that is not callable or does not
+accept at least three positional parameters (`constraint`, `column`,
+`context`). Variadic `*args` translators are accepted.
 
 ------------------------------------------------------------------------
 
@@ -110,7 +112,14 @@ Missing operators raise `UnsupportedConstraintError`, not `RegistryError`.
 
 Raised when compiler configuration is inconsistent.
 
-In 0.2 this is raised for an invalid `on_unsupported` mode only.
+Raised for an invalid `on_unsupported` or `on_conflict` mode.
+
+------------------------------------------------------------------------
+
+# PluginError
+
+Raised when a plugin fails validation (missing `name` / `register`, or
+`api_version` mismatch with `PLUGIN_API_VERSION`).
 
 ------------------------------------------------------------------------
 
@@ -151,11 +160,17 @@ After `compile` / `bind` / `compile_model`, inspect skipped constraints:
 compiler = sqlrules.Compiler(on_unsupported="warn")
 rules = compiler.compile(Model, table)
 for diag in compiler.diagnostics:
-    print(diag.severity, diag.field, diag.operator, diag.message)
+    print(diag.code, diag.severity, diag.field, diag.operator, diag.message)
 ```
 
 `Diagnostic` fields: `severity` (`"warning"` | `"info"`), `field`,
-`operator`, `value`, `message`.
+`operator`, `value`, `message`, `code`.
+
+Stable diagnostic codes (0.3):
+
+| Code | When |
+|---|---|
+| `unsupported_constraint` | Operator skipped under `warn` / `ignore` |
 
 `compile_model` clears diagnostics. Diagnostics are separate from
 exceptions and do not change the rules dict return type.

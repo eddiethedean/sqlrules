@@ -173,37 +173,49 @@ If no translator exists, behavior depends on the compiler policy.
 # Custom Translators
 
 Applications may register additional translators on a
-`TranslatorRegistry` and pass it to `Compiler(registry=...)`.
+`TranslatorRegistry` and pass it to `Compiler(registry=...)`, or use the
+plugin API:
 
 ``` python
+from sqlrules import Compiler, PLUGIN_API_VERSION
 from sqlrules.translators import default_registry
 
 registry = default_registry()
-registry.register(
+registry.register_constraint(
     "pattern",
     lambda constraint, column, context: column.op("~")(constraint.value),
+    on_conflict="replace",
 )
-compiler = sqlrules.Compiler(registry=registry)
+compiler = Compiler(registry=registry)
 ```
 
-Custom translators should coexist with built-in translators without
-requiring compiler changes.
+``` python
+class PatternPlugin:
+    name = "pattern"
+    api_version = PLUGIN_API_VERSION
+
+    def register(self, registry):
+        registry.register_constraint(
+            "pattern",
+            lambda c, col, ctx: col.op("~")(c.value),
+            on_conflict="replace",
+        )
+
+compiler = Compiler(plugins=[PatternPlugin()])
+```
 
 ------------------------------------------------------------------------
 
-# Dialect Overrides (Future)
+# Dialect Overrides
 
-Some SQL constructs differ by backend.
+Some SQL constructs differ by backend. Official packages:
 
-Examples:
+-   `sqlrules-postgresql` — `pattern` via `~`
+-   `sqlrules-sqlite` — `pattern` via `REGEXP`
 
--   PostgreSQL regex
--   SQLite regex extensions
--   JSON operators
--   ARRAY operators
-
-A dialect-specific registry may override the default translator while
-preserving the same IR.
+A dialect plugin overrides the default translator while preserving the
+same IR. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) and
+[DIALECT_SUPPORT.md](DIALECT_SUPPORT.md).
 
 ------------------------------------------------------------------------
 

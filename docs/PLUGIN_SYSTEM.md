@@ -1,25 +1,18 @@
 # SQLRules Plugin System
 
-> **Status: future design (not available in 0.2).**
-> SQLRules 0.2 has no plugin hook. Use `Compiler(registry=...)` to supply
-> custom translators (including `pattern`). This document describes the
-> planned extension model.
-
 ## Purpose
 
-The SQLRules plugin system will allow applications and libraries to extend
+The SQLRules plugin system allows applications and libraries to extend
 the compiler without modifying SQLRules itself.
 
 Plugins may register:
 
 - New constraint translators
-- New type translators
-- Dialect-specific translators
-- Compiler passes
-- Validation hooks (compile-time only)
+- Dialect-specific translators (overrides for the same IR operators)
 
-The core package should remain small while advanced functionality lives
-in plugins.
+The core package remains small while advanced functionality lives in
+plugins. Compiler passes, type registration, and entry-point discovery
+are reserved for later releases.
 
 ------------------------------------------------------------------------
 
@@ -27,7 +20,7 @@ in plugins.
 
 - Zero-cost when unused
 - Deterministic compilation
-- Stable public extension API
+- Stable public extension API (`PLUGIN_API_VERSION`)
 - No monkey-patching
 - Explicit registration
 
@@ -40,7 +33,7 @@ in plugins.
                        │
              ┌─────────┴─────────┐
              ▼                   ▼
-      Built-in Registry    Plugin Registry
+      Built-in Registry    Plugin register()
              │                   │
              └─────────┬─────────┘
                        ▼
@@ -53,164 +46,136 @@ in plugins.
 
 # Plugin Interface
 
-A plugin is a Python object that exposes a registration method.
+A plugin is a Python object that exposes `name`, `api_version`, and
+`register(registry)`.
 
 ``` python
-class SQLRulesPlugin:
-    def register(self, registry):
-        ...
+from sqlrules import PLUGIN_API_VERSION
+from sqlrules.translators import TranslatorRegistry
+
+class CompanyPlugin:
+    name = "company"
+    api_version = PLUGIN_API_VERSION
+
+    def register(self, registry: TranslatorRegistry) -> None:
+        registry.register_constraint(
+            "pattern",
+            lambda c, col, ctx: col.op("~")(c.value),
+            on_conflict="replace",
+        )
 ```
 
-The compiler calls `register()` during initialization.
+`api_version` must equal `sqlrules.PLUGIN_API_VERSION` (`"1"` in 0.3).
 
 ------------------------------------------------------------------------
 
 # Registry API
 
-Example:
-
 ``` python
 registry.register_constraint(
-    operator="between",
-    translator=BetweenTranslator(),
+    operator="pattern",
+    translator=translate_pattern,
+    on_conflict="raise",  # or "replace" / "ignore"
 )
 ```
 
-Additional registration methods may include:
+Legacy alias:
 
 ``` python
-registry.register_type(...)
-registry.register_dialect(...)
-registry.register_compiler_pass(...)
+registry.register("pattern", translate_pattern, replace=False)
 ```
+
+Introspection: `registry.operators()`, `operator in registry`, `registry.copy()`.
+
+Invalid translators raise `InvalidTranslatorError`. Duplicate operators
+raise `RegistryError` unless `on_conflict` / `replace` allows otherwise.
+
+`register_type`, `register_dialect`, and `register_compiler_pass` are
+not implemented in 0.3 (reserved).
 
 ------------------------------------------------------------------------
 
-# Translator Plugins
+# Using Plugins
 
-Translator plugins add support for new constraints.
-
-Example:
+SQLRules does not auto-discover plugins. Register them explicitly:
 
 ``` python
-class BetweenTranslator:
-    operator = "between"
+from sqlrules import Compiler
+from sqlrules_postgresql import PostgresPlugin
 
-    def translate(self, constraint, column, context):
-        lower, upper = constraint.value
-        return column.between(lower, upper)
+compiler = Compiler(
+    plugins=[PostgresPlugin()],
+    dialect="postgresql",  # optional hint for translators
+    on_conflict="raise",   # default when plugins call register()
+)
+rules = compiler.compile(MyModel, table)
 ```
+
+Module-level `sqlrules.compile(...)` does not accept plugins; use
+`Compiler` when you need extensions.
+
+When `plugins=` is set, the compiler copies the base registry first so
+caller-owned registries are never mutated.
 
 ------------------------------------------------------------------------
 
 # Dialect Plugins
 
-Some SQL constructs are database-specific.
+Official starter packages (same monorepo under `packages/`):
 
-Examples:
-
--   PostgreSQL regular expressions
--   PostgreSQL ARRAY operators
--   PostgreSQL JSONB operators
--   SQLite REGEXP extension
--   MySQL full-text search
+- `sqlrules-postgresql` — `pattern` → `column ~ value`
+- `sqlrules-sqlite` — `pattern` → `column REGEXP value` (app must enable REGEXP)
 
 Dialect plugins override or supplement built-in translators while
-preserving the same intermediate representation (IR).
-
-------------------------------------------------------------------------
-
-# Compiler Pass Plugins
-
-Future versions may expose compiler passes.
-
-Example pipeline:
-
-``` text
-Constraint IR
-      │
-Normalize Pass
-      │
-Optimize Pass
-      │
-Translator Dispatch
-```
-
-Compiler passes must be pure transformations.
-
-------------------------------------------------------------------------
-
-# Discovery
-
-SQLRules will not auto-discover plugins in the MVP.
-
-Applications register plugins explicitly.
-
-``` python
-compiler = Compiler(
-    plugins=[
-        PostgresPlugin(),
-        CompanyPlugin(),
-    ]
-)
-```
-
-Future versions may support Python entry points.
+preserving the same IR. JSONB, ARRAY, and other enhancements are planned
+for 0.4.
 
 ------------------------------------------------------------------------
 
 # Conflict Resolution
 
-When two plugins register the same operator:
+`Compiler(on_conflict=...)` sets the default for plugin `register()` calls:
 
-Default behavior:
+| Mode | Behavior |
+|---|---|
+| `raise` | `RegistryError` on duplicate (default) |
+| `replace` | Overwrite existing translator |
+| `ignore` | Keep the existing translator |
 
--   raise RegistryError
-
-Optional policies:
-
--   replace
--   ignore
--   namespace
-
-Explicit behavior is preferred over implicit overrides.
+Plugins may still pass an explicit `on_conflict=` to
+`register_constraint`.
 
 ------------------------------------------------------------------------
 
 # Version Compatibility
 
-Plugins declare the SQLRules API version they support.
-
-Example:
-
 ``` python
-API_VERSION = "1"
+from sqlrules import PLUGIN_API_VERSION  # "1"
 ```
 
-Major API changes increment the plugin API version.
+Major plugin API changes increment this value. Mismatched plugins raise
+`PluginError` at compiler construction.
 
 ------------------------------------------------------------------------
 
-# Testing
+# Conformance Testing
 
-Every plugin should provide:
+``` python
+from sqlrules.conformance import run_basic_conformance
+from sqlrules_postgresql import PostgresPlugin
 
--   Unit tests
--   Translation tests
--   Compatibility tests
--   Deterministic output tests
+run_basic_conformance(PostgresPlugin(), operator="pattern")
+```
 
-SQLRules should include a plugin conformance test suite.
+Helpers also cover API version checks, builtin preservation, and
+deterministic translation.
 
 ------------------------------------------------------------------------
 
 # Security
 
-Plugins execute Python code.
-
-SQLRules does not sandbox plugins.
-
-Applications should install only trusted plugins.
+Plugins execute Python code. SQLRules does not sandbox plugins.
+Install only trusted plugins.
 
 ------------------------------------------------------------------------
 
@@ -218,35 +183,19 @@ Applications should install only trusted plugins.
 
 The plugin system does not support:
 
--   Runtime SQL execution
--   Database connections
--   Automatic package downloads
--   Dynamic code generation
-
-------------------------------------------------------------------------
-
-# Future Ecosystem
-
-Potential official plugins:
-
--   sqlrules-postgresql
--   sqlrules-sqlite
--   sqlrules-mysql
--   sqlrules-mssql
--   sqlrules-json
--   sqlrules-array
--   sqlrules-geo
-
-These packages can evolve independently while the core compiler remains
-small, stable, and focused.
+- Runtime SQL execution
+- Database connections
+- Automatic package downloads / entry-point discovery (0.3)
+- Dynamic code generation
+- Compiler pass plugins (future)
 
 ------------------------------------------------------------------------
 
 # Design Principles
 
--   Small core
--   Extensible architecture
--   Explicit registration
--   Stable plugin API
--   Pure compiler extensions
--   Deterministic behavior
+- Small core
+- Extensible architecture
+- Explicit registration
+- Stable plugin API
+- Pure compiler extensions
+- Deterministic behavior

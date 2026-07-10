@@ -231,16 +231,18 @@ SQL Server, or Oracle plugins.
 
 ------------------------------------------------------------------------
 
-# Decision 9: Plugins Are Explicit (Future)
+# Decision 9: Plugins Are Explicit
 
 ## Decision
 
-SQLRules 0.2 does **not** ship a plugin API. Customization today is limited
-to injecting a `TranslatorRegistry` into `Compiler(registry=...)` (for
-example a custom `pattern` translator).
+SQLRules 0.3 ships an explicit plugin API:
 
-A future release may add explicit plugin registration (for example
-`Compiler(plugins=[...])`) without automatic discovery.
+```python
+Compiler(plugins=[PostgresPlugin()], on_conflict="raise", dialect="postgresql")
+```
+
+There is no automatic discovery. Plugins declare `api_version` matching
+`PLUGIN_API_VERSION`.
 
 ## Rationale
 
@@ -249,8 +251,8 @@ reproducibility, and keeps the compiler deterministic.
 
 ## Consequences
 
-Do not treat plugin examples in design docs as available in 0.2. See
-[PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) for the planned design.
+See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md). Official starter packages:
+`sqlrules-postgresql` and `sqlrules-sqlite`.
 
 ------------------------------------------------------------------------
 
@@ -438,12 +440,12 @@ This may improve ergonomics while preserving dictionary output.
 
 ## Should Regex Be Core or Dialect Plugin?
 
-**Decided for 0.2:**
+**Decided for 0.2 / 0.3:**
 
 - IR support in core (`Constraint(operator="pattern", ...)`)
 - No portable core translator
-- Translator support via custom `TranslatorRegistry` today, dialect
-  plugins in 0.3+
+- Translator support via `TranslatorRegistry` and dialect plugins
+  (`sqlrules-postgresql`, `sqlrules-sqlite`)
 
 ------------------------------------------------------------------------
 

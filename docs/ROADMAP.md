@@ -19,11 +19,20 @@
 - Two-phase compilation
 - Benchmark suite
 
-## 0.3 — Plugins
+## 0.3 — Plugins ✅
 
-- Custom translators
-- Dialect plugins
-- Better diagnostics
+- Custom translators / plugin API
+- Dialect plugins (`sqlrules-postgresql`, `sqlrules-sqlite`)
+- Registry API + conflict policies
+- Plugin conformance tests
+- Versioned plugin API (`PLUGIN_API_VERSION`)
+- Diagnostic codes
+
+## 0.4 — Dialect Enhancements
+
+- PostgreSQL regex polish, JSONB, ARRAY, range operators
+- SQLite REGEXP integration helpers
+- MySQL / MariaDB / SQL Server enhancements
 
 ## 1.0 — Stable
 

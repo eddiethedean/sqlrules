@@ -16,7 +16,7 @@ Ordering is deterministic and follows model field declaration order.
 Within a field, expressions follow constraint extraction order.
 Fields that produce no expressions are omitted from the dictionary.
 
-## Supported constraints (v0.2)
+## Supported constraints (v0.3)
 
 - `gt`
 - `ge`
@@ -29,8 +29,9 @@ Fields that produce no expressions are omitted from the dictionary.
 - `Enum`
 
 `pattern` is extracted into IR but has no portable core translator. It raises
-by default; use `on_unsupported="warn"` / `"ignore"`, or register a custom
-translator on a `TranslatorRegistry`.
+by default; use `on_unsupported="warn"` / `"ignore"`, register a custom
+translator, or install a dialect plugin (`sqlrules-postgresql`,
+`sqlrules-sqlite`).
 
 ## Supported types (v0.2)
 
@@ -79,6 +80,19 @@ rules = compiler.bind(model_ir, table)
 ```
 
 Phase 1 caches immutable model IR. Phase 2 binds columns and translates.
+
+## Plugins
+
+```python
+compiler = sqlrules.Compiler(
+    plugins=[PostgresPlugin()],
+    dialect="postgresql",
+    on_conflict="raise",
+)
+```
+
+Plugins must declare `api_version == PLUGIN_API_VERSION`. See
+[PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
 
 ## Compatibility
 

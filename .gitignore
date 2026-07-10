@@ -10,6 +10,7 @@ __pycache__/
 .coverage.*
 htmlcov/
 dist/
+dist-plugins/
 build/
 *.egg-info/
 .DS_Store

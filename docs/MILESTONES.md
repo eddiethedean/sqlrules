@@ -93,7 +93,7 @@ Improve correctness and extensibility.
 
 ------------------------------------------------------------------------
 
-# 0.3.0 --- Plugin System
+# 0.3.0 --- Plugin System ✅
 
 ## Goals
 

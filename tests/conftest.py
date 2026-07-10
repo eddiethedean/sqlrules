@@ -15,3 +15,8 @@ def users() -> Table:
         Column("created_at", DateTime),
         Column("birth_date", Date),
     )
+
+
+@pytest.fixture
+def items() -> Table:
+    return Table("items", MetaData(), Column("name", String), Column("sku", String))

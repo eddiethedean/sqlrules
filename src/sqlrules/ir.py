@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 OnUnsupported = Literal["raise", "warn", "ignore"]
+OnConflict = Literal["raise", "replace", "ignore"]
 DiagnosticSeverity = Literal["warning", "info"]
 
 
@@ -30,6 +31,7 @@ class Diagnostic:
     operator: str
     value: Any = None
     message: str = ""
+    code: str = ""
 
 
 @dataclass(slots=True)
@@ -52,6 +54,7 @@ class DiagnosticsCollector:
 class CompilationContext:
     on_unsupported: OnUnsupported = "raise"
     collector: DiagnosticsCollector | None = None
+    dialect: str | None = None
 
     def record(
         self,
@@ -61,6 +64,7 @@ class CompilationContext:
         operator: str,
         value: Any = None,
         message: str = "",
+        code: str = "",
     ) -> None:
         if self.collector is None:
             return
@@ -71,6 +75,7 @@ class CompilationContext:
                 operator=operator,
                 value=value,
                 message=message,
+                code=code,
             )
         )
 

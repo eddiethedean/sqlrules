@@ -31,6 +31,8 @@ binding. Unconstrained fields are omitted and do not require a column.
 
 Unsupported types always raise, regardless of `on_unsupported`.
 
+Module-level `compile` does not accept plugins; use `Compiler` for extensions.
+
 ## `where` / `flatten`
 
 ```python
@@ -49,6 +51,9 @@ Flatten a rule dictionary into a single list of expressions suitable for
 compiler = sqlrules.Compiler(
     on_unsupported="raise",
     registry=None,
+    plugins=None,
+    on_conflict="raise",
+    dialect=None,
     cache=True,
     model_cache=None,  # optional shared ModelIRCache; default is process-wide
 )
@@ -62,8 +67,16 @@ rules = compiler.bind(model_ir, table, column_map=None)
 compiler.diagnostics
 ```
 
+| Parameter | Description |
+|---|---|
+| `plugins` | Optional sequence of `SQLRulesPlugin` objects registered at init |
+| `on_conflict` | Default conflict policy for plugin `register()`: `"raise"`, `"replace"`, or `"ignore"` |
+| `dialect` | Optional string hint stored on `CompilationContext` (never auto-detected) |
+| `registry` | Optional base `TranslatorRegistry`; copied when `plugins` is non-empty |
+
 Reusable compiler instance with a fixed unsupported-constraint policy,
-optional custom translator registry, and optional Phase-1 metadata cache.
+optional plugins, optional custom translator registry, and optional Phase-1
+metadata cache.
 
 `compile_model` / `bind` separate static IR extraction from table binding so
 the same `ModelIR` can be reused across tables.
@@ -73,11 +86,34 @@ on the same `Compiler` instance (diagnostics are per-instance and not locked).
 The shared Phase-1 IR cache is thread-safe for concurrent reads/writes across
 instances.
 
+## Plugins
+
+```python
+from sqlrules import PLUGIN_API_VERSION, Compiler
+
+class MyPlugin:
+    name = "my-plugin"
+    api_version = PLUGIN_API_VERSION
+
+    def register(self, registry):
+        registry.register_constraint(
+            "pattern",
+            lambda c, col, ctx: col.op("~")(c.value),
+            on_conflict="replace",
+        )
+
+compiler = Compiler(plugins=[MyPlugin()])
+```
+
+See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md). Conformance helpers live in
+`sqlrules.conformance`.
+
 ## Other exports
 
 Also exported for advanced use and typing:
 
 - `__version__`
+- `PLUGIN_API_VERSION`, `SQLRulesPlugin`
 - `SQLRulesWarning`
 - `CompilationContext`, `Constraint`, `FieldDescriptor`, `FieldIR`, `ModelIR`,
   `Diagnostic` (IR helpers)
@@ -93,9 +129,10 @@ All public exceptions inherit from `SQLRulesError`:
 - `MissingColumnError`
 - `UnsupportedConstraintError`
 - `TranslatorError`
-- `InvalidTranslatorError` (reserved; not raised in 0.2)
+- `InvalidTranslatorError`
 - `RegistryError`
 - `ConfigurationError`
-- `InternalCompilerError` (reserved; not raised in 0.2)
+- `PluginError`
+- `InternalCompilerError` (reserved)
 
 See [ERRORS.md](ERRORS.md) for details.

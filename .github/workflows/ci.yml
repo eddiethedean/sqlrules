@@ -27,6 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite
 
       - name: Ruff
         run: ruff check .
@@ -74,9 +75,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite
 
       - name: Tests
-        run: pytest
+        run: pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests
 
   package:
     name: Package
@@ -94,23 +96,30 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build twine
 
-      - name: Build
+      - name: Build core
         run: python -m build
 
-      - name: Twine check
+      - name: Twine check core
         run: twine check dist/*
+
+      - name: Build dialect plugins
+        run: |
+          python -m build packages/sqlrules-postgresql --outdir dist-plugins
+          python -m build packages/sqlrules-sqlite --outdir dist-plugins
+          twine check dist-plugins/*
 
       - name: Install wheel and import
         run: |
           python -m pip install dist/*.whl
           python - <<'PY'
           import sqlrules
-          from sqlrules import compile, where, flatten, Compiler
+          from sqlrules import compile, where, flatten, Compiler, PLUGIN_API_VERSION
 
           assert sqlrules.__version__
           assert callable(compile)
           assert callable(where)
           assert callable(flatten)
           assert Compiler is not None
+          assert PLUGIN_API_VERSION == "1"
           print("wheel import ok:", sqlrules.__version__)
           PY

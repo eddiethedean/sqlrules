@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import operator
 import sys
 import types
@@ -10,8 +11,13 @@ from typing import Any, cast
 from sqlalchemy import func
 from sqlalchemy.sql.elements import ColumnElement
 
-from sqlrules.errors import RegistryError, TranslatorError, UnsupportedConstraintError
-from sqlrules.ir import CompilationContext, Constraint
+from sqlrules.errors import (
+    InvalidTranslatorError,
+    RegistryError,
+    TranslatorError,
+    UnsupportedConstraintError,
+)
+from sqlrules.ir import CompilationContext, Constraint, OnConflict
 
 Translator = Callable[[Constraint, ColumnElement[Any], CompilationContext], ColumnElement[bool]]
 
@@ -93,6 +99,32 @@ def _in_values(
     return cast(ColumnElement[bool], column.in_(constraint.value))
 
 
+def _validate_translator(operator_name: str, translator: Any) -> Translator:
+    if not callable(translator):
+        raise InvalidTranslatorError(operator=operator_name, translator=translator)
+    try:
+        signature = inspect.signature(translator)
+    except (TypeError, ValueError):
+        return cast(Translator, translator)
+
+    params = list(signature.parameters.values())
+    if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params):
+        return cast(Translator, translator)
+
+    positional = [
+        p
+        for p in params
+        if p.kind
+        in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        )
+    ]
+    if len(positional) < 3:
+        raise InvalidTranslatorError(operator=operator_name, translator=translator)
+    return cast(Translator, translator)
+
+
 class TranslatorRegistry:
     def __init__(self) -> None:
         self._translators: dict[str, Translator] = {}
@@ -104,12 +136,45 @@ class TranslatorRegistry:
         *,
         replace: bool = False,
     ) -> None:
-        if not replace and operator_name in self._translators:
-            raise RegistryError(f"Translator for {operator_name!r} is already registered.")
-        self._translators[operator_name] = translator
+        self.register_constraint(
+            operator_name,
+            translator,
+            on_conflict="replace" if replace else "raise",
+        )
+
+    def register_constraint(
+        self,
+        operator_name: str,
+        translator: Translator,
+        *,
+        on_conflict: OnConflict = "raise",
+    ) -> None:
+        if on_conflict not in {"raise", "replace", "ignore"}:
+            raise RegistryError(
+                f"Invalid on_conflict value {on_conflict!r}. "
+                "Use one of: 'raise', 'replace', 'ignore'."
+            )
+        validated = _validate_translator(operator_name, translator)
+        if operator_name in self._translators:
+            if on_conflict == "raise":
+                raise RegistryError(f"Translator for {operator_name!r} is already registered.")
+            if on_conflict == "ignore":
+                return
+        self._translators[operator_name] = validated
 
     def lookup(self, operator_name: str) -> Translator | None:
         return self._translators.get(operator_name)
+
+    def operators(self) -> frozenset[str]:
+        return frozenset(self._translators)
+
+    def __contains__(self, operator_name: object) -> bool:
+        return isinstance(operator_name, str) and operator_name in self._translators
+
+    def copy(self) -> TranslatorRegistry:
+        clone = TranslatorRegistry()
+        clone._translators = dict(self._translators)
+        return clone
 
     def translate(
         self,
@@ -137,6 +202,7 @@ class TranslatorRegistry:
                     operator=constraint.operator,
                     value=constraint.value,
                     message=message,
+                    code="unsupported_constraint",
                 )
                 warnings.warn(message, SQLRulesWarning, stacklevel=_warning_stacklevel())
             else:
@@ -146,6 +212,7 @@ class TranslatorRegistry:
                     operator=constraint.operator,
                     value=constraint.value,
                     message=message,
+                    code="unsupported_constraint",
                 )
             return None
 

@@ -5,6 +5,7 @@ from sqlrules.errors import (
     InvalidModelError,
     InvalidTranslatorError,
     MissingColumnError,
+    PluginError,
     RegistryError,
     SQLRulesError,
     TranslatorError,
@@ -18,11 +19,13 @@ from sqlrules.ir import (
     FieldIR,
     ModelIR,
 )
+from sqlrules.plugins import PLUGIN_API_VERSION, SQLRulesPlugin
 from sqlrules.translators import SQLRulesWarning
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
+    "PLUGIN_API_VERSION",
     "CompilationContext",
     "Compiler",
     "ConfigurationError",
@@ -35,8 +38,10 @@ __all__ = [
     "InvalidTranslatorError",
     "MissingColumnError",
     "ModelIR",
+    "PluginError",
     "RegistryError",
     "SQLRulesError",
+    "SQLRulesPlugin",
     "SQLRulesWarning",
     "TranslatorError",
     "UnsupportedConstraintError",

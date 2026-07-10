@@ -85,12 +85,28 @@ class ConfigurationError(SQLRulesError):
     value: Any
 
     def __str__(self) -> str:
-        return (
-            f"Invalid configuration value for {self.option!r}: {self.value!r}. "
-            "Use one of: 'raise', 'warn', 'ignore'."
-            if self.option == "on_unsupported"
-            else f"Invalid configuration value for {self.option!r}: {self.value!r}."
-        )
+        if self.option == "on_unsupported":
+            return (
+                f"Invalid configuration value for {self.option!r}: {self.value!r}. "
+                "Use one of: 'raise', 'warn', 'ignore'."
+            )
+        if self.option == "on_conflict":
+            return (
+                f"Invalid configuration value for {self.option!r}: {self.value!r}. "
+                "Use one of: 'raise', 'replace', 'ignore'."
+            )
+        return f"Invalid configuration value for {self.option!r}: {self.value!r}."
+
+
+@dataclass(slots=True)
+class PluginError(SQLRulesError):
+    """Raised when a plugin fails validation or registration."""
+
+    message: str
+    plugin: Any = None
+
+    def __str__(self) -> str:
+        return self.message
 
 
 class InternalCompilerError(SQLRulesError):

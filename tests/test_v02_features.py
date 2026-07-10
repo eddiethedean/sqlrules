@@ -106,6 +106,7 @@ def test_diagnostics_warn_records_pattern(items: Table) -> None:
     assert diag.field == "name"
     assert diag.operator == "pattern"
     assert diag.value == r"^A"
+    assert diag.code == "unsupported_constraint"
 
 
 def test_diagnostics_ignore_records_pattern(items: Table) -> None:
@@ -117,6 +118,7 @@ def test_diagnostics_ignore_records_pattern(items: Table) -> None:
     assert len(compiler.diagnostics) == 1
     assert compiler.diagnostics[0].severity == "info"
     assert compiler.diagnostics[0].operator == "pattern"
+    assert compiler.diagnostics[0].code == "unsupported_constraint"
 
 
 def test_diagnostics_cleared_on_success(items: Table) -> None:

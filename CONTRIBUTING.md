@@ -16,6 +16,7 @@ Thanks for helping improve SQLRules.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite
 pre-commit install
 ```
 
@@ -25,12 +26,23 @@ pre-commit install
 ruff check .
 ruff format --check .
 mypy src/sqlrules
-pytest
+pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests
 python -m build && twine check dist/*
+python -m build packages/sqlrules-postgresql --outdir dist-plugins
+python -m build packages/sqlrules-sqlite --outdir dist-plugins
+twine check dist-plugins/*
 ```
 
 CI also verifies `pyproject.toml` / `__version__` sync and that the built
 wheel imports cleanly.
+
+## Plugins
+
+- Declare `name`, `api_version` (`PLUGIN_API_VERSION`), and `register(registry)`.
+- Prefer `register_constraint(..., on_conflict=...)`.
+- Run `sqlrules.conformance.run_basic_conformance(plugin)`.
+- Official dialect packages live under `packages/` and should track the
+  plugin API major (`sqlrules>=0.3,<0.4` while `PLUGIN_API_VERSION == "1"`).
 
 ## Pull requests
 
@@ -46,12 +58,15 @@ Releases are published to PyPI by pushing a version tag. Before tagging:
 2. Run the full check suite (`ruff`, `mypy`, `pytest`).
 3. Ensure CI is green on `main`.
 
-Then create and push the tag (example for 0.2.0):
+Then create and push the tag (example for 0.3.0):
 
 ```bash
-git tag -a v0.2.0 -m "sqlrules 0.2.0"
-git push origin v0.2.0
+git tag -a v0.3.0 -m "sqlrules 0.3.0"
+git push origin v0.3.0
 ```
 
 The [release workflow](.github/workflows/release.yml) runs CI, builds the
 sdist/wheel, and publishes with `PYPI_API_TOKEN`.
+
+Dialect plugin packages under `packages/` are versioned independently but
+should stay compatible with the declared `sqlrules` dependency range.

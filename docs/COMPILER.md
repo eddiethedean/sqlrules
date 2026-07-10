@@ -145,13 +145,14 @@ Translation remains deterministic.
 Available today:
 
 -   Inject a custom `TranslatorRegistry` via `Compiler(registry=...)`
-    (including a `pattern` translator).
+-   Register versioned plugins via `Compiler(plugins=[...])`
+-   Override operators with `register_constraint(..., on_conflict=...)`
+-   Optional `dialect=` hint on `CompilationContext`
 
-Future plugin hooks:
+Reserved for later:
 
--   Register dialect-specific translators via a plugin API.
--   Override built-in mappings through versioned plugins.
--   Add new IR transforms.
+-   Compiler pass plugins
+-   Entry-point / auto-discovery
 
 ## Design Principles
 

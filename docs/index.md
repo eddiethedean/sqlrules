@@ -6,9 +6,10 @@ WHERE expressions.
 ## Start here
 
 - [README](../README.md) — quick start and install
-- [SPEC](SPEC.md) — 0.2 contract
+- [SPEC](SPEC.md) — 0.3 contract
 - [API](API.md) — public surface
 - [CONSTRAINTS](CONSTRAINTS.md) — constraint → expression map
+- [PLUGIN_SYSTEM](PLUGIN_SYSTEM.md) — versioned plugins and dialect packages
 
 ## Architecture
 
@@ -31,11 +32,10 @@ WHERE expressions.
 - [NON_GOALS](NON_GOALS.md)
 - [DESIGN_DECISIONS](DESIGN_DECISIONS.md)
 
-## Future
+## Planning
 
 - [ROADMAP](ROADMAP.md)
 - [MILESTONES](MILESTONES.md)
-- [PLUGIN_SYSTEM](PLUGIN_SYSTEM.md)
 - [PERFORMANCE](PERFORMANCE.md)
 
 ## Contributing
