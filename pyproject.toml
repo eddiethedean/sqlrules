@@ -56,6 +56,7 @@ docs = [
   "myst-parser>=4.0,<5",
   "furo>=2024.8.6",
   "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.5,<1",
   "linkify-it-py>=2.0",
 ]
 postgresql = ["sqlrules-postgresql>=0.4,<0.5"]

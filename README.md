@@ -1,8 +1,52 @@
 # SQLRules
 
+[![CI](https://github.com/eddiethedean/sqlrules/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/sqlrules/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/sqlrules.svg)](https://pypi.org/project/sqlrules/)
+[![Documentation](https://readthedocs.org/projects/sqlrules/badge/?version=latest)](https://sqlrules.readthedocs.io/en/latest/)
+[![License](https://img.shields.io/pypi/l/sqlrules.svg)](https://github.com/eddiethedean/sqlrules/blob/main/LICENSE)
+
 **Compile constrained Pydantic models into SQLAlchemy WHERE-rule dictionaries.**
 
 One package. One job. Deterministic output. Zero database dependency.
+
+SQLRules solves: *"Our filter models already declare constraints—don't make us rewrite them as SQLAlchemy clauses."*
+
+Not an ORM, validator, or query builder: **constraint metadata → expressions**, nothing else.
+
+**In 30 seconds:**
+
+```bash
+pip install sqlrules
+```
+
+```python
+rules = sqlrules.compile(UserFilter, users)
+stmt = users.select().where(*sqlrules.where(rules))
+```
+
+Full walkthrough: [Getting started](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html).
+
+| | |
+|---|---|
+| **Latest** | [sqlrules on PyPI](https://pypi.org/project/sqlrules/) · [CHANGELOG](CHANGELOG.md) |
+| **Docs** | [sqlrules.readthedocs.io](https://sqlrules.readthedocs.io/en/latest/) |
+| **Python** | 3.10+ (Pydantic v2, SQLAlchemy 2.x) |
+
+---
+
+## Choose your path
+
+| Path | Start here |
+|---|---|
+| **Not sure?** | [Start here](https://sqlrules.readthedocs.io/en/latest/guides/start-here.html) |
+| **Compile filters** | [Getting started](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html) |
+| **Dialect plugins** | [Plugin system](https://sqlrules.readthedocs.io/en/latest/PLUGIN_SYSTEM.html) |
+| **Evaluate fit** | [Design philosophy](https://sqlrules.readthedocs.io/en/latest/guides/design-philosophy.html) |
+| **Contribute** | [Contributing](CONTRIBUTING.md) |
+
+---
+
+## Example
 
 ```python
 from typing import Annotated
@@ -38,8 +82,6 @@ stmt = users.select().where(*sqlrules.where(rules))
 ```bash
 pip install sqlrules
 ```
-
-Requires Python 3.10+, Pydantic v2, and SQLAlchemy 2.x.
 
 Optional dialect plugins:
 
@@ -109,12 +151,17 @@ constraints into SQLAlchemy expressions.
 
 ## Documentation
 
-Full docs: [sqlrules.readthedocs.io](https://sqlrules.readthedocs.io)
+Full site: **[sqlrules.readthedocs.io](https://sqlrules.readthedocs.io/en/latest/)**
 
-Source lives under [`docs/`](docs/index.md) (spec, API, plugins, architecture).
-See also the [roadmap](ROADMAP.md).
+| Topic | Link |
+|---|---|
+| Getting started | [Guide](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html) |
+| Spec & constraints | [SPEC](https://sqlrules.readthedocs.io/en/latest/SPEC.html) · [CONSTRAINTS](https://sqlrules.readthedocs.io/en/latest/CONSTRAINTS.html) |
+| Plugins | [Plugin system](https://sqlrules.readthedocs.io/en/latest/PLUGIN_SYSTEM.html) |
+| API reference | [Reference hub](https://sqlrules.readthedocs.io/en/latest/reference/index.html) |
+| FAQ | [FAQ](https://sqlrules.readthedocs.io/en/latest/guides/faq.html) |
 
-Build locally:
+Source: [`docs/`](docs/index.md) · Roadmap: [ROADMAP.md](ROADMAP.md)
 
 ```bash
 pip install -e ".[docs]"

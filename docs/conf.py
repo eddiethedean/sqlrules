@@ -6,6 +6,10 @@ import importlib.metadata
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sphinx.application import Sphinx
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -16,6 +20,11 @@ release = importlib.metadata.version("sqlrules")
 version = ".".join(release.split(".")[:2])
 copyright = f"2024–2026, {author}"
 
+myst_substitutions = {
+    "release": release,
+    "python_requires": "3.10+",
+}
+
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
@@ -24,15 +33,23 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx_copybutton",
+    "sphinx_design",
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "README.md",
+]
 
 source_suffix = {
     ".md": "markdown",
     ".rst": "restructuredtext",
 }
+
+root_doc = "index"
 
 myst_enable_extensions = [
     "colon_fence",
@@ -42,16 +59,69 @@ myst_enable_extensions = [
     "substitution",
     "tasklist",
 ]
-myst_heading_anchors = 3
+myst_heading_anchors = 4
 myst_linkify_fuzzy_links = False
+myst_url_schemes = ("http", "https", "mailto")
 
 html_theme = "furo"
 html_title = "SQLRules"
 html_static_path = ["_static"]
+html_css_files = ["custom.css"]
+html_favicon = "_static/favicon.svg"
 html_theme_options = {
+    "light_logo": "logo.svg",
+    "dark_logo": "logo-dark.svg",
     "source_repository": "https://github.com/eddiethedean/sqlrules",
     "source_branch": "main",
     "source_directory": "docs/",
+    "sidebar_hide_name": True,
+    "top_of_page_buttons": ["view", "edit"],
+    "light_css_variables": {
+        "color-brand-primary": "#0f766e",
+        "color-brand-content": "#115e59",
+        "color-brand-visited": "#0e7490",
+        "color-background-primary": "#fafbfc",
+        "color-background-secondary": "#f1f5f9",
+        "color-background-hover": "#e2e8f0",
+        "color-background-border": "#e2e8f0",
+        "color-foreground-primary": "#0f172a",
+        "color-foreground-secondary": "#475569",
+        "color-foreground-muted": "#64748b",
+        "color-foreground-border": "#cbd5e1",
+        "color-api-background": "#f8fafc",
+        "color-api-background-hover": "#f1f5f9",
+        "color-api-overall": "#ccfbf1",
+        "color-api-keyword": "#0f766e",
+        "color-api-name": "#0f172a",
+        "color-api-pre-name": "#64748b",
+        "font-stack": (
+            "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, "
+            "'Helvetica Neue', Arial, sans-serif"
+        ),
+        "font-stack--monospace": (
+            "ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', "
+            "Menlo, Consolas, monospace"
+        ),
+    },
+    "dark_css_variables": {
+        "color-brand-primary": "#2dd4bf",
+        "color-brand-content": "#5eead4",
+        "color-brand-visited": "#67e8f9",
+        "color-background-primary": "#0b1120",
+        "color-background-secondary": "#111827",
+        "color-background-hover": "#1e293b",
+        "color-background-border": "#334155",
+        "color-foreground-primary": "#f1f5f9",
+        "color-foreground-secondary": "#94a3b8",
+        "color-foreground-muted": "#64748b",
+        "color-foreground-border": "#475569",
+        "color-api-background": "#0f172a",
+        "color-api-background-hover": "#1e293b",
+        "color-api-overall": "#134e4a",
+        "color-api-keyword": "#2dd4bf",
+        "color-api-name": "#f8fafc",
+        "color-api-pre-name": "#94a3b8",
+    },
     "footer_icons": [
         {
             "name": "GitHub",
@@ -76,10 +146,19 @@ html_theme_options = {
             """,
             "class": "",
         },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/sqlrules/",
+            "html": '<span class="sr-footer-pypi">PyPI</span>',
+            "class": "",
+        },
     ],
 }
 
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
+
+pygments_style = "sphinx"
+pygments_dark_style = "monokai"
 
 autodoc_typehints = "description"
 autodoc_member_order = "bysource"
@@ -95,3 +174,20 @@ intersphinx_mapping = {
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
+
+
+def _apply_myst_substitutions_in_source(
+    _app: Sphinx, _docname: str, source: list[str]
+) -> None:
+    """Expand myst_substitutions before parse (including raw HTML)."""
+    text = source[0]
+    for key, value in myst_substitutions.items():
+        token = f"{{{{ {key} }}}}"
+        if token in text:
+            text = text.replace(token, value)
+    source[0] = text
+
+
+def setup(app: Sphinx) -> dict[str, bool]:
+    app.connect("source-read", _apply_myst_substitutions_in_source)
+    return {"version": "1.0", "parallel_read_safe": True}
