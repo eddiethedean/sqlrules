@@ -28,7 +28,7 @@ Full walkthrough: [Getting started](https://sqlrules.readthedocs.io/en/latest/gu
 
 | | |
 |---|---|
-| **Latest** | [sqlrules on PyPI](https://pypi.org/project/sqlrules/) · [CHANGELOG](CHANGELOG.md) |
+| **Latest** | [sqlrules on PyPI](https://pypi.org/project/sqlrules/) · [Changelog](https://sqlrules.readthedocs.io/en/latest/project/changelog.html) |
 | **Docs** | [sqlrules.readthedocs.io](https://sqlrules.readthedocs.io/en/latest/) |
 | **Python** | 3.10+ (Pydantic v2, SQLAlchemy 2.x) |
 
@@ -42,7 +42,7 @@ Full walkthrough: [Getting started](https://sqlrules.readthedocs.io/en/latest/gu
 | **Compile filters** | [Getting started](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html) |
 | **Dialect plugins** | [Plugin system](https://sqlrules.readthedocs.io/en/latest/PLUGIN_SYSTEM.html) |
 | **Evaluate fit** | [Design philosophy](https://sqlrules.readthedocs.io/en/latest/guides/design-philosophy.html) |
-| **Contribute** | [Contributing](CONTRIBUTING.md) |
+| **Contribute** | [Contributing](https://sqlrules.readthedocs.io/en/latest/project/contributing.html) |
 
 ---
 
@@ -147,7 +147,9 @@ compiler = sqlrules.Compiler(
 
 SQLRules is not an ORM, validator, query builder, SQL string generator,
 migration tool, or database client. It only compiles supported Pydantic
-constraints into SQLAlchemy expressions.
+constraints into SQLAlchemy expressions. See
+[design philosophy](https://sqlrules.readthedocs.io/en/latest/guides/design-philosophy.html)
+and [non-goals](https://sqlrules.readthedocs.io/en/latest/NON_GOALS.html).
 
 ## Documentation
 
@@ -160,8 +162,10 @@ Full site: **[sqlrules.readthedocs.io](https://sqlrules.readthedocs.io/en/latest
 | Plugins | [Plugin system](https://sqlrules.readthedocs.io/en/latest/PLUGIN_SYSTEM.html) |
 | API reference | [Reference hub](https://sqlrules.readthedocs.io/en/latest/reference/index.html) |
 | FAQ | [FAQ](https://sqlrules.readthedocs.io/en/latest/guides/faq.html) |
+| Roadmap | [Roadmap](https://sqlrules.readthedocs.io/en/latest/project/roadmap.html) |
+| Changelog | [Changelog](https://sqlrules.readthedocs.io/en/latest/project/changelog.html) |
 
-Source: [`docs/`](docs/index.md) · Roadmap: [ROADMAP.md](ROADMAP.md)
+Build the site locally:
 
 ```bash
 pip install -e ".[docs]"
