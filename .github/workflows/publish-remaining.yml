@@ -1,0 +1,82 @@
+name: Publish remaining dialect packages
+
+# Recovery when PyPI rate-limits new project creation mid-release, or when
+# only wheels landed and sdists still need uploading.
+on:
+  workflow_dispatch:
+    inputs:
+      delay_seconds:
+        description: Seconds to wait before each new-project upload
+        required: false
+        default: "300"
+
+permissions:
+  contents: read
+
+jobs:
+  publish-remaining:
+    name: Upload missing packages and sdists
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Build all distributions
+        run: |
+          mkdir -p dist-all
+          python -m build --outdir dist-all
+          for pkg in sqlrules-postgresql sqlrules-sqlite sqlrules-mysql sqlrules-mssql; do
+            python -m build "packages/${pkg}" --outdir dist-all
+          done
+          twine check dist-all/*
+
+      - name: Upload sdists for existing projects (no new-project limit)
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Existing projects: core + mysql + mssql (wheels already on PyPI).
+          twine upload --skip-existing \
+            dist-all/sqlrules-1.0.0.tar.gz \
+            dist-all/sqlrules_mysql-1.0.0.tar.gz \
+            dist-all/sqlrules_mssql-1.0.0.tar.gz \
+            || true
+
+      - name: Upload new dialect projects one at a time
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          DELAY: ${{ inputs.delay_seconds }}
+        run: |
+          set -euo pipefail
+          for stem in sqlrules_postgresql sqlrules_sqlite; do
+            name="${stem//_/-}"
+            code=$(curl -sS -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/${name}/json" || true)
+            if [[ "$code" == "200" ]]; then
+              echo "${name} already on PyPI — uploading any missing files"
+              twine upload --skip-existing dist-all/${stem}-*
+              continue
+            fi
+            echo "Waiting ${DELAY}s before creating ${name}..."
+            sleep "${DELAY}"
+            echo "Uploading ${name}..."
+            twine upload --skip-existing dist-all/${stem}-*
+          done
+
+      - name: Verify all five packages at 1.0.0
+        run: |
+          set -euo pipefail
+          for pkg in sqlrules sqlrules-postgresql sqlrules-sqlite sqlrules-mysql sqlrules-mssql; do
+            curl -sS -f "https://pypi.org/pypi/${pkg}/1.0.0/json" >/dev/null
+            echo "OK ${pkg}==1.0.0"
+          done
