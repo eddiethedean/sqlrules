@@ -52,7 +52,8 @@ Requires Python 3.10+, Pydantic v2, and SQLAlchemy 2.x.
 | `Enum` | `column.in_(...)` |
 
 Unsupported constraints raise `UnsupportedConstraintError` by default.
-Use `on_unsupported="warn"` or `"ignore"` to change that policy.
+Use `on_unsupported="warn"` or `"ignore"` to change that policy for unknown
+constraint operators (unsupported types always raise).
 
 ## Public API
 

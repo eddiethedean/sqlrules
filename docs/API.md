@@ -20,8 +20,14 @@ Compile a constrained Pydantic model into a field-keyed rule dictionary.
 |---|---|
 | `model` | Pydantic `BaseModel` subclass |
 | `table` | SQLAlchemy `Table`, alias, ORM class, or object with `.c` |
-| `column_map` | Optional explicit `field_name → column` mapping |
-| `on_unsupported` | `"raise"` (default), `"warn"`, or `"ignore"` |
+| `column_map` | Optional explicit `field_name` or alias → column mapping |
+| `on_unsupported` | `"raise"` (default), `"warn"`, or `"ignore"` for unknown **operators** only |
+
+Rule dictionary keys are always the Python field names. String field aliases
+(`alias`, `validation_alias`, `serialization_alias`) are used only for column
+binding. Unconstrained fields are omitted and do not require a column.
+
+Unsupported types always raise, regardless of `on_unsupported`.
 
 ## `where` / `flatten`
 
@@ -38,12 +44,20 @@ Flatten a rule dictionary into a single list of expressions suitable for
 ## `Compiler`
 
 ```python
-compiler = sqlrules.Compiler(on_unsupported="raise")
+compiler = sqlrules.Compiler(on_unsupported="raise", registry=None)
 rules = compiler.compile(model, table, column_map=None)
 ```
 
 Reusable compiler instance with a fixed unsupported-constraint policy and
-translator registry.
+optional custom translator registry.
+
+## Other exports
+
+Also exported for advanced use and typing:
+
+- `__version__`
+- `SQLRulesWarning`
+- `CompilationContext`, `Constraint`, `FieldDescriptor` (IR helpers)
 
 ## Exceptions
 
@@ -53,9 +67,9 @@ All public exceptions inherit from `SQLRulesError`:
 - `MissingColumnError`
 - `UnsupportedConstraintError`
 - `TranslatorError`
-- `InvalidTranslatorError`
+- `InvalidTranslatorError` (reserved; not raised in 0.1)
 - `RegistryError`
 - `ConfigurationError`
-- `InternalCompilerError`
+- `InternalCompilerError` (reserved; not raised in 0.1)
 
 See [ERRORS.md](ERRORS.md) for details.

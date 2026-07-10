@@ -19,6 +19,7 @@ class FieldDescriptor:
     alias: str | None
     annotation: Any
     metadata: tuple[Any, ...] = ()
+    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

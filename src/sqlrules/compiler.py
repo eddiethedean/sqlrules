@@ -40,13 +40,17 @@ class Compiler:
 
         for field in inspect_model(model):
             ensure_supported_type(field)
+            constraints = extract_constraints(field)
+            if not constraints:
+                continue
+
             column = resolve_column(
                 field.name,
                 table,
                 column_map,
                 alias=field.alias,
+                aliases=field.aliases,
             )
-            constraints = extract_constraints(field)
 
             expressions: list[ColumnElement[bool]] = []
             for constraint in constraints:

@@ -13,10 +13,11 @@ deterministically into SQLAlchemy boolean expressions.
 
 # Guiding Principles
 
--   Prefer deterministic translations.
--   Never guess SQL semantics.
--   Unsupported types fail fast by default.
--   Type support is independent of database dialect whenever possible.
+- Prefer deterministic translations.
+- Never guess SQL semantics.
+- Unsupported types always fail fast (they are not softened by
+  `on_unsupported`).
+- Type support is independent of database dialect whenever possible.
 
 ------------------------------------------------------------------------
 
@@ -33,8 +34,8 @@ deterministically into SQLAlchemy boolean expressions.
   datetime          ✅      Range comparisons
   Enum              ✅      Translated to `IN (...)`
   Literal           ✅      Translated to `IN (...)`
-  UUID              🚧      Planned
-  time              🚧      Planned
+  UUID              ❌      Not supported in 0.1 (planned)
+  time              ❌      Not supported in 0.1 (planned)
   timedelta         ❌      No deterministic SQL mapping yet
 
 ------------------------------------------------------------------------

@@ -51,9 +51,9 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/sqlrules/sqlrules#readme"
-Changelog = "https://github.com/sqlrules/sqlrules/blob/main/CHANGELOG.md"
-Issues = "https://github.com/sqlrules/sqlrules/issues"
+Documentation = "https://github.com/eddiethedean/sqlrules#readme"
+Changelog = "https://github.com/eddiethedean/sqlrules/blob/main/CHANGELOG.md"
+Issues = "https://github.com/eddiethedean/sqlrules/issues"
 
 [tool.hatch.build.targets.sdist]
 include = [

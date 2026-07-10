@@ -231,11 +231,15 @@ SQL Server, or Oracle plugins.
 
 ------------------------------------------------------------------------
 
-# Decision 9: Plugins Are Explicit
+# Decision 9: Plugins Are Explicit (Future)
 
 ## Decision
 
-SQLRules does not automatically discover or load plugins in the MVP.
+SQLRules 0.1 does **not** ship a plugin API. Customization today is limited
+to injecting a `TranslatorRegistry` into `Compiler(registry=...)`.
+
+A future release may add explicit plugin registration (for example
+`Compiler(plugins=[...])`) without automatic discovery.
 
 ## Rationale
 
@@ -244,16 +248,8 @@ reproducibility, and keeps the compiler deterministic.
 
 ## Consequences
 
-Users opt in:
-
-``` python
-compiler = Compiler(
-    plugins=[PostgresPlugin()]
-)
-```
-
-Future versions may add entry-point discovery, but explicit registration
-remains the preferred path.
+Do not treat plugin examples in design docs as available in 0.1. See
+[PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) for the planned design.
 
 ------------------------------------------------------------------------
 
@@ -301,22 +297,24 @@ early.
 
 ------------------------------------------------------------------------
 
-# Decision 12: Two-Phase Compilation
+# Decision 12: Two-Phase Compilation (Future)
 
 ## Decision
 
-SQLRules should separate static model compilation from table binding.
+SQLRules should eventually separate static model compilation from table
+binding. **0.1 compiles in a single pass** (inspect → extract → resolve →
+translate).
 
-## Phase 1: Static Compilation
+## Planned Phase 1: Static Compilation
 
--   inspect Pydantic model
--   extract constraints
--   build IR
+- inspect Pydantic model
+- extract constraints
+- build IR
 
-## Phase 2: Binding
+## Planned Phase 2: Binding
 
--   resolve SQLAlchemy columns
--   translate IR to expressions
+- resolve SQLAlchemy columns
+- translate IR to expressions
 
 ## Rationale
 

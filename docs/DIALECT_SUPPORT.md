@@ -31,14 +31,17 @@ compiler deterministic.
 
 # Planned Dialects
 
+0.1 emits portable SQLAlchemy Core expressions. The table below describes
+**intended** dialect posture, not a certified multi-backend test matrix.
+
   Dialect             Status        Notes
   ------------ -------------------- --------------------------------
-  SQLite             ✅ Core        Development and testing target
-  PostgreSQL    ✅ Core / Enhanced  Richest feature set
-  MySQL              ✅ Core        Enhanced features via plugin
-  MariaDB            ✅ Core        Follows MySQL where practical
-  SQL Server         ✅ Core        Enhanced features via plugin
-  Oracle            🚧 Planned      Core support after 1.0
+  SQLite             Core (dev)     Primary local/CI smoke target
+  PostgreSQL         Core (planned) Enhanced features via future plugin
+  MySQL              Core (planned) Enhanced features via future plugin
+  MariaDB            Core (planned) Follows MySQL where practical
+  SQL Server         Core (planned) Enhanced features via future plugin
+  Oracle             Planned        Core support after 1.0
 
 ------------------------------------------------------------------------
 

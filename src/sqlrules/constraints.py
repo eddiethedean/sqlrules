@@ -4,7 +4,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from types import UnionType
-from typing import Any, Literal, Union, get_args, get_origin
+from typing import Annotated, Any, Literal, Union, get_args, get_origin
 from uuid import UUID
 
 from annotated_types import (
@@ -18,6 +18,7 @@ from annotated_types import (
     MultipleOf,
     Predicate,
 )
+from pydantic.fields import FieldInfo
 
 from sqlrules.errors import UnsupportedConstraintError
 from sqlrules.ir import Constraint, FieldDescriptor
@@ -25,6 +26,8 @@ from sqlrules.ir import Constraint, FieldDescriptor
 _SUPPORTED_TYPES: frozenset[type[Any]] = frozenset({bool, int, float, Decimal, str, date, datetime})
 _UNSUPPORTED_TYPES: frozenset[type[Any]] = frozenset({UUID, time, timedelta})
 _UNSUPPORTED_ORIGINS: frozenset[Any] = frozenset({list, dict, tuple, set, frozenset})
+_LENGTH_OPERATORS: frozenset[str] = frozenset({"min_length", "max_length"})
+_NUMERIC_OPERATORS: frozenset[str] = frozenset({"gt", "ge", "lt", "le", "multiple_of"})
 _VALIDATOR_TYPE_NAMES = frozenset(
     {
         "AfterValidator",
@@ -37,14 +40,33 @@ _VALIDATOR_TYPE_NAMES = frozenset(
 )
 
 
-def _unwrap_annotation(annotation: Any) -> Any:
-    """Unwrap Optional/Union[..., None] to the non-None member when unique."""
-    origin = get_origin(annotation)
-    if origin is Union or origin is UnionType:
-        args = [arg for arg in get_args(annotation) if arg is not type(None)]
-        if len(args) == 1:
-            return args[0]
-    return annotation
+def _unwrap_annotation(annotation: Any) -> tuple[Any, tuple[Any, ...]]:
+    """Unwrap Optional/Union[..., None] and Annotated layers.
+
+    Returns the concrete annotation and any metadata collected from Annotated
+    wrappers (used when Pydantic leaves field.metadata empty for
+    ``Annotated[T, ...] | None``).
+    """
+    collected: list[Any] = []
+    current = annotation
+
+    while True:
+        origin = get_origin(current)
+        if origin is Annotated:
+            args = get_args(current)
+            if not args:
+                break
+            current = args[0]
+            collected.extend(args[1:])
+            continue
+        if origin is Union or origin is UnionType:
+            non_none = [arg for arg in get_args(current) if arg is not type(None)]
+            if len(non_none) == 1:
+                current = non_none[0]
+                continue
+        break
+
+    return current, tuple(collected)
 
 
 def _iter_metadata(metadata: Any) -> Any:
@@ -53,13 +75,29 @@ def _iter_metadata(metadata: Any) -> Any:
             continue
         if isinstance(item, GroupedMetadata):
             yield from _iter_metadata(item)
+        elif isinstance(item, FieldInfo):
+            # Annotated[..., Field(...)] | None leaves FieldInfo in the annotation
+            # metadata when field.metadata is empty.
+            yield from _iter_metadata(item.metadata)
         else:
             yield item
 
 
+def _field_metadata(field: FieldDescriptor) -> tuple[Any, ...]:
+    if field.metadata:
+        return field.metadata
+    _, annotated_metadata = _unwrap_annotation(field.annotation)
+    return annotated_metadata
+
+
+def _concrete_type(field: FieldDescriptor) -> Any:
+    annotation, _ = _unwrap_annotation(field.annotation)
+    return annotation
+
+
 def ensure_supported_type(field: FieldDescriptor) -> None:
     """Raise when a field annotation is outside the v0.1 support matrix."""
-    annotation = _unwrap_annotation(field.annotation)
+    annotation = _concrete_type(field)
     origin = get_origin(annotation)
 
     if origin is Literal:
@@ -125,10 +163,64 @@ def _unsupported_constraints(field_name: str, item: Any) -> list[Constraint]:
     return [Constraint(field_name, type_name, item)]
 
 
+def _reject_type_operator_mismatch(field: FieldDescriptor, constraint: Constraint) -> None:
+    annotation = _concrete_type(field)
+    origin = get_origin(annotation)
+
+    if origin is Literal:
+        if (
+            constraint.operator not in {"literal", "enum"}
+            and constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS
+        ):
+            raise UnsupportedConstraintError(
+                field=field.name,
+                operator=constraint.operator,
+                value=constraint.value,
+                suggestion=(f"Constraint {constraint.operator!r} is not valid for Literal fields."),
+            )
+        return
+
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        if constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS:
+            raise UnsupportedConstraintError(
+                field=field.name,
+                operator=constraint.operator,
+                value=constraint.value,
+                suggestion=f"Constraint {constraint.operator!r} is not valid for Enum fields.",
+            )
+        return
+
+    if annotation is bool and constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS:
+        raise UnsupportedConstraintError(
+            field=field.name,
+            operator=constraint.operator,
+            value=constraint.value,
+            suggestion=(
+                "Bool fields only support Literal/equality-style constraints in SQLRules 0.1."
+            ),
+        )
+
+    if constraint.operator in _LENGTH_OPERATORS and annotation is not str:
+        raise UnsupportedConstraintError(
+            field=field.name,
+            operator=constraint.operator,
+            value=constraint.value,
+            suggestion="Length constraints require a str field annotation.",
+        )
+
+    if constraint.operator in _NUMERIC_OPERATORS and annotation is str:
+        raise UnsupportedConstraintError(
+            field=field.name,
+            operator=constraint.operator,
+            value=constraint.value,
+            suggestion="Numeric comparison constraints are not valid for str fields.",
+        )
+
+
 def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
     constraints: list[Constraint] = []
 
-    for item in _iter_metadata(field.metadata):
+    for item in _iter_metadata(_field_metadata(field)):
         if isinstance(item, Gt):
             constraints.append(Constraint(field.name, "gt", item.gt))
         elif isinstance(item, Ge):
@@ -146,7 +238,7 @@ def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
         else:
             constraints.extend(_unsupported_constraints(field.name, item))
 
-    annotation = _unwrap_annotation(field.annotation)
+    annotation = _concrete_type(field)
     origin = get_origin(annotation)
     args = get_args(annotation)
 
@@ -156,5 +248,9 @@ def extract_constraints(field: FieldDescriptor) -> list[Constraint]:
     if isinstance(annotation, type) and issubclass(annotation, Enum):
         values = tuple(member.value for member in annotation)
         constraints.append(Constraint(field.name, "enum", values))
+
+    for constraint in constraints:
+        if constraint.operator in _LENGTH_OPERATORS | _NUMERIC_OPERATORS:
+            _reject_type_operator_mismatch(field, constraint)
 
     return constraints

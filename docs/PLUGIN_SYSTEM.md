@@ -1,17 +1,21 @@
 # SQLRules Plugin System
 
+> **Status: future design (not available in 0.1).**
+> SQLRules 0.1 has no plugin hook. Use `Compiler(registry=...)` to supply
+> custom translators. This document describes the planned extension model.
+
 ## Purpose
 
-The SQLRules plugin system allows applications and libraries to extend
+The SQLRules plugin system will allow applications and libraries to extend
 the compiler without modifying SQLRules itself.
 
 Plugins may register:
 
--   New constraint translators
--   New type translators
--   Dialect-specific translators
--   Compiler passes
--   Validation hooks (compile-time only)
+- New constraint translators
+- New type translators
+- Dialect-specific translators
+- Compiler passes
+- Validation hooks (compile-time only)
 
 The core package should remain small while advanced functionality lives
 in plugins.
@@ -20,11 +24,11 @@ in plugins.
 
 # Design Goals
 
--   Zero-cost when unused
--   Deterministic compilation
--   Stable public extension API
--   No monkey-patching
--   Explicit registration
+- Zero-cost when unused
+- Deterministic compilation
+- Stable public extension API
+- No monkey-patching
+- Explicit registration
 
 ------------------------------------------------------------------------
 
