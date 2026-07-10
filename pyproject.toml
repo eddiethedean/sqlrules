@@ -51,7 +51,9 @@ dev = [
 ]
 
 [project.urls]
+Homepage = "https://github.com/eddiethedean/sqlrules"
 Documentation = "https://github.com/eddiethedean/sqlrules#readme"
+Repository = "https://github.com/eddiethedean/sqlrules"
 Changelog = "https://github.com/eddiethedean/sqlrules/blob/main/CHANGELOG.md"
 Issues = "https://github.com/eddiethedean/sqlrules/issues"
 
