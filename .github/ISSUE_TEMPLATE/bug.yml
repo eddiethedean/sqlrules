@@ -1,0 +1,31 @@
+name: Bug report
+description: Something does not work as documented
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please check the [FAQ](https://sqlrules.readthedocs.io/en/latest/guides/faq.html) and [troubleshooting](https://sqlrules.readthedocs.io/en/latest/guides/troubleshooting.html) first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Expected vs actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Smallest model + table + compile call that fails
+      render: python
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "e.g. sqlrules 1.0.0, pydantic 2.x, sqlalchemy 2.x, Python 3.12"
+    validations:
+      required: true

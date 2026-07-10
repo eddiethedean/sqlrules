@@ -177,3 +177,29 @@ jobs:
 
       - name: Sphinx
         run: sphinx-build -W -b html docs docs/_build/html
+
+  checks:
+    name: CI checks
+    if: always()
+    needs:
+      - lint
+      - test
+      - package
+      - docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all jobs
+        run: |
+          results=(
+            "${{ needs.lint.result }}"
+            "${{ needs.test.result }}"
+            "${{ needs.package.result }}"
+            "${{ needs.docs.result }}"
+          )
+          for result in "${results[@]}"; do
+            if [[ "$result" != "success" ]]; then
+              echo "One or more CI jobs failed: ${results[*]}"
+              exit 1
+            fi
+          done
+          echo "All CI jobs passed (lint, test, package, docs)."

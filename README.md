@@ -20,11 +20,31 @@ pip install sqlrules
 ```
 
 ```python
+from typing import Annotated
+
+from pydantic import BaseModel, Field
+from sqlalchemy import Column, Integer, MetaData, String, Table
+
+import sqlrules
+
+users = Table(
+    "users",
+    MetaData(),
+    Column("age", Integer),
+    Column("name", String),
+)
+
+class UserFilter(BaseModel):
+    age: Annotated[int, Field(ge=18, le=65)]
+    name: Annotated[str, Field(min_length=2)]
+
 rules = sqlrules.compile(UserFilter, users)
 stmt = users.select().where(*sqlrules.where(rules))
 ```
 
-Full walkthrough: [Getting started](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html).
+> **`pattern` needs a plugin.** Core compiles comparisons, lengths, `Literal`, and `Enum`. Regex / JSON / arrays require a dialect package (see below).
+
+Full walkthrough: [Getting started](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html) · Runnable scripts: [`examples/`](examples/).
 
 | | |
 |---|---|
@@ -50,16 +70,15 @@ Full walkthrough: [Getting started](https://sqlrules.readthedocs.io/en/latest/gu
 
 ```python
 from typing import Annotated
+
 from pydantic import BaseModel, Field
-from sqlalchemy import Table, Column, Integer, String, MetaData
+from sqlalchemy import Column, Integer, MetaData, String, Table
 
 import sqlrules
 
-metadata = MetaData()
-
 users = Table(
     "users",
-    metadata,
+    MetaData(),
     Column("age", Integer),
     Column("name", String),
 )
@@ -71,41 +90,72 @@ class UserFilter(BaseModel):
 rules = sqlrules.compile(UserFilter, users)
 # {
 #     "age": [users.c.age >= 18, users.c.age <= 65],
-#     "name": [func.length(users.c.name) >= 2],
+#     "name": [length(users.c.name) >= 2],
 # }
 
 stmt = users.select().where(*sqlrules.where(rules))
 ```
 
+Prefer `sqlrules.where(rules)` to flatten expressions for `.where(...)`.
+`flatten` is an identical alias.
+
+More: [`examples/basic_compile.py`](examples/basic_compile.py),
+[`examples/select_usage.py`](examples/select_usage.py).
+
 ## Install
 
 ```bash
 pip install sqlrules
+# or: uv add sqlrules
 ```
 
-Optional dialect plugins:
+**End users:** install from PyPI only. You do not need to clone this repo or
+install from `packages/`.
+
+Optional dialect plugins (same major line as core):
 
 ```bash
 pip install sqlrules-postgresql   # ~ / ~*, JSONB, ARRAY, range
 pip install sqlrules-sqlite       # REGEXP helper + JSON
 pip install sqlrules-mysql        # REGEXP, JSON, full-text
 pip install sqlrules-mssql        # JSON + LEN string ops
-# or: pip install "sqlrules[postgresql]" / "sqlrules[dialects]"
+```
+
+Extras are equivalent shortcuts (pull the matching plugin package):
+
+```bash
+pip install "sqlrules[postgresql]"
+pip install "sqlrules[dialects]"   # all four
 ```
 
 ```python
 from typing import Annotated, Any
+
 from pydantic import BaseModel, Field
+from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy.dialects.postgresql import JSONB
+
 from sqlrules import Compiler, JsonContains
 from sqlrules_postgresql import PostgresPlugin
+
+table = Table(
+    "rows",
+    MetaData(),
+    Column("name", String),
+    Column("meta", JSONB),
+)
 
 class RowFilter(BaseModel):
     name: Annotated[str, Field(pattern=r"^A")]
     meta: Annotated[dict[str, Any], JsonContains({"active": True})]
 
+# dialect= is a hint for custom translators only — it does not load plugins.
 compiler = Compiler(plugins=[PostgresPlugin()], dialect="postgresql")
 rules = compiler.compile(RowFilter, table)
+stmt = table.select().where(*sqlrules.where(rules))
 ```
+
+See [`examples/postgresql_pattern.py`](examples/postgresql_pattern.py).
 
 ## Supported constraints (1.0)
 
@@ -117,27 +167,35 @@ rules = compiler.compile(RowFilter, table)
 | `Literal[...]` | `column.in_(...)` |
 | `Enum` | `column.in_(...)` |
 
-`pattern` is extracted into IR (`PatternSpec`) but has no portable core
-translator. Use a dialect plugin or a custom registry translator.
+`pattern` is extracted into IR (`PatternSpec`) but has **no portable core
+translator**. Install a dialect plugin or register a custom translator.
 
 Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
-`FullTextMatch`, …) live in `sqlrules.markers` and require a dialect plugin.
+`FullTextMatch`, …) are re-exported from `sqlrules` (and live in
+`sqlrules.markers`); they require a dialect plugin.
 
 Unsupported constraints raise `UnsupportedConstraintError` by default.
-Use `on_unsupported="warn"` or `"ignore"` to change that policy for unknown
-constraint operators (unsupported types always raise).
+Use `on_unsupported="warn"` or `"ignore"` for unknown **operators**
+(unsupported **types** always raise, including unconstrained fields).
+
+## When *not* to use SQLRules
+
+If you have two static filters and will never share constraint metadata with
+a Pydantic model, write the SQLAlchemy expressions directly. SQLRules pays
+off when the model *is* the source of truth for many fields or dialects.
 
 ## Public API
 
 ```python
 sqlrules.compile(model, table, *, column_map=None, on_unsupported="raise", cache=True)
-sqlrules.where(rules)    # flatten all expressions
-sqlrules.flatten(rules)  # alias of where()
+sqlrules.where(rules)           # prefer this to flatten expressions
+sqlrules.flatten(rules)         # alias of where()
+sqlrules.clear_model_cache()    # drop process-wide Phase-1 IR cache
 
 compiler = sqlrules.Compiler(
     plugins=[...],           # optional SQLRulesPlugin instances
     on_conflict="raise",     # raise | replace | ignore
-    dialect=None,            # optional hint for translators
+    dialect=None,            # hint only — does not load plugins
     on_unsupported="raise",
     cache=True,
 )
@@ -158,6 +216,7 @@ Full site: **[sqlrules.readthedocs.io](https://sqlrules.readthedocs.io/en/latest
 | Topic | Link |
 |---|---|
 | Getting started | [Guide](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html) |
+| Examples | [`examples/`](examples/) |
 | Spec & constraints | [SPEC](https://sqlrules.readthedocs.io/en/latest/SPEC.html) · [CONSTRAINTS](https://sqlrules.readthedocs.io/en/latest/CONSTRAINTS.html) |
 | Plugins | [Plugin system](https://sqlrules.readthedocs.io/en/latest/PLUGIN_SYSTEM.html) |
 | API reference | [Reference hub](https://sqlrules.readthedocs.io/en/latest/reference/index.html) |
@@ -165,25 +224,31 @@ Full site: **[sqlrules.readthedocs.io](https://sqlrules.readthedocs.io/en/latest
 | Roadmap | [Roadmap](https://sqlrules.readthedocs.io/en/latest/project/roadmap.html) |
 | Changelog | [Changelog](https://sqlrules.readthedocs.io/en/latest/project/changelog.html) |
 
-Build the site locally:
-
 ```bash
 pip install -e ".[docs]"
-sphinx-build -W -b html docs docs/_build/html
+make docs
 ```
+
+## Repo map
+
+| Path | Who cares |
+|---|---|
+| PyPI `sqlrules` / `sqlrules-*` | **Application users** — install these |
+| [`examples/`](examples/) | Copy-paste runnable scripts |
+| [`docs/`](docs/) | Spec, guides, architecture (also on Read the Docs) |
+| [`packages/`](packages/) | **Contributors** — official dialect plugin sources |
+| [`src/sqlrules/`](src/sqlrules/) | Core library source |
+| [`benchmarks/`](benchmarks/) | Optional local compile benchmarks |
 
 ## Development
 
 ```bash
-pip install -e ".[dev]"
-pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite \
-  -e packages/sqlrules-mysql -e packages/sqlrules-mssql
-pytest tests packages/sqlrules-postgresql/tests packages/sqlrules-sqlite/tests \
-  packages/sqlrules-mysql/tests packages/sqlrules-mssql/tests
-ruff check .
-mypy src/sqlrules
-python -m benchmarks.bench_compile
+make install
+make test
+make docs
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Maintainers: [RELEASING.md](RELEASING.md).
 
 ## License
 

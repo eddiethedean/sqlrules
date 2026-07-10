@@ -26,6 +26,13 @@ truth: the model’s constraints become deterministic column expressions.
 See [NON_GOALS](../NON_GOALS.md). Applications remain responsible for composing
 queries, choosing dialects, and executing SQL through SQLAlchemy.
 
+## When *not* to use it
+
+If you have a couple of static filters and will never share constraint
+metadata with a Pydantic model, write the SQLAlchemy expressions directly.
+SQLRules pays off when the model is the shared source of truth across many
+fields or dialects.
+
 ## Deeper reading
 
 - [VISION](../VISION.md) · [PHILOSOPHY](../PHILOSOPHY.md)

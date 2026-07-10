@@ -79,6 +79,7 @@ SQLRules does not connect to a database, generate SQL strings, or validate reque
 <div class="sr-callout">
   <strong>Install:</strong> <code>pip install sqlrules</code>
   — optional dialects via <code>pip install sqlrules-postgresql</code> (or sqlite / mysql / mssql).
+  <code>pattern</code> needs a dialect plugin.
 </div>
 ```
 
@@ -125,7 +126,8 @@ DIALECT_SUPPORT
 
 reference/index
 reference/glossary
-reference/autodoc
+reference/application
+reference/plugin-api
 API
 IR_CONTRACT
 ERRORS
@@ -134,7 +136,7 @@ SECURITY
 
 ```{toctree}
 :maxdepth: 1
-:caption: Architecture
+:caption: Internals and design
 
 ARCHITECTURE
 COMPILER
@@ -142,12 +144,6 @@ TRANSLATORS
 INTERNAL_API
 TESTING
 PERFORMANCE
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Design
-
 VISION
 PHILOSOPHY
 NON_GOALS

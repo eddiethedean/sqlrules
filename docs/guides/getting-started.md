@@ -9,13 +9,14 @@ few minutes.
 
 ```bash
 pip install sqlrules
+# or: uv add sqlrules
 ```
 
 Optional dialect plugins (regex, JSON, arrays, and related operators):
 
 ```bash
 pip install sqlrules-postgresql   # or sqlite / mysql / mssql
-# or: pip install "sqlrules[dialects]"
+# or: pip install "sqlrules[postgresql]" / "sqlrules[dialects]"
 ```
 
 ## 2. Define a filter model and a table
@@ -28,10 +29,9 @@ from sqlalchemy import Column, Integer, MetaData, String, Table
 
 import sqlrules
 
-metadata = MetaData()
 users = Table(
     "users",
-    metadata,
+    MetaData(),
     Column("age", Integer),
     Column("name", String),
 )
@@ -47,17 +47,43 @@ class UserFilter(BaseModel):
 rules = sqlrules.compile(UserFilter, users)
 # {
 #     "age": [users.c.age >= 18, users.c.age <= 65],
-#     "name": [func.length(users.c.name) >= 2],
+#     "name": [length(users.c.name) >= 2],
 # }
 
 stmt = users.select().where(*sqlrules.where(rules))
 ```
 
-**Success check:** `rules` is a `dict[str, list[...]]` keyed by Python field
-names. Unconstrained fields are omitted. `sqlrules.where(rules)` flattens all
-expressions for `.where(...)`.
+Prefer `sqlrules.where(rules)` (identical alias: `flatten`).
 
-## 4. What compiled (and what did not)
+**Success check:** `rules` is a `dict[str, list[...]]` keyed by Python field
+names. Unconstrained fields are omitted.
+
+## 4. The `pattern` footgun (and fix)
+
+`Field(pattern=...)` is extracted into IR, but **core has no portable regex
+translator**. This fails on purpose:
+
+```python
+class NameFilter(BaseModel):
+    name: Annotated[str, Field(pattern=r"^A")]
+
+sqlrules.compile(NameFilter, users)  # UnsupportedConstraintError
+```
+
+Install a dialect plugin and pass it to `Compiler`:
+
+```python
+from sqlrules import Compiler
+from sqlrules_postgresql import PostgresPlugin
+
+compiler = Compiler(plugins=[PostgresPlugin()], dialect="postgresql")
+rules = compiler.compile(NameFilter, users)
+```
+
+`dialect=` is a **hint only** — it does not load plugins. See
+[`examples/postgresql_pattern.py`](https://github.com/eddiethedean/sqlrules/blob/main/examples/postgresql_pattern.py).
+
+## 5. What compiled (and what did not)
 
 | Constraint | Core behavior |
 |---|---|
@@ -76,8 +102,15 @@ Untrusted `Field(pattern=...)` values are a CPU/ReDoS cost risk once a dialect
 plugin translates them; prefer static patterns. See
 [SECURITY](../SECURITY.md).
 
+## When *not* to use SQLRules
+
+Two static filters you will never share with a Pydantic model? Write the
+SQLAlchemy expressions by hand. SQLRules helps when the model is the shared
+source of truth.
+
 ## Next steps
 
+- [Examples on GitHub](https://github.com/eddiethedean/sqlrules/tree/main/examples)
 - [Constraint map](../CONSTRAINTS.md) — full operator → expression table
 - [Plugin system](../PLUGIN_SYSTEM.md) — dialect packages and custom translators
 - [Public API](../API.md) — `Compiler`, two-phase compile, API tiers

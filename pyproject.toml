@@ -82,12 +82,17 @@ include = [
   "/src",
   "/tests",
   "/docs",
+  "/examples",
   "/benchmarks",
+  "/scripts",
   "/README.md",
   "/ROADMAP.md",
   "/LICENSE",
   "/CHANGELOG.md",
   "/CONTRIBUTING.md",
+  "/RELEASING.md",
+  "/SECURITY.md",
+  "/CODE_OF_CONDUCT.md",
 ]
 
 [tool.hatch.build.targets.wheel]

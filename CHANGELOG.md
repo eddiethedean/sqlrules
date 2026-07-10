@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-07-10
+### Added
+
+- `examples/` runnable scripts; Makefile (`install` / `test` / `docs` / `dist`)
+- Root `SECURITY.md`, `CODE_OF_CONDUCT.md`, `RELEASING.md`; GitHub issue templates
+- Docs: Application vs Plugin autodoc pages; pattern footgun in getting started
+
+### Changed
+
+- README copy-paste complete snippets, repo map, `pattern` callout, prefer `where`
+- CONTRIBUTING focused on contributors; release steps moved to RELEASING.md
+- Docs sidebar nests design/architecture under “Internals and design”
 
 ### Added
 

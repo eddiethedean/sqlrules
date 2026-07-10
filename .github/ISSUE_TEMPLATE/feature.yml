@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose an enhancement to core or docs
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What gap are you hitting?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Ideal API or behavior (keep the Application surface small)
+    validations:
+      required: true
+  - type: checkboxes
+    id: nongols
+    attributes:
+      label: Fits non-goals?
+      options:
+        - label: I have read the non-goals (not an ORM / query builder / SQL generator)
+          required: true

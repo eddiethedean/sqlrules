@@ -26,7 +26,7 @@ and attach the rules to a SQLAlchemy `select()`.
 
 ## I want the generated API surface
 
-[Reference hub](../reference/index.md) · [Autodoc](../reference/autodoc.md) ·
+[Reference hub](../reference/index.md) · [Application autodoc](../reference/application.md) ·
 [Glossary](../reference/glossary.md)
 
 ## I am stuck

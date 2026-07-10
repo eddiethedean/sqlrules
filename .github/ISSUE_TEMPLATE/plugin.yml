@@ -1,0 +1,25 @@
+name: Plugin / dialect question
+description: Help with dialect plugins, pattern, markers, or custom translators
+title: "[Plugin]: "
+labels: ["question"]
+body:
+  - type: dropdown
+    id: dialect
+    attributes:
+      label: Dialect / package
+      options:
+        - sqlrules-postgresql
+        - sqlrules-sqlite
+        - sqlrules-mysql
+        - sqlrules-mssql
+        - custom plugin
+        - unsure
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Include a short code sample if possible
+    validations:
+      required: true
