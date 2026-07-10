@@ -28,6 +28,13 @@ RulesDict = dict[str, list[ColumnElement[bool]]]
 
 
 class Compiler:
+    """Compile constrained Pydantic models into SQLAlchemy rule dictionaries.
+
+    ``dialect`` is an optional hint stored on ``CompilationContext`` for
+    custom translators. It does **not** load dialect plugins or change
+    built-in translations — pass ``plugins=[...]`` explicitly.
+    """
+
     def __init__(
         self,
         *,
@@ -44,13 +51,13 @@ class Compiler:
         if on_conflict not in {"raise", "replace", "ignore"}:
             raise ConfigurationError(option="on_conflict", value=on_conflict)
 
-        base = registry if registry is not None else default_registry()
+        # Always copy so caller-owned and shared default registries are never mutated.
+        base = (registry if registry is not None else default_registry()).copy()
         plugin_list = list(plugins or ())
         resolved: TranslatorRegistry
         if plugin_list:
-            # Copy so plugins cannot mutate a caller-owned or shared registry.
             aware = _PluginAwareRegistry(
-                base.copy(),
+                base,
                 default_on_conflict=on_conflict,
             )
             for plugin in plugin_list:
@@ -158,7 +165,11 @@ class _PluginAwareRegistry(TranslatorRegistry):
         default_on_conflict: OnConflict,
     ) -> None:
         super().__init__()
-        self._translators = dict(base._translators)
+        for operator_name in base.operators():
+            translator = base.lookup(operator_name)
+            if translator is not None:
+                # Already validated on the source registry.
+                self._translators[operator_name] = translator
         self._default_on_conflict = default_on_conflict
 
     def register(

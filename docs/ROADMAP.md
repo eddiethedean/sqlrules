@@ -35,6 +35,12 @@
 - MySQL / MariaDB / SQL Server enhancements
 - Shared `ConstraintMarker` / `sqlrules.markers` API
 
+## Pre-1.0 — Contract hardening
+
+- Application / Plugin / Internal API tiers documented
+- Plugin packaging + coordinated release
+- Cache / dialect / registry ownership clarified
+
 ## 1.0 — Stable
 
 - Stable public API
@@ -42,4 +48,6 @@
 - Excellent documentation
 - Comprehensive test coverage
 
-See [MILESTONES.md](MILESTONES.md) for the detailed release plan.
+Post-1.0 work (performance, DX, ecosystem examples, advanced constraints)
+is tracked in [MILESTONES.md](MILESTONES.md) as optional follow-ons — not
+part of the 1.0 definition.

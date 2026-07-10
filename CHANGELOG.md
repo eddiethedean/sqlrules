@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- Documented Application / Plugin / Internal API tiers in `docs/API.md`
+- Re-exported Plugin API symbols: `pattern_text`, `TranslatorRegistry`,
+  `default_registry`
+- `docs/SECURITY.md` (plugin trust model, ReDoS notes)
+- Core optional extras: `postgresql`, `sqlite`, `mysql`, `mssql`, `dialects`
+- Plugin packages: `LICENSE`, `py.typed`, richer metadata; release workflow
+  publishes plugins on the same version tag as core
+- CI checks plugin version sync and packaging files
+
+### Changed
+
+- `Compiler` always copies the base registry (caller-owned registries are
+  never mutated, with or without plugins)
+- `ModelIRCache` uses a strong `dict` (documented process-lifetime cache;
+  call `clear()` for ephemeral models) — `WeakKeyDictionary` could not
+  evict because `ModelIR` retains the model class
+- `dialect=` documented as a translator hint only (does not load plugins)
+- Core dependencies upper-bounded: `pydantic>=2,<3`, `sqlalchemy>=2,<3`
+- Roadmap / milestones: 1.0 is API freeze; former 0.5–0.8 moved post-1.0
+- Performance docs no longer claim CI regression gates
+
 ## [0.4.0] - 2026-07-10
 
 ### Added

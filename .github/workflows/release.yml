@@ -13,8 +13,8 @@ jobs:
     name: Commit checks
     uses: ./.github/workflows/ci.yml
 
-  publish:
-    name: Publish to PyPI
+  publish-core:
+    name: Publish core to PyPI
     needs: ci
     runs-on: ubuntu-latest
 
@@ -61,3 +61,65 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish-plugins:
+    name: Publish dialect plugins to PyPI
+    needs: publish-core
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - sqlrules-postgresql
+          - sqlrules-sqlite
+          - sqlrules-mysql
+          - sqlrules-mssql
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Verify plugin version matches tag
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          expected = tag[1:]
+          pkg = "${{ matrix.package }}"
+          root = Path("packages") / pkg
+          version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+          assert version == expected, (pkg, version, expected)
+          # __version__ in package init
+          init_files = list((root / "src").rglob("__init__.py"))
+          assert init_files, pkg
+          text = init_files[0].read_text()
+          marker = '__version__ = "'
+          start = text.index(marker) + len(marker)
+          end = text.index('"', start)
+          assert text[start:end] == expected, (pkg, text[start:end], expected)
+          print(f"{pkg} version ok: {expected}")
+          PY
+
+      - name: Build plugin
+        run: python -m build "packages/${{ matrix.package }}" --outdir dist-plugin
+
+      - name: Twine check
+        run: twine check dist-plugin/*
+
+      - name: Publish plugin to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist-plugin/

@@ -41,7 +41,13 @@ Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
 - `date`, `datetime`, `time`
 - `UUID` (Literal / Enum only)
 - `Literal[...]`, `Enum`
-- `list` / `dict` (marker-driven fields only)
+- `list` / `dict` (allowed annotations; portable constraints raise;
+  unconstrained containers are skipped like unconstrained scalars;
+  dialect markers require a plugin)
+
+## `where` / `flatten`
+
+Both names are supported aliases of the same function.
 
 ## Unsupported constraints
 

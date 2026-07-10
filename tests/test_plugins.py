@@ -181,6 +181,18 @@ def test_plugins_do_not_mutate_external_registry() -> None:
     assert "pattern" not in external
 
 
+def test_compiler_copies_registry_without_plugins() -> None:
+    external = default_registry()
+    compiler = sqlrules.Compiler(registry=external, cache=False)
+    compiler.registry.register_constraint(
+        "pattern",
+        lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
+        on_conflict="raise",
+    )
+    assert "pattern" in compiler.registry
+    assert "pattern" not in external
+
+
 def test_dialect_hint_on_context(items: Table) -> None:
     seen: list[str | None] = []
 

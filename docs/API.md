@@ -1,8 +1,23 @@
 # Public API
 
-SQLRules exposes a deliberately small public surface.
+SQLRules exposes three stability tiers. Semver applies to the
+**Application** and **Plugin** tiers. The **Internal** tier may change
+in minor releases without notice.
 
-## `compile`
+------------------------------------------------------------------------
+
+## Application API (stable)
+
+Primary surface for application code:
+
+| Symbol | Role |
+|---|---|
+| `compile` | One-shot compile (no plugins) |
+| `where` / `flatten` | Flatten a rules dict (identical aliases; both supported) |
+| `Compiler` | Reusable compiler with plugins / registry / cache |
+| Exception hierarchy under `SQLRulesError` | Fail-fast errors |
+| `__version__` | Package version |
+| Markers (`JsonContains`, …) | `Annotated` metadata for dialect operators |
 
 ```python
 sqlrules.compile(
@@ -15,37 +30,31 @@ sqlrules.compile(
 ) -> dict[str, list[ColumnElement[bool]]]
 ```
 
-Compile a constrained Pydantic model into a field-keyed rule dictionary.
-
 | Parameter | Description |
 |---|---|
 | `model` | Pydantic `BaseModel` subclass |
 | `table` | SQLAlchemy `Table`, alias, ORM class, or object with `.c` |
-| `column_map` | Optional explicit `field_name` or alias → column mapping. If a key matches but the value is not a column, raises `MissingColumnError` (no fallthrough). |
-| `on_unsupported` | `"raise"` (default), `"warn"`, or `"ignore"` for unknown **operators** only |
+| `column_map` | Optional explicit field/alias → column mapping |
+| `on_unsupported` | `"raise"` (default), `"warn"`, or `"ignore"` for unknown **operators** |
 | `cache` | Cache Phase-1 model IR (default `True`) |
 
 Rule dictionary keys are always the Python field names. String field aliases
-(`alias`, `validation_alias`, `serialization_alias`) are used only for column
-binding. Unconstrained fields are omitted and do not require a column.
+are used only for column binding. Unconstrained fields are omitted.
 
-Unsupported types always raise, regardless of `on_unsupported`.
+Unsupported **types** always raise, regardless of `on_unsupported`.
 
-Module-level `compile` does not accept plugins; use `Compiler` for extensions.
+Module-level `compile` does not accept plugins; use `Compiler`.
 
-## `where` / `flatten`
+### `where` / `flatten`
 
 ```python
 sqlrules.where(rules) -> list[ColumnElement[bool]]
 sqlrules.flatten(rules) -> list[ColumnElement[bool]]
 ```
 
-Flatten a rule dictionary into a single list of expressions suitable for
-`Query.where(*expressions)` or `select(...).where(*expressions)`.
+Identical aliases. Both are part of the stable Application API.
 
-`where` and `flatten` are identical aliases.
-
-## `Compiler`
+### `Compiler`
 
 ```python
 compiler = sqlrules.Compiler(
@@ -55,75 +64,97 @@ compiler = sqlrules.Compiler(
     on_conflict="raise",
     dialect=None,
     cache=True,
-    model_cache=None,  # optional shared ModelIRCache; default is process-wide
+    model_cache=None,
 )
 rules = compiler.compile(model, table, column_map=None)
 
-# Two-phase (advanced):
-model_ir = compiler.compile_model(model)  # also clears diagnostics
+# Two-phase (advanced Application API):
+model_ir = compiler.compile_model(model)
 rules = compiler.bind(model_ir, table, column_map=None)
-
-# Diagnostics from the last compile_model / compile / bind:
-compiler.diagnostics
+compiler.diagnostics  # from the last bind/compile (translate phase)
 ```
 
 | Parameter | Description |
 |---|---|
-| `plugins` | Optional sequence of `SQLRulesPlugin` objects registered at init |
-| `on_conflict` | Default conflict policy for plugin `register()`: `"raise"`, `"replace"`, or `"ignore"` |
-| `dialect` | Optional string hint stored on `CompilationContext` (never auto-detected) |
-| `registry` | Optional base `TranslatorRegistry`; copied when `plugins` is non-empty |
-
-Reusable compiler instance with a fixed unsupported-constraint policy,
-optional plugins, optional custom translator registry, and optional Phase-1
-metadata cache.
-
-`compile_model` / `bind` separate static IR extraction from table binding so
-the same `ModelIR` can be reused across tables.
+| `plugins` | Optional `SQLRulesPlugin` instances registered at init |
+| `on_conflict` | Default for plugin `register()`: `"raise"`, `"replace"`, `"ignore"` |
+| `dialect` | **Hint only** for custom translators on `CompilationContext`. Does **not** load plugins or change built-ins. Pass `plugins=[...]` explicitly. |
+| `registry` | Optional base `TranslatorRegistry`; always **copied** into the compiler |
 
 **Concurrency:** do not call `compile` / `bind` / `compile_model` concurrently
-on the same `Compiler` instance (diagnostics are per-instance and not locked).
-The shared Phase-1 IR cache is thread-safe for concurrent reads/writes across
-instances.
+on the same `Compiler` instance. The shared Phase-1 IR cache is thread-safe
+across instances; call `ModelIRCache.clear()` if you create many ephemeral models.
 
-## Plugins
+------------------------------------------------------------------------
+
+## Plugin API (stable)
+
+For dialect packages and custom translators. Import from `sqlrules`:
+
+| Symbol | Role |
+|---|---|
+| `PLUGIN_API_VERSION` | Contract version string (`"1"`) |
+| `SQLRulesPlugin` | Protocol: `name`, `api_version`, `register(registry)` |
+| `TranslatorRegistry` | Register / lookup / copy translators |
+| `default_registry` | Built-in portable translators |
+| `pattern_text` | Unpack `PatternSpec` or `str` → `(pattern, ignore_case)` |
+| `Constraint`, `PatternSpec`, `CompilationContext` | IR types used by translators |
+| `ModelIR` | Two-phase / caching IR root |
+| `ConstraintMarker` + marker dataclasses | Dialect operator metadata |
+| `sqlrules.conformance` | Test helpers for plugin authors (supported) |
 
 ```python
-from sqlrules import PLUGIN_API_VERSION, Compiler
-from sqlrules.constraints import pattern_text
+from sqlrules import (
+    PLUGIN_API_VERSION,
+    Compiler,
+    TranslatorRegistry,
+    pattern_text,
+)
 
 class MyPlugin:
     name = "my-plugin"
     api_version = PLUGIN_API_VERSION
 
-    def register(self, registry):
+    def register(self, registry: TranslatorRegistry) -> None:
         registry.register_constraint(
             "pattern",
             lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             on_conflict="replace",
         )
 
-compiler = Compiler(plugins=[MyPlugin()])
+compiler = Compiler(plugins=[MyPlugin()], dialect="postgresql")
 ```
 
-Dialect markers (`JsonContains`, `ArrayContains`, …) are extracted into IR
-and translated by official dialect plugins. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
-Conformance helpers live in `sqlrules.conformance`.
+### `PLUGIN_API_VERSION` policy
 
-## Other exports
+Version `"1"` includes `PatternSpec` for `pattern` values. Always use
+`pattern_text(constraint.value)` — do not assume a bare `str`.
 
-Also exported for advanced use and typing:
+Bump `PLUGIN_API_VERSION` when changing translator signatures, registry
+methods, or IR value types for built-in operators. See
+[PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
 
-- `__version__`
-- `PLUGIN_API_VERSION`, `SQLRulesPlugin`
-- `SQLRulesWarning`
-- `CompilationContext`, `Constraint`, `FieldDescriptor`, `FieldIR`, `ModelIR`,
-  `Diagnostic`, `PatternSpec`
-- Markers: `ConstraintMarker`, `JsonContains`, `JsonHasKey`, `ArrayContains`,
-  `ArrayOverlap`, `RangeContains`, `RangeOverlap`, `FullTextMatch`
+Frozen marker operator names: `json_contains`, `json_has_key`,
+`array_contains`, `array_overlap`, `range_contains`, `range_overlap`,
+`fulltext_match`.
 
-`DiagnosticsCollector` and `ModelIRCache` are internal (import from
-`sqlrules.ir` / `sqlrules.cache` only if you accept instability).
+`register_type`, `register_dialect`, and `register_compiler_pass` are
+**not** present on `TranslatorRegistry` in API v1 — do not probe with
+`hasattr`.
+
+------------------------------------------------------------------------
+
+## Internal API (unstable)
+
+Not covered by semver. Prefer Application/Plugin imports.
+
+- `sqlrules.inspectors`, `sqlrules.columns`, `sqlrules.cache` helpers
+- `DiagnosticsCollector`, private translator factories
+- Module layout details
+
+See [INTERNAL_API.md](INTERNAL_API.md).
+
+------------------------------------------------------------------------
 
 ## Exceptions
 
@@ -139,4 +170,4 @@ All public exceptions inherit from `SQLRulesError`:
 - `PluginError`
 - `InternalCompilerError` (reserved)
 
-See [ERRORS.md](ERRORS.md) for details.
+See [ERRORS.md](ERRORS.md).

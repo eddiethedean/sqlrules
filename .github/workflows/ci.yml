@@ -42,18 +42,39 @@ jobs:
       - name: Version sync
         run: |
           python - <<'PY'
+          import re
           import tomllib
           from pathlib import Path
 
-          pyproject = tomllib.loads(Path("pyproject.toml").read_text())
-          pkg_version = pyproject["project"]["version"]
-          init = Path("src/sqlrules/__init__.py").read_text()
-          marker = '__version__ = "'
-          start = init.index(marker) + len(marker)
-          end = init.index('"', start)
-          init_version = init[start:end]
-          assert pkg_version == init_version, (pkg_version, init_version)
-          print(f"version ok: {pkg_version}")
+          def init_version(path: Path) -> str:
+              text = path.read_text()
+              marker = '__version__ = "'
+              start = text.index(marker) + len(marker)
+              end = text.index('"', start)
+              return text[start:end]
+
+          core = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          assert core == init_version(Path("src/sqlrules/__init__.py")), core
+          print(f"core version ok: {core}")
+
+          for pkg in (
+              "sqlrules-postgresql",
+              "sqlrules-sqlite",
+              "sqlrules-mysql",
+              "sqlrules-mssql",
+          ):
+              root = Path("packages") / pkg
+              meta = tomllib.loads((root / "pyproject.toml").read_text())["project"]
+              version = meta["version"]
+              init = next((root / "src").rglob("__init__.py"))
+              assert version == init_version(init), (pkg, version)
+              deps = " ".join(meta["dependencies"])
+              assert re.search(r"sqlrules>=0\.\d+,<0\.\d+", deps) or re.search(
+                  r"sqlrules>=1,<2", deps
+              ), (pkg, deps)
+              assert (root / "LICENSE").is_file(), pkg
+              assert list((root / "src").rglob("py.typed")), pkg
+              print(f"{pkg} version/packaging ok: {version}")
           PY
 
   test:
@@ -122,13 +143,25 @@ jobs:
           python -m pip install dist/*.whl
           python - <<'PY'
           import sqlrules
-          from sqlrules import compile, where, flatten, Compiler, PLUGIN_API_VERSION
+          from sqlrules import (
+              compile,
+              where,
+              flatten,
+              Compiler,
+              PLUGIN_API_VERSION,
+              pattern_text,
+              TranslatorRegistry,
+              default_registry,
+          )
 
           assert sqlrules.__version__
           assert callable(compile)
           assert callable(where)
           assert callable(flatten)
+          assert callable(pattern_text)
           assert Compiler is not None
+          assert TranslatorRegistry is not None
+          assert callable(default_registry)
           assert PLUGIN_API_VERSION == "1"
           print("wheel import ok:", sqlrules.__version__)
           PY

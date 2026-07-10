@@ -6,6 +6,22 @@ from sqlrules.errors import PluginError
 from sqlrules.translators import TranslatorRegistry
 
 PLUGIN_API_VERSION = "1"
+"""Version of the translator plugin contract.
+
+API v1 covers:
+
+- ``SQLRulesPlugin`` shape (``name``, ``api_version``, ``register``)
+- ``TranslatorRegistry.register_constraint`` / ``register`` / ``copy`` /
+  ``operators`` / ``lookup`` / ``translate``
+- Translator signature ``(Constraint, ColumnElement, CompilationContext)``
+- IR value types for built-in operators, including ``PatternSpec`` for
+  ``pattern`` (use ``pattern_text()``; do not assume ``constraint.value``
+  is a bare ``str``)
+- Stable marker operator names (``json_contains``, ``array_contains``, …)
+
+Bump this string on incompatible changes to any of the above. Package
+minor bumps alone do not change ``PLUGIN_API_VERSION``.
+"""
 
 
 @runtime_checkable

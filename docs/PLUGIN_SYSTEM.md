@@ -50,9 +50,7 @@ A plugin is a Python object that exposes `name`, `api_version`, and
 `register(registry)`.
 
 ``` python
-from sqlrules import PLUGIN_API_VERSION
-from sqlrules.constraints import pattern_text
-from sqlrules.translators import TranslatorRegistry
+from sqlrules import PLUGIN_API_VERSION, TranslatorRegistry, pattern_text
 
 class CompanyPlugin:
     name = "company"
@@ -66,7 +64,20 @@ class CompanyPlugin:
         )
 ```
 
-`api_version` must equal `sqlrules.PLUGIN_API_VERSION` (`"1"` in 0.4).
+`api_version` must equal `sqlrules.PLUGIN_API_VERSION` (`"1"`).
+
+### Version policy
+
+API v1 includes ``PatternSpec`` for ``pattern`` constraint values. Always
+use ``pattern_text(constraint.value)``; do not assume a bare ``str``.
+
+Bump ``PLUGIN_API_VERSION`` when changing translator signatures, registry
+methods, or IR value types for built-in operators. Core package minor
+bumps alone do not change the plugin API version.
+
+``register_type``, ``register_dialect``, and ``register_compiler_pass``
+are **not** implemented on ``TranslatorRegistry`` in API v1. Do not probe
+with ``hasattr``.
 
 ------------------------------------------------------------------------
 
@@ -76,6 +87,12 @@ Dialect-oriented constraints use `sqlrules.markers` (for example
 `JsonContains`, `ArrayContains`). Markers implement the
 `ConstraintMarker` protocol (`operator`, `value`) and are extracted into
 IR. Plugins register translators for those operator names.
+
+`ConstraintMarker` is intentionally duck-typed (`@runtime_checkable`).
+Prefer the official marker dataclasses so operator names stay stable.
+
+Frozen operator names: `json_contains`, `json_has_key`, `array_contains`,
+`array_overlap`, `range_contains`, `range_overlap`, `fulltext_match`.
 
 ------------------------------------------------------------------------
 
@@ -101,7 +118,8 @@ Invalid translators raise `InvalidTranslatorError`. Duplicate operators
 raise `RegistryError` unless `on_conflict` / `replace` allows otherwise.
 
 `register_type`, `register_dialect`, and `register_compiler_pass` are
-not implemented (reserved).
+not present on `TranslatorRegistry` in API v1 — do not probe with
+`hasattr`.
 
 ------------------------------------------------------------------------
 

@@ -150,15 +150,15 @@ Provide optimized translations for major databases.
 
 ------------------------------------------------------------------------
 
-# 0.5.0 --- Performance
+# Post-1.0 — Performance (formerly 0.5)
 
 ## Goals
 
-Optimize compilation.
+Optimize compilation after the 1.0 API freeze.
 
 ### Features
 
--   persistent metadata cache
+-   persistent metadata cache (optional)
 -   optimized translator dispatch
 -   allocation reductions
 -   concurrent-safe caches
@@ -170,7 +170,7 @@ Target:
 
 ------------------------------------------------------------------------
 
-# 0.6.0 --- Developer Experience
+# Post-1.0 — Developer Experience (formerly 0.6)
 
 ## Goals
 
@@ -187,50 +187,34 @@ Make SQLRules pleasant to use.
 
 ------------------------------------------------------------------------
 
-# 0.7.0 --- Ecosystem
+# Post-1.0 — Ecosystem examples (formerly 0.7)
 
-## Goals
+Optional documentation/examples only — not product integrations:
 
-Integrate with the wider Python ecosystem.
-
-Potential integrations:
-
--   SQLModel
--   FastAPI
--   Alembic examples
--   Pydantic Settings
+-   SQLModel / FastAPI / Alembic usage notes
 -   datamodel-code-generator examples
 
 ------------------------------------------------------------------------
 
-# 0.8.0 --- Advanced Constraints
+# Post-1.0 — Advanced Constraints (formerly 0.8)
 
-Potential features:
+Potential features (only with deterministic SQL semantics):
 
 -   decimal precision
--   pattern matching
--   contains
--   starts_with
--   ends_with
+-   contains / starts_with / ends_with
 -   configurable null policies
-
-Only constraints with deterministic SQL semantics should be accepted.
 
 ------------------------------------------------------------------------
 
-# 0.9.0 --- Release Candidate
+# Pre-1.0 — Contract hardening (replaces 0.9 RC theater)
 
-## Goals
-
-API freeze.
-
-### Activities
+API freeze activities happen as a short hardening cycle before tagging
+1.0.0 — not a separate feature release:
 
 -   bug fixing
--   documentation polish
--   performance tuning
+-   documentation polish (Application / Plugin / Internal tiers)
 -   compatibility verification
--   plugin stabilization
+-   coordinated core + dialect plugin releases
 
 No new major features.
 
@@ -240,18 +224,19 @@ No new major features.
 
 ## Success Criteria
 
--   Stable public API
--   Stable plugin API
+-   Stable Application API
+-   Stable Plugin API (`PLUGIN_API_VERSION`)
 -   Excellent documentation
 -   Comprehensive test suite
--   Cross-dialect compatibility
+-   Official dialect plugins released with core
 -   Predictable compiler behavior
 
 ### Public API
 
 -   compile()
--   where()
--   flatten()
+-   where() / flatten()
+-   Compiler
+-   Plugin API exports (`TranslatorRegistry`, `pattern_text`, markers, …)
 
 ### Supported Platforms
 

@@ -48,6 +48,7 @@ pip install sqlrules-postgresql   # ~ / ~*, JSONB, ARRAY, range
 pip install sqlrules-sqlite       # REGEXP helper + JSON
 pip install sqlrules-mysql        # REGEXP, JSON, full-text
 pip install sqlrules-mssql        # JSON + LEN string ops
+# or: pip install "sqlrules[postgresql]" / "sqlrules[dialects]"
 ```
 
 ```python

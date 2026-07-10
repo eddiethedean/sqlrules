@@ -3,15 +3,17 @@
 ```text
 Pydantic Model
     ↓
-Metadata Reader  (cached ModelIR)
+inspectors.inspect_model  → FieldDescriptor[]
     ↓
-Constraint IR
+constraints.extract_constraints → Constraint IR (PatternSpec / markers)
     ↓
-Column Binding
+cache.ModelIRCache (optional) → ModelIR
     ↓
-SQLAlchemy Compiler
+columns.resolve_column
     ↓
-Rule Dictionary (+ diagnostics)
+translators.TranslatorRegistry.translate
+    ↓
+Rule dictionary (+ diagnostics)
 ```
 
 SQLRules is a pure compiler pipeline with two phases:
@@ -30,4 +32,4 @@ SQLRules is a pure compiler pipeline with two phases:
 
 The compiler never connects to a database, executes SQL, or renders SQL
 strings. See [COMPILER.md](COMPILER.md) and [INTERNAL_API.md](INTERNAL_API.md)
-for stage-level detail.
+for module-level detail.

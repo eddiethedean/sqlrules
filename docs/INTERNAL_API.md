@@ -2,250 +2,90 @@
 
 ## Purpose
 
-This document specifies the internal interfaces used by SQLRules. These
-APIs are for implementation and extension within the project and are
-**not** part of the public compatibility contract.
+This document describes **implementation modules** used inside SQLRules.
+They are **not** part of the Application or Plugin semver contracts
+unless re-exported in [API.md](API.md).
 
-The public API should remain small while the internal API may evolve
-between minor releases.
+Plugin authors should import from `sqlrules` (`TranslatorRegistry`,
+`pattern_text`, `Constraint`, `PatternSpec`, …), not from private
+helpers.
 
 ------------------------------------------------------------------------
 
-# High-Level Architecture
+# Pipeline (actual modules)
 
 ``` text
-compile()
+compile() / Compiler
     │
-    ▼
-Compiler
-    │
-    ├── ModelInspector
-    ├── ColumnResolver
-    ├── ConstraintExtractor
-    ├── IRBuilder
-    ├── TranslatorRegistry
-    └── RuleAssembler
+    ├── inspectors.inspect_model      → FieldDescriptor[]
+    ├── constraints.extract_constraints / ensure_supported_type
+    ├── cache.ModelIRCache            → ModelIR (optional)
+    ├── columns.resolve_column
+    ├── translators.TranslatorRegistry.translate
+    └── assemble dict[str, list[ColumnElement[bool]]]
 ```
+
+There are no separate `IRBuilder` / `RuleAssembler` / `ModelInspector`
+classes — those names are historical. Behavior lives in the modules above
+plus [`compiler.py`](../src/sqlrules/compiler.py).
 
 ------------------------------------------------------------------------
 
 # Compiler
 
-The compiler orchestrates the pipeline.
-
-Responsibilities:
-
--   validate inputs
--   coordinate compilation stages
--   apply compiler options
--   collect diagnostics
--   assemble final rule dictionary
-
-Suggested interface:
-
-``` python
-class Compiler:
-    def compile_model(self, model) -> ModelIR: ...
-    def bind(self, model_ir, table, *, column_map=None) -> RulesDict: ...
-    def compile(self, model, table, *, column_map=None) -> RulesDict: ...
-```
+Orchestrates the two phases: `compile_model` (IR) and `bind` (columns +
+translate). See the public `Compiler` in [API.md](API.md).
 
 ------------------------------------------------------------------------
 
-# ModelInspector
+# inspectors
 
-Reads a Pydantic model without interpreting SQL semantics.
+`inspect_model(model) -> list[FieldDescriptor]`
 
-Responsibilities:
-
--   enumerate fields
--   preserve declaration order
--   expose aliases
--   expose metadata
--   expose annotations
-
-Output:
-
-``` python
-list[FieldDescriptor]
-```
+Enumerates fields in declaration order, including string aliases.
 
 ------------------------------------------------------------------------
 
-# ColumnResolver
+# constraints
 
-Maps model fields to SQLAlchemy columns.
+`extract_constraints` / `ensure_supported_type` / `pattern_text`
 
-Inputs:
-
--   SQLAlchemy Table
--   ORM mapped class
--   explicit column map
-
-Output:
-
-``` python
-FieldDescriptor -> ColumnElement
-```
-
-Raises:
-
--   MissingColumnError
+`pattern_text` is part of the **Plugin API** (also exported from
+`sqlrules`). Other helpers here are internal.
 
 ------------------------------------------------------------------------
 
-# ConstraintExtractor
+# columns
 
-Converts Pydantic metadata into normalized constraints.
-
-Example:
-
-``` text
-Field(age)
-    ↓
-[
-    ge=18,
-    le=65,
-]
-```
-
-↓
-
-``` text
-Constraint("ge", 18)
-Constraint("le", 65)
-```
+`resolve_column(...)` maps field names / aliases / `column_map` to
+SQLAlchemy columns. Never treats non-column `Table` attributes as columns.
 
 ------------------------------------------------------------------------
 
-# Intermediate Representation (IR)
+# translators
 
-The IR isolates compiler logic from Pydantic and SQLAlchemy.
-
-Suggested models:
-
-``` python
-Constraint
-FieldDescriptor
-FieldIR
-ModelIR
-CompilationContext
-Diagnostic
-```
-
-The IR should contain only semantic information.
+`TranslatorRegistry` and `default_registry` are **Plugin API**.
 
 ------------------------------------------------------------------------
 
-# TranslatorRegistry
+# cache
 
-Responsible for dispatch.
-
-Suggested methods:
-
-``` python
-register(...)
-register_constraint(..., on_conflict=...)
-lookup(...)
-translate(...)
-operators()
-copy()
-```
-
-Registry responsibilities:
-
--   operator lookup
--   conflict detection (`raise` / `replace` / `ignore`)
--   translator validation
--   hosting plugin registrations (via `Compiler(plugins=...)`)
+`ModelIRCache` — process-lifetime strong-key cache. Call `clear()` when
+using many ephemeral model classes. Not a public Application export.
 
 ------------------------------------------------------------------------
 
-# RuleAssembler
+# plugins / conformance
 
-Collects expressions into the final output.
-
-Input:
-
-``` python
-(field_name, expression)
-```
-
-Output:
-
-``` python
-{
-    "age": [...],
-    "name": [...],
-}
-```
-
-Ordering must be deterministic.
-
-------------------------------------------------------------------------
-
-# CompilationContext
-
-Shared state passed throughout compilation.
-
-Suggested contents:
-
--   compiler options (`on_unsupported`)
--   diagnostics collector
--   optional `dialect` hint (explicit; never auto-detected)
-
-Avoid global state.
-
-------------------------------------------------------------------------
-
-# Diagnostics
-
-Internal diagnostics record:
-
--   warnings (`severity="warning"`)
--   ignored skips (`severity="info"`)
-
-Exposed after compile via `Compiler.diagnostics`. Diagnostics are
-separate from exceptions. Each diagnostic may include a stable `code`
-(for example `unsupported_constraint`).
-
-------------------------------------------------------------------------
-
-# Compiler Pipeline
-
-``` text
-Model
- ↓
-Inspect + Extract  →  ModelIR  (cached)
- ↓
-Resolve Columns
- ↓
-Translate
- ↓
-Assemble Rules
-```
-
-Each stage should be independently unit tested.
-
-------------------------------------------------------------------------
-
-# Internal Stability
-
-The internal API is **not** covered by semantic versioning.
-
-Only the documented public API is guaranteed stable.
-
-Plugins should interact through documented extension points rather than
-importing internal modules.
+`SQLRulesPlugin`, `PLUGIN_API_VERSION`, and `sqlrules.conformance` are
+Plugin API. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
 
 ------------------------------------------------------------------------
 
 # Design Principles
 
--   Small components
--   Single responsibility
--   Immutable data flow
--   Deterministic compilation
--   Clear stage boundaries
--   Testability first
--   Public/private API separation
+- Small Application API
+- Explicit Plugin API
+- Internals may change between minors
+- Deterministic compilation
+- No database I/O

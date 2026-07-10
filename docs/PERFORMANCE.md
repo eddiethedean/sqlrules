@@ -88,7 +88,9 @@ Cached values:
 Avoid caching SQLAlchemy column objects, which are table-specific.
 
 Enabled by default (`cache=True`). Thread-safe via a lock-guarded
-`WeakKeyDictionary`.
+``dict`` keyed by model class. Entries are **strong** references for the
+process lifetime (``ModelIR`` retains the model type). Call
+``ModelIRCache.clear()`` when creating many ephemeral models.
 
 ------------------------------------------------------------------------
 
@@ -167,7 +169,13 @@ Measure:
 -   wall-clock compilation time (cold vs warm cache)
 -   cache hit benefit
 
-CI performance regression gates are planned for a later milestone.
+Illustrative latency targets (not CI-gated):
+
+-   Small model cold compile on the order of sub-millisecond to a few ms
+-   Medium model under a few milliseconds when warm
+
+CI does **not** currently enforce performance regression gates. Formal
+gates remain a post-1.0 / performance-milestone item.
 
 ------------------------------------------------------------------------
 
@@ -223,15 +231,11 @@ Exact values should be validated through continuous benchmarking.
 
 # Testing
 
-Performance regression tests should run in CI.
+Local benchmarks: `python -m benchmarks.bench_compile`.
 
-Track:
-
--   compile latency
--   memory usage trends
--   cache effectiveness
-
-Reject regressions that significantly exceed established baselines.
+CI performance regression gates are **not** enabled yet; treat the
+latency table above as illustrative until a post-1.0 performance
+milestone adds them.
 
 ------------------------------------------------------------------------
 

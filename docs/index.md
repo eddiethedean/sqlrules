@@ -23,6 +23,7 @@ WHERE expressions.
 
 - [TYPE_SUPPORT](TYPE_SUPPORT.md) — supported Python / Pydantic types
 - [DIALECT_SUPPORT](DIALECT_SUPPORT.md) — portable vs dialect-specific behavior
+- [SECURITY](SECURITY.md) — trust model and ReDoS notes
 - [TESTING](TESTING.md) — test strategy
 
 ## Design
