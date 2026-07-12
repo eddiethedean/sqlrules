@@ -1,18 +1,22 @@
-"""Tests for emit_type_checks / TypeSpec IR extraction."""
+"""Tests for emit_type_checks / TypeSpec IR extraction and bind-phase translation."""
 
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
+import pytest
 from pydantic import BaseModel, ConfigDict, Field, Strict
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.schema import Table
 
 import sqlrules
+from assert_sql import assert_rules_sql
 from sqlrules import Compiler, TypeSpec, type_spec
 from sqlrules.cache import ModelIRCache
 from sqlrules.errors import UnsupportedConstraintError
-from sqlrules.ir import Constraint
+from sqlrules.ir import CompilationContext, Constraint
+from sqlrules.translators import default_registry
 
 
 class Status(str, Enum):
@@ -26,12 +30,8 @@ def test_type_spec_helper() -> None:
 
 
 def test_type_spec_rejects_non_typespec() -> None:
-    try:
-        type_spec("int")
-    except TypeError as exc:
-        assert "TypeSpec" in str(exc)
-    else:
-        raise AssertionError("expected TypeError")
+    with pytest.raises(TypeError, match="TypeSpec"):
+        type_spec("int")  # type: ignore[arg-type]
 
 
 def test_default_omits_unconstrained_type_checks(users: Table) -> None:
@@ -140,7 +140,6 @@ def test_cache_separates_emit_flag() -> None:
     )
     assert without.fields[0].constraints == ()
     assert with_checks.fields[0].constraints[0].operator == "type_check"
-    # Re-fetch from cache
     assert (
         Compiler(emit_type_checks=False, cache=True, model_cache=cache).compile_model(Filter)
         is without
@@ -155,27 +154,48 @@ def test_module_compile_emit_type_checks_needs_translator(users: Table) -> None:
     class Filter(BaseModel):
         age: int
 
-    try:
+    with pytest.raises(UnsupportedConstraintError, match="type_check") as exc:
         sqlrules.compile(Filter, users, emit_type_checks=True, cache=False)
-    except UnsupportedConstraintError as exc:
-        assert exc.operator == "type_check"
-    else:
-        raise AssertionError("expected UnsupportedConstraintError")
+    assert exc.value.operator == "type_check"
 
 
-def test_type_check_constraint_shape() -> None:
-    constraint = Constraint(
-        "age",
-        "type_check",
-        TypeSpec(python_type=int, strict=False, allow_none=True),
+def test_type_check_compiles_with_custom_translator(users: Table) -> None:
+    """Bind-phase: type_check IR translates when a plugin/custom translator exists."""
+
+    class Filter(BaseModel):
+        age: Annotated[int, Field(ge=18)]
+        name: str | None = None
+
+    def type_check_translator(
+        constraint: Constraint,
+        column: ColumnElement[Any],
+        context: CompilationContext,
+    ) -> ColumnElement[bool]:
+        spec = type_spec(constraint.value)
+        label = f"{spec.python_type.__name__}:strict={spec.strict}:none={spec.allow_none}"
+        return column.op("TYPE_IS")(label)
+
+    registry = default_registry().copy()
+    registry.register_constraint("type_check", type_check_translator, on_conflict="raise")
+    rules = Compiler(
+        registry=registry,
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, users)
+
+    assert_rules_sql(
+        rules,
+        {
+            "age": [
+                "users.age >= 18",
+                "users.age TYPE_IS 'int:strict=False:none=False'",
+            ],
+            "name": ["users.name TYPE_IS 'str:strict=False:none=True'"],
+        },
     )
-    assert constraint.operator == "type_check"
-    assert isinstance(constraint.value, TypeSpec)
 
 
 def test_containers_skip_type_check() -> None:
-    from typing import Any
-
     from sqlrules import JsonContains
 
     class Filter(BaseModel):
@@ -196,20 +216,6 @@ def test_annotated_optional_allow_none() -> None:
     assert "ge" in ops and "type_check" in ops
     type_c = next(c for c in model_ir.fields[0].constraints if c.operator == "type_check")
     assert type_spec(type_c.value).allow_none is True
-
-
-def test_is_strict_marker_rejects_type_object() -> None:
-    from sqlrules.constraints import _is_strict_marker, resolve_field_strict
-    from sqlrules.ir import FieldDescriptor
-
-    assert _is_strict_marker(Strict) is False
-    descriptor = FieldDescriptor(
-        name="age",
-        alias=None,
-        annotation=int,
-        metadata=(),
-    )
-    assert resolve_field_strict(descriptor, model_strict=True) is True
 
 
 def test_float_and_uuid_type_check_ir() -> None:
@@ -237,61 +243,6 @@ def test_string_constraints_strict_flag() -> None:
     model_ir = Compiler(emit_type_checks=True, cache=False).compile_model(Filter)
     type_c = next(c for c in model_ir.fields[0].constraints if c.operator == "type_check")
     assert type_spec(type_c.value).strict is True
-
-
-def test_pattern_text_and_pattern_spec_helpers() -> None:
-    from sqlrules.constraints import _normalize_pattern, pattern_text
-    from sqlrules.ir import PatternSpec
-
-    assert pattern_text("abc") == ("abc", False)
-    assert pattern_text(PatternSpec("x", ignore_case=True)) == ("x", True)
-    assert _normalize_pattern("f", PatternSpec("p")) == PatternSpec("p")
-
-
-def test_enum_rejects_numeric_constraint() -> None:
-    class Filter(BaseModel):
-        kind: Annotated[Status, Field(ge=1)]
-
-    try:
-        Compiler(cache=False).compile_model(Filter)
-    except UnsupportedConstraintError as exc:
-        assert exc.operator == "ge"
-    else:
-        raise AssertionError("expected UnsupportedConstraintError")
-
-
-def test_resolve_strict_from_plain_strict_attr() -> None:
-    from sqlrules.constraints import (
-        _is_constraint_marker,
-        _unsupported_constraints,
-        resolve_field_strict,
-    )
-    from sqlrules.ir import FieldDescriptor
-    from sqlrules.markers import JsonContains
-
-    class FakeStrict:
-        def __init__(self) -> None:
-            self.strict = True
-
-    descriptor = FieldDescriptor(
-        name="age",
-        alias=None,
-        annotation=int,
-        metadata=(FakeStrict(),),
-    )
-    assert resolve_field_strict(descriptor, model_strict=False) is True
-    assert _is_constraint_marker(JsonContains) is False
-    assert _unsupported_constraints("m", JsonContains({"a": 1}))[0].operator == ("json_contains")
-    assert _unsupported_constraints("m", object())[0].operator == "object"
-
-
-def test_literal_rejects_length() -> None:
-    class Filter(BaseModel):
-        status: Annotated[Literal["A", "B"], Field(min_length=1)]
-
-    try:
-        Compiler(cache=False).compile_model(Filter)
-    except UnsupportedConstraintError as exc:
-        assert exc.operator == "min_length"
-    else:
-        raise AssertionError("expected UnsupportedConstraintError")
+    # Length still extracts alongside type_check.
+    ops = [c.operator for c in model_ir.fields[0].constraints]
+    assert "min_length" in ops

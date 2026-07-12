@@ -8,7 +8,7 @@ from sqlrules_postgresql.pattern import translate_pattern
 from sqlrules_postgresql.range import translate_range_contains, translate_range_overlap
 from sqlrules_postgresql.type_check import translate_type_check
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 class PostgresPlugin:

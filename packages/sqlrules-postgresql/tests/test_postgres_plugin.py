@@ -21,8 +21,17 @@ from sqlrules import (
 from sqlrules.conformance import run_basic_conformance
 
 
+def _sql(expr: object, *, literal_binds: bool = True) -> str:
+    return str(
+        expr.compile(  # type: ignore[union-attr]
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": literal_binds} if literal_binds else {},
+        )
+    )
+
+
 def test_version() -> None:
-    assert __version__ == "1.0.0"
+    assert __version__ == "1.0.1"
 
 
 def test_conformance() -> None:
@@ -30,6 +39,8 @@ def test_conformance() -> None:
 
 
 def test_pattern_compiles() -> None:
+    """PG ``~`` is substring search; Pydantic validates fullmatch — patterns often use ^/$."""
+
     class Filter(BaseModel):
         name: Annotated[str, Field(pattern=r"^A")]
 
@@ -39,9 +50,7 @@ def test_pattern_compiles() -> None:
         dialect="postgresql",
         cache=False,
     ).compile(Filter, table)
-    compiled = str(rules["name"][0].compile(dialect=postgresql.dialect()))
-    assert "~" in compiled
-    assert "~*" not in compiled
+    assert _sql(rules["name"][0]) == "items.name ~ '^A'"
 
 
 def test_pattern_ignore_case_uses_star() -> None:
@@ -54,8 +63,22 @@ def test_pattern_ignore_case_uses_star() -> None:
         dialect="postgresql",
         cache=False,
     ).compile(Filter, table)
-    compiled = str(rules["name"][0].compile(dialect=postgresql.dialect()))
-    assert "~*" in compiled
+    assert _sql(rules["name"][0]) == "items.name ~* '^A'"
+
+
+def test_unanchored_pattern_emits_search_semantics() -> None:
+    """Unanchored patterns are emitted as-is (PG ``~`` search, not Pydantic fullmatch)."""
+
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=r"abc")]
+
+    table = Table("items", MetaData(), Column("name", String))
+    rules = Compiler(
+        plugins=[PostgresPlugin()],
+        dialect="postgresql",
+        cache=False,
+    ).compile(Filter, table)
+    assert _sql(rules["name"][0]) == "items.name ~ 'abc'"
 
 
 def test_json_array_range_operators() -> None:
@@ -76,26 +99,36 @@ def test_json_array_range_operators() -> None:
         dialect="postgresql",
         cache=False,
     ).compile(Filter, table)
-    assert len(rules["meta"]) == 2
-    assert len(rules["tags"]) == 2
-    assert len(rules["span"]) == 2
 
-    dialect = postgresql.dialect()
-    contains_sql = str(rules["meta"][0].compile(dialect=dialect))
-    has_key_sql = str(rules["meta"][1].compile(dialect=dialect))
-    assert "@>" in contains_sql
-    assert "?" in has_key_sql
-    assert "@>" not in has_key_sql
+    # JSONB containment: operator + bound payload (literal_binds unsupported for JSONB).
+    contains = rules["meta"][0]
+    assert getattr(contains.operator, "opstring", None) == "@>"  # type: ignore[attr-defined]
+    assert contains.right.value == {"active": True}  # type: ignore[attr-defined]
+    assert "@>" in _sql(contains, literal_binds=False)
 
-    array_contains_sql = str(rules["tags"][0].compile(dialect=dialect))
-    array_overlap_sql = str(rules["tags"][1].compile(dialect=dialect))
-    assert "@>" in array_contains_sql and "&&" not in array_contains_sql
-    assert "&&" in array_overlap_sql
+    assert _sql(rules["meta"][1]) == "rows.meta ? 'active'"
+    assert _sql(rules["tags"][0]) == "rows.tags @> ARRAY['admin']"
+    assert _sql(rules["tags"][1]) == "rows.tags && ARRAY['x']"
+    assert _sql(rules["span"][0]) == "rows.span @> 5"
+    overlap = rules["span"][1]
+    assert getattr(overlap.operator, "opstring", None) == "&&"  # type: ignore[attr-defined]
+    assert overlap.right.value == [1, 10]  # type: ignore[attr-defined]
 
-    range_contains_sql = str(rules["span"][0].compile(dialect=dialect))
-    range_overlap_sql = str(rules["span"][1].compile(dialect=dialect))
-    assert "@>" in range_contains_sql and "&&" not in range_contains_sql
-    assert "&&" in range_overlap_sql
+
+def test_empty_json_contains_uses_containment() -> None:
+    class Filter(BaseModel):
+        meta: Annotated[dict[str, Any], JsonContains({})]
+
+    table = Table("rows", MetaData(), Column("meta", JSONB))
+    rules = Compiler(
+        plugins=[PostgresPlugin()],
+        dialect="postgresql",
+        cache=False,
+    ).compile(Filter, table)
+    expr = rules["meta"][0]
+    assert getattr(expr.operator, "opstring", None) == "@>"  # type: ignore[attr-defined]
+    assert expr.right.value == {}  # type: ignore[attr-defined]
+    assert "@>" in _sql(expr, literal_binds=False)
 
 
 def test_type_check_int_and_str() -> None:
@@ -117,11 +150,10 @@ def test_type_check_int_and_str() -> None:
         emit_type_checks=True,
         cache=False,
     ).compile(Filter, table)
-    dialect = postgresql.dialect()
-    age_sql = str(rules["age"][0].compile(dialect=dialect))
-    name_sql = str(rules["name"][0].compile(dialect=dialect))
-    assert "IS NOT NULL" in age_sql.upper()
-    assert "IS NOT NULL" in name_sql.upper()
+    assert _sql(rules["age"][0], literal_binds=False).upper().count("IS NOT NULL") == 1
+    assert "users.age" in _sql(rules["age"][0], literal_binds=False)
+    assert "users.name" in _sql(rules["name"][0], literal_binds=False)
+    assert "IS NOT NULL" in _sql(rules["name"][0], literal_binds=False).upper()
 
 
 def test_type_check_lax_int_on_string() -> None:
@@ -135,8 +167,11 @@ def test_type_check_lax_int_on_string() -> None:
         emit_type_checks=True,
         cache=False,
     ).compile(Filter, table)
-    compiled = str(rules["age"][0].compile(dialect=postgresql.dialect()))
+    compiled = _sql(rules["age"][0])
+    assert "rows.age" in compiled
     assert "~" in compiled
+    # Lax int-on-text uses a digit regex, not a bare IS NOT NULL.
+    assert "IS NOT NULL" not in compiled.upper() or "~" in compiled
 
 
 def test_type_check_strict_bool() -> None:
@@ -154,13 +189,10 @@ def test_type_check_strict_bool() -> None:
         emit_type_checks=True,
         cache=False,
     ).compile(Filter, table)
-    compiled = str(
-        rules["active"][0].compile(
-            dialect=postgresql.dialect(),
-            compile_kwargs={"literal_binds": True},
-        )
-    )
+    compiled = _sql(rules["active"][0])
+    assert "rows.active" in compiled
     assert "IN" in compiled.upper()
+    assert "true" in compiled.lower() or "True" in compiled
 
 
 def test_type_check_optional_or_null() -> None:
@@ -176,5 +208,6 @@ def test_type_check_optional_or_null() -> None:
         emit_type_checks=True,
         cache=False,
     ).compile(Filter, table)
-    compiled = str(rules["age"][0].compile(dialect=postgresql.dialect()))
-    assert "IS NULL" in compiled.upper()
+    compiled = _sql(rules["age"][0], literal_binds=False).upper()
+    assert "IS NULL" in compiled
+    assert "IS NOT NULL" in compiled

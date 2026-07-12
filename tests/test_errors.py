@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Column, Integer, MetaData, String, Table, column
 
 import sqlrules
+from assert_sql import assert_rules_sql
 from sqlrules import MissingColumnError, SQLRulesWarning, UnsupportedConstraintError
 from sqlrules.ir import CompilationContext, Constraint
 from sqlrules.translators import TranslatorRegistry
@@ -19,23 +20,23 @@ class UserFilter(BaseModel):
 def test_missing_column_error() -> None:
     table = Table("users", MetaData(), Column("id", Integer))
 
-    with pytest.raises(MissingColumnError):
+    with pytest.raises(MissingColumnError, match="age"):
         sqlrules.compile(UserFilter, table)
 
 
 def test_invalid_model_error(users: Table) -> None:
-    with pytest.raises(sqlrules.InvalidModelError):
+    with pytest.raises(sqlrules.InvalidModelError, match="BaseModel"):
         sqlrules.compile(object, users)  # type: ignore[arg-type]
 
 
 def test_invalid_on_unsupported() -> None:
-    with pytest.raises(sqlrules.ConfigurationError):
+    with pytest.raises(sqlrules.ConfigurationError, match="on_unsupported"):
         sqlrules.Compiler(on_unsupported="explode")  # type: ignore[arg-type]
 
 
 def test_unsupported_constraint_raise() -> None:
     registry = TranslatorRegistry()
-    with pytest.raises(UnsupportedConstraintError):
+    with pytest.raises(UnsupportedConstraintError, match="pattern"):
         registry.translate(
             Constraint("name", "pattern", r"^A"),
             column("name"),
@@ -80,12 +81,17 @@ def test_optional_literal_and_enum() -> None:
         Column("kind", String),
     )
     rules = sqlrules.compile(OptionalFilter, table)
-    assert "status" in rules
-    assert "kind" in rules
+    assert_rules_sql(
+        rules,
+        {
+            "status": ["items.status IN ('ACTIVE', 'DISABLED')"],
+            "kind": ["items.kind IN ('ACTIVE', 'DISABLED')"],
+        },
+    )
 
 
 def test_version_exposed() -> None:
-    assert sqlrules.__version__ == "1.0.0"
+    assert sqlrules.__version__ == "1.0.1"
     assert callable(sqlrules.clear_model_cache)
 
 

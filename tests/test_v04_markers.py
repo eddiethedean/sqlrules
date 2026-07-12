@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Column, Integer, MetaData, String, Table
 
 import sqlrules
+from assert_sql import assert_custom_op
 from sqlrules import (
     ArrayContains,
     ArrayOverlap,
@@ -16,12 +17,10 @@ from sqlrules import (
     FullTextMatch,
     JsonContains,
     JsonHasKey,
-    PatternSpec,
     RangeContains,
     RangeOverlap,
     UnsupportedConstraintError,
 )
-from sqlrules.constraints import pattern_text
 from sqlrules.ir import Constraint
 from sqlrules.plugins import PLUGIN_API_VERSION
 from sqlrules.translators import default_registry
@@ -35,6 +34,8 @@ def items() -> Table:
         Column("name", String),
         Column("meta", String),
         Column("tags", String),
+        Column("span", Integer),
+        Column("body", String),
         Column("age", Integer),
     )
 
@@ -75,14 +76,63 @@ def test_marker_compiles_with_custom_translator(items: Table) -> None:
     registry = default_registry().copy()
     registry.register_constraint(
         "json_contains",
-        lambda c, col, ctx: col.op("@>")(str(c.value)),
+        lambda c, col, ctx: col.op("@>")(c.value),
         on_conflict="raise",
     )
     rules = Compiler(registry=registry, cache=False).compile(Filter, items)
-    assert "meta" in rules
-    assert len(rules["meta"]) == 1
-    compiled = str(rules["meta"][0].compile())
-    assert "@>" in compiled
+    assert_custom_op(
+        rules["meta"][0],
+        column_name="meta",
+        opstring="@>",
+        value={"a": 1},
+    )
+
+
+def test_each_marker_compiles_with_dedicated_translator(items: Table) -> None:
+    class Filter(BaseModel):
+        meta: Annotated[dict[str, Any], JsonHasKey("k")]
+        tags: Annotated[list[str], ArrayContains(["a"]), ArrayOverlap(["b"])]
+        span: Annotated[int, RangeContains(3), RangeOverlap([0, 9])]
+        body: Annotated[str, FullTextMatch("q")]
+
+    registry = default_registry().copy()
+    registry.register_constraint(
+        "json_has_key",
+        lambda c, col, ctx: col.op("?")(c.value),
+        on_conflict="raise",
+    )
+    registry.register_constraint(
+        "array_contains",
+        lambda c, col, ctx: col.op("@>")(c.value),
+        on_conflict="raise",
+    )
+    registry.register_constraint(
+        "array_overlap",
+        lambda c, col, ctx: col.op("&&")(c.value),
+        on_conflict="raise",
+    )
+    registry.register_constraint(
+        "range_contains",
+        lambda c, col, ctx: col.op("@>")(c.value),
+        on_conflict="raise",
+    )
+    registry.register_constraint(
+        "range_overlap",
+        lambda c, col, ctx: col.op("&&")(c.value),
+        on_conflict="raise",
+    )
+    registry.register_constraint(
+        "fulltext_match",
+        lambda c, col, ctx: col.op("@@")(c.value),
+        on_conflict="raise",
+    )
+    rules = Compiler(registry=registry, cache=False).compile(Filter, items)
+    assert_custom_op(rules["meta"][0], column_name="meta", opstring="?", value="k")
+    assert_custom_op(rules["tags"][0], column_name="tags", opstring="@>", value=["a"])
+    assert_custom_op(rules["tags"][1], column_name="tags", opstring="&&", value=["b"])
+    assert_custom_op(rules["span"][0], column_name="span", opstring="@>", value=3)
+    assert_custom_op(rules["span"][1], column_name="span", opstring="&&", value=[0, 9])
+    assert_custom_op(rules["body"][0], column_name="body", opstring="@@", value="q")
 
 
 def test_portable_constraint_on_list_rejected(items: Table) -> None:
@@ -101,12 +151,12 @@ def test_pattern_on_list_rejected(items: Table) -> None:
         Compiler(cache=False).compile_model(Filter)
 
 
-def test_pattern_text_helper() -> None:
-    assert pattern_text(PatternSpec(pattern=r"x", ignore_case=True)) == ("x", True)
-    assert pattern_text("x") == ("x", False)
-
-
 def test_markers_exported() -> None:
     assert sqlrules.JsonContains({"a": 1}).operator == "json_contains"
+    assert sqlrules.JsonHasKey("a").operator == "json_has_key"
+    assert sqlrules.ArrayContains([1]).operator == "array_contains"
+    assert sqlrules.ArrayOverlap([1]).operator == "array_overlap"
+    assert sqlrules.RangeContains(1).operator == "range_contains"
+    assert sqlrules.RangeOverlap([1, 2]).operator == "range_overlap"
     assert sqlrules.FullTextMatch("foo").operator == "fulltext_match"
     assert PLUGIN_API_VERSION == "1"

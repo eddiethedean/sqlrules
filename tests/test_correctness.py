@@ -8,6 +8,7 @@ from sqlalchemy import Column, Float, Integer, MetaData, Numeric, String, Table,
 from sqlalchemy.sql.elements import ColumnElement
 
 import sqlrules
+from assert_sql import assert_rules_sql, sql_literal
 from sqlrules import MissingColumnError, UnsupportedConstraintError
 
 
@@ -40,8 +41,7 @@ def test_optional_annotated_unwraps_metadata() -> None:
         age: Annotated[int, Field(ge=18)] | None = None
 
     rules = sqlrules.compile(Filter, table)
-    assert "age" in rules
-    assert len(rules["age"]) == 1
+    assert_rules_sql(rules, {"age": ["users.age >= 18"]})
     assert isinstance(rules["age"][0], ColumnElement)
 
 
@@ -52,9 +52,10 @@ def test_validation_alias_resolves_column() -> None:
         years: Annotated[int, Field(ge=18, validation_alias="age")]
 
     rules = sqlrules.compile(Filter, table)
-    assert "years" in rules
+    assert_rules_sql(rules, {"years": ["users.age >= 18"]})
     compiled = str(select(table).where(*sqlrules.where(rules)))
     assert "age" in compiled
+    assert ">= 18" in sql_literal(rules["years"][0])
 
 
 def test_serialization_alias_resolves_column() -> None:
@@ -64,9 +65,7 @@ def test_serialization_alias_resolves_column() -> None:
         years: Annotated[int, Field(ge=18, serialization_alias="age")]
 
     rules = sqlrules.compile(Filter, table)
-    assert "years" in rules
-    compiled = str(select(table).where(*sqlrules.where(rules)))
-    assert "age" in compiled
+    assert_rules_sql(rules, {"years": ["users.age >= 18"]})
 
 
 def test_alias_preferred_over_field_name_when_both_exist() -> None:
@@ -81,6 +80,7 @@ def test_alias_preferred_over_field_name_when_both_exist() -> None:
         years: Annotated[int, Field(ge=18, alias="user_age")]
 
     rules = sqlrules.compile(Filter, table)
+    assert_rules_sql(rules, {"years": ["users.user_age >= 18"]})
     compiled = str(select(table).where(*sqlrules.where(rules)))
     assert "user_age" in compiled
     assert "years" not in compiled.split("WHERE", 1)[1]
@@ -94,7 +94,7 @@ def test_unconstrained_orphan_field_skipped() -> None:
         age: Annotated[int, Field(ge=18)]
 
     rules = sqlrules.compile(Filter, table)
-    assert list(rules) == ["age"]
+    assert_rules_sql(rules, {"age": ["users.age >= 18"]})
 
 
 def test_multiple_of_zero_rejected() -> None:

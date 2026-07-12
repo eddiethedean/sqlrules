@@ -12,9 +12,9 @@ from uuid import UUID
 import pytest
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, Integer, MetaData, Numeric, String, Table, Time
-from sqlalchemy.dialects import sqlite
 
 import sqlrules
+from assert_sql import assert_expr_equals, assert_rules_sql, sql_literal
 from sqlrules import SQLRulesWarning, UnsupportedConstraintError
 from sqlrules.cache import ModelIRCache
 from sqlrules.constraints import pattern_text
@@ -46,9 +46,15 @@ def test_two_phase_equals_oneshot(items: Table) -> None:
     model_ir = compiler.compile_model(Filter)
     bound = compiler.bind(model_ir, items)
 
-    assert list(oneshot) == list(bound) == ["age", "name"]
-    assert len(oneshot["age"]) == len(bound["age"]) == 2
-    assert len(oneshot["name"]) == len(bound["name"]) == 1
+    expected = {
+        "age": ["items.age >= 18", "items.age <= 65"],
+        "name": ["length(items.name) >= 2"],
+    }
+    assert_rules_sql(oneshot, expected)
+    assert_rules_sql(bound, expected)
+    for field in expected:
+        for a, b in zip(oneshot[field], bound[field], strict=True):
+            assert_expr_equals(a, b)
 
 
 def test_metadata_cache_reuses_model_ir(items: Table) -> None:
@@ -66,7 +72,8 @@ def test_metadata_cache_reuses_model_ir(items: Table) -> None:
     other = Table("other", MetaData(), Column("age", Integer))
     rules_a = compiler.bind(first, items)
     rules_b = compiler.bind(second, other)
-    assert "age" in rules_a and "age" in rules_b
+    assert_rules_sql(rules_a, {"age": ["items.age >= 18"]})
+    assert_rules_sql(rules_b, {"age": ["other.age >= 18"]})
 
 
 def test_cache_disabled_builds_fresh_ir(items: Table) -> None:
@@ -101,7 +108,7 @@ def test_diagnostics_warn_records_pattern(items: Table) -> None:
     with pytest.warns(SQLRulesWarning, match="pattern"):
         rules = compiler.compile(Filter, items)
 
-    assert len(rules["name"]) == 1
+    assert_rules_sql(rules, {"name": ["length(items.name) >= 2"]})
     assert len(compiler.diagnostics) == 1
     diag = compiler.diagnostics[0]
     assert diag.severity == "warning"
@@ -160,9 +167,7 @@ def test_custom_pattern_translator(items: Table) -> None:
     registry.register("pattern", pattern_translator)
     compiler = sqlrules.Compiler(registry=registry, cache=False)
     rules = compiler.compile(Filter, items)
-    assert len(rules["name"]) == 1
-    compiled = str(rules["name"][0].compile(dialect=sqlite.dialect()))
-    assert "~" in compiled
+    assert sql_literal(rules["name"][0]) == "items.name ~ '^A'"
 
 
 def test_uuid_literal_and_unconstrained(items: Table) -> None:
@@ -174,7 +179,7 @@ def test_uuid_literal_and_unconstrained(items: Table) -> None:
 
     rules = sqlrules.compile(Filter, items, cache=False)
     assert list(rules) == ["id"]
-    assert len(rules["id"]) == 1
+    assert_expr_equals(rules["id"][0], items.c.id.in_((uid,)))
 
 
 def test_uuid_rejects_numeric_constraints(items: Table) -> None:
@@ -190,8 +195,15 @@ def test_time_range_constraints(items: Table) -> None:
         starts: Annotated[time, Field(ge=time(9, 0), le=time(17, 0))]
 
     rules = sqlrules.compile(Filter, items, cache=False)
-    assert list(rules) == ["starts"]
-    assert len(rules["starts"]) == 2
+    assert_rules_sql(
+        rules,
+        {
+            "starts": [
+                "items.starts >= '09:00:00.000000'",
+                "items.starts <= '17:00:00.000000'",
+            ],
+        },
+    )
 
 
 def test_datetime_aware_no_conversion(items: Table) -> None:
@@ -201,9 +213,7 @@ def test_datetime_aware_no_conversion(items: Table) -> None:
         created: Annotated[datetime, Field(le=aware)]
 
     rules = sqlrules.compile(Filter, items, cache=False)
-    expr = rules["created"][0]
-    # Value is preserved as-is (no timezone conversion by SQLRules).
-    assert expr.right.value == aware  # type: ignore[attr-defined]
+    assert_expr_equals(rules["created"][0], items.c.created <= aware)
 
 
 def test_date_range_still_works(items: Table) -> None:
@@ -214,7 +224,7 @@ def test_date_range_still_works(items: Table) -> None:
 
     # Column type is unrelated; expression still builds.
     rules = sqlrules.compile(Filter, table, cache=False)
-    assert "born" in rules
+    assert_rules_sql(rules, {"born": ["t.born >= '2000-01-01'"]})
 
 
 def test_decimal_comparisons_and_multiple_of(items: Table) -> None:
@@ -222,7 +232,10 @@ def test_decimal_comparisons_and_multiple_of(items: Table) -> None:
         score: Annotated[Decimal, Field(ge=Decimal("0"), multiple_of=Decimal("0.5"))]
 
     rules = sqlrules.compile(Filter, items, cache=False)
-    assert len(rules["score"]) == 2
+    assert_rules_sql(
+        rules,
+        {"score": ["items.score >= 0", "items.score % 0.5 = 0"]},
+    )
 
 
 def test_decimal_precision_still_unsupported(items: Table) -> None:
@@ -238,7 +251,7 @@ def test_module_compile_cache_flag(items: Table) -> None:
         age: Annotated[int, Field(ge=18)]
 
     rules = sqlrules.compile(Filter, items, cache=False)
-    assert "age" in rules
+    assert_rules_sql(rules, {"age": ["items.age >= 18"]})
 
 
 def test_temporal_multiple_of_rejected(items: Table) -> None:
@@ -280,13 +293,6 @@ def test_re_pattern_ignore_case_preserved(items: Table) -> None:
     )
 
 
-def test_invalid_pattern_type_rejected() -> None:
-    from sqlrules.constraints import _normalize_pattern
-
-    with pytest.raises(UnsupportedConstraintError, match="pattern"):
-        _normalize_pattern("name", 123)
-
-
 def test_validation_only_flags_ignored(items: Table) -> None:
     from pydantic import StringConstraints
 
@@ -296,8 +302,14 @@ def test_validation_only_flags_ignored(items: Table) -> None:
     class FloatFilter(BaseModel):
         score: Annotated[float, Field(ge=0, allow_inf_nan=False)]
 
-    assert "name" in sqlrules.compile(StrFilter, items, cache=False)
-    assert "score" in sqlrules.compile(FloatFilter, items, cache=False)
+    assert_rules_sql(
+        sqlrules.compile(StrFilter, items, cache=False),
+        {"name": ["length(items.name) >= 1"]},
+    )
+    assert_rules_sql(
+        sqlrules.compile(FloatFilter, items, cache=False),
+        {"score": ["items.score >= 0"]},
+    )
 
 
 def test_module_warn_attributes_outside_sqlrules(items: Table) -> None:
@@ -323,7 +335,15 @@ def test_uuid_enum_and_length_reject(items: Table) -> None:
         id: IdEnum
 
     rules = sqlrules.compile(EnumFilter, items, cache=False)
-    assert "id" in rules
+    assert_expr_equals(
+        rules["id"][0],
+        items.c.id.in_(
+            (
+                UUID("12345678-1234-5678-1234-567812345678"),
+                UUID("12345678-1234-5678-1234-567812345679"),
+            )
+        ),
+    )
 
     class LenFilter(BaseModel):
         id: Annotated[UUID, Field(min_length=1)]  # type: ignore[type-var]

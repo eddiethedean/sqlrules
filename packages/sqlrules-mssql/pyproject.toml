@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqlrules-mssql"
-version = "1.0.0"
+version = "1.0.1"
 description = "SQL Server dialect plugin for SQLRules (JSON and LEN string ops)."
 readme = "README.md"
 requires-python = ">=3.10"

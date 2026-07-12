@@ -2,9 +2,9 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 from sqlalchemy import Table
-from sqlalchemy.dialects import sqlite
 
 import sqlrules
+from assert_sql import assert_expr_equals, assert_rules_sql
 
 
 class UserFilter(BaseModel):
@@ -12,26 +12,17 @@ class UserFilter(BaseModel):
     id: Annotated[int, Field(gt=0, multiple_of=2)]
 
 
-def _sql(expr: object) -> str:
-    return str(
-        expr.compile(  # type: ignore[union-attr]
-            dialect=sqlite.dialect(),
-            compile_kwargs={"literal_binds": True},
-        )
-    )
-
-
 def test_numeric_constraints_compile(users: Table) -> None:
     rules = sqlrules.compile(UserFilter, users)
 
-    assert set(rules) == {"age", "id"}
-    assert len(rules["age"]) == 2
-    assert len(rules["id"]) == 2
-
-    age_sql = [_sql(expr) for expr in rules["age"]]
-    assert any(">=" in s and "18" in s for s in age_sql)
-    assert any("<=" in s and "65" in s for s in age_sql)
-
-    id_sql = [_sql(expr) for expr in rules["id"]]
-    assert any(">" in s and "0" in s for s in id_sql)
-    assert any("% 2 = 0" in s or "% 2=0" in s.replace(" ", "") for s in id_sql)
+    assert_rules_sql(
+        rules,
+        {
+            "age": ["users.age >= 18", "users.age <= 65"],
+            "id": ["users.id > 0", "users.id % 2 = 0"],
+        },
+    )
+    assert_expr_equals(rules["age"][0], users.c.age >= 18)
+    assert_expr_equals(rules["age"][1], users.c.age <= 65)
+    assert_expr_equals(rules["id"][0], users.c.id > 0)
+    assert_expr_equals(rules["id"][1], users.c.id % 2 == 0)

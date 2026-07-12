@@ -7,7 +7,7 @@ from sqlrules_sqlite.pattern import translate_pattern
 from sqlrules_sqlite.regexp import register_regexp
 from sqlrules_sqlite.type_check import translate_type_check
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 class SQLitePlugin:

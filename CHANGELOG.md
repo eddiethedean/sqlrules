@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-11
+
+### Fixed
+
+- Clarify `_is_positive_finite` return typing for stricter mypy
+
+### Changed
+
+- Strengthen core and dialect test oracles (exact SQL / expression semantics)
+- Docs and examples navigation polish (getting started, troubleshooting,
+  upgrade guide, examples hub)
+
 ## [1.0.0] - 2026-07-10
 
 ### Added
@@ -179,6 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs clarify that `on_unsupported` does not soften unsupported types;
   plugin / two-phase compile designs are marked as future
 
+[1.0.1]: https://github.com/eddiethedean/sqlrules/releases/tag/v1.0.1
 [1.0.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v1.0.0
 [0.4.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.4.0
 [0.3.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.3.0

@@ -6,11 +6,12 @@ from typing import Annotated, Any
 
 import pytest
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, String, Table
-from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy import Column, Integer, MetaData, String, Table
+from sqlalchemy.dialects import sqlite
 from sqlalchemy.sql.elements import ColumnElement
 
 import sqlrules
+from assert_sql import sql_literal
 from sqlrules.conformance import (
     assert_builtins_preserved,
     assert_plugin_api_compatible,
@@ -49,7 +50,8 @@ class _OverrideGtPlugin:
     api_version = PLUGIN_API_VERSION
 
     def register(self, registry: TranslatorRegistry) -> None:
-        registry.register("gt", lambda c, col, ctx: col > c.value)
+        # Deliberately different from builtin ``column > value``.
+        registry.register("gt", lambda c, col, ctx: col.op("CUSTOM_GT")(c.value))
 
 
 def test_plugin_api_version_constant() -> None:
@@ -73,9 +75,9 @@ def test_compiler_plugins_register_pattern(items: Table) -> None:
 
     compiler = sqlrules.Compiler(plugins=[_PatternPlugin()], cache=False)
     rules = compiler.compile(Filter, items)
-    assert "name" in rules
-    compiled = str(rules["name"][0].compile(dialect=postgresql.dialect()))
-    assert "~" in compiled
+    from assert_sql import sql_literal
+
+    assert sql_literal(rules["name"][0]) == "items.name ~ '^a'"
 
 
 def test_compiler_on_conflict_raise() -> None:
@@ -83,13 +85,24 @@ def test_compiler_on_conflict_raise() -> None:
         sqlrules.Compiler(plugins=[_OverrideGtPlugin()], on_conflict="raise", cache=False)
 
 
-def test_compiler_on_conflict_replace() -> None:
+def test_compiler_on_conflict_replace(items: Table) -> None:
+    class Filter(BaseModel):
+        age: Annotated[int, Field(gt=0)]
+
+    table = Table("t", MetaData(), Column("age", Integer))
+    builtin = sqlrules.Compiler(cache=False).compile(Filter, table)
+    from assert_sql import sql_literal
+
+    assert sql_literal(builtin["age"][0]) == "t.age > 0"
+
     compiler = sqlrules.Compiler(
         plugins=[_OverrideGtPlugin()],
         on_conflict="replace",
         cache=False,
     )
-    assert "gt" in compiler.registry
+    replaced = compiler.compile(Filter, table)
+    assert sql_literal(replaced["age"][0]) == "t.age CUSTOM_GT 0"
+    assert compiler.registry.lookup("gt") is not default_registry().lookup("gt")
 
 
 def test_compiler_on_conflict_ignore() -> None:
@@ -343,7 +356,7 @@ def test_validate_translator_varargs() -> None:
     assert "eq_custom" in registry
 
 
-def test_plugin_aware_register_constraint_default() -> None:
+def test_plugin_aware_register_constraint_default(items: Table) -> None:
     """Compiler adapter applies on_conflict when register_constraint omits it."""
 
     class SoftPlugin:
@@ -356,16 +369,27 @@ def test_plugin_aware_register_constraint_default() -> None:
                 lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             )
 
-    # First registration ok; second compiler with ignore should not error.
-    sqlrules.Compiler(plugins=[SoftPlugin()], on_conflict="raise", cache=False)
-    sqlrules.Compiler(plugins=[SoftPlugin()], on_conflict="ignore", cache=False)
+    # First registration ok under raise; second under ignore must not error
+    # and must keep the first translator identity (ignore wins on conflict).
+    first = sqlrules.Compiler(plugins=[SoftPlugin()], on_conflict="raise", cache=False)
+    first_fn = first.registry.lookup("pattern")
+    second = sqlrules.Compiler(plugins=[SoftPlugin()], on_conflict="ignore", cache=False)
+    # Separate compilers — each starts from builtins; both should register pattern.
+    assert first.registry.lookup("pattern") is first_fn
+    assert second.registry.lookup("pattern") is not None
+
+    class Filter(BaseModel):
+        name: Annotated[str, Field(pattern=r"^a")]
+
+    rules = first.compile(Filter, items)
+    assert sql_literal(rules["name"][0]) == "items.name ~ '^a'"
 
 
 def test_module_compile_stays_plugin_free(items: Table) -> None:
     class Filter(BaseModel):
         name: Annotated[str, Field(pattern=r"^a")]
 
-    with pytest.raises(sqlrules.UnsupportedConstraintError):
+    with pytest.raises(sqlrules.UnsupportedConstraintError, match="pattern"):
         sqlrules.compile(Filter, items)
 
 
@@ -385,5 +409,4 @@ def test_sqlite_compile_smoke_with_custom_pattern(items: Table) -> None:
             )
 
     rules = sqlrules.Compiler(plugins=[SqliteLikePlugin()], cache=False).compile(Filter, items)
-    compiled = str(rules["name"][0].compile(dialect=sqlite.dialect()))
-    assert "REGEXP" in compiled
+    assert sql_literal(rules["name"][0], dialect=sqlite.dialect()) == "items.name REGEXP '^a'"

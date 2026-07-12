@@ -2,18 +2,7 @@
 
 Runnable scripts for SQLRules.
 
-## From this repository (recommended while developing)
-
-```bash
-make install
-make examples
-# or individually:
-python examples/basic_compile.py
-python examples/select_usage.py
-python examples/postgresql_pattern.py
-```
-
-## From PyPI (1.0+)
+## From PyPI
 
 ```bash
 pip install "sqlrules>=1,<2"
@@ -24,8 +13,12 @@ pip install "sqlrules[postgresql]"
 python examples/postgresql_pattern.py
 ```
 
-If `pip show sqlrules` reports a version below 1.0.0, or dialect packages are
-missing on PyPI, use **from this repository** above.
+## From this repository (contributors)
+
+```bash
+make install
+make examples
+```
 
 | Script | Shows | Expected output (shape) |
 |---|---|---|
@@ -33,5 +26,4 @@ missing on PyPI, use **from this repository** above.
 | `select_usage.py` | `Literal` + compiled `select()` | printed `SELECT` with `IN` / comparisons |
 | `postgresql_pattern.py` | Why `pattern` needs a plugin, then Postgres fix | first compile raises; second prints rules |
 
-Application users should install from **PyPI** once 1.0+ is published, not
-from `packages/`.
+Application users should install from **PyPI**, not from `packages/`.

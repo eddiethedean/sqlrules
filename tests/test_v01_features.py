@@ -8,9 +8,9 @@ import pytest
 from annotated_types import Interval
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints, conint, constr
 from sqlalchemy import Column, Date, DateTime, Integer, MetaData, Numeric, String, Table
-from sqlalchemy.dialects import sqlite
 
 import sqlrules
+from assert_sql import assert_rules_sql
 from sqlrules import MissingColumnError, SQLRulesWarning, UnsupportedConstraintError
 
 
@@ -46,8 +46,7 @@ def test_pattern_warn_keeps_supported_constraints(people: Table) -> None:
     with pytest.warns(SQLRulesWarning, match="pattern"):
         rules = sqlrules.compile(Filter, people, on_unsupported="warn")
 
-    assert list(rules) == ["name"]
-    assert len(rules["name"]) == 1
+    assert_rules_sql(rules, {"name": ["length(people.name) >= 2"]})
 
 
 def test_pattern_ignore(people: Table) -> None:
@@ -79,9 +78,13 @@ def test_interval_and_conint(people: Table) -> None:
         qty: conint(ge=18, le=65)
 
     rules = sqlrules.compile(Filter, people)
-    assert list(rules) == ["age", "qty"]
-    assert len(rules["age"]) == 2
-    assert len(rules["qty"]) == 2
+    assert_rules_sql(
+        rules,
+        {
+            "age": ["people.age > 0", "people.age <= 100"],
+            "qty": ["people.qty >= 18", "people.qty <= 65"],
+        },
+    )
 
 
 def test_constr_and_string_constraints(people: Table) -> None:
@@ -90,8 +93,13 @@ def test_constr_and_string_constraints(people: Table) -> None:
         status: Annotated[str, StringConstraints(min_length=1)]
 
     rules = sqlrules.compile(Filter, people)
-    assert len(rules["name"]) == 2
-    assert len(rules["status"]) == 1
+    assert_rules_sql(
+        rules,
+        {
+            "name": ["length(people.name) >= 2", "length(people.name) <= 10"],
+            "status": ["length(people.status) >= 1"],
+        },
+    )
 
 
 def test_string_constraints_with_pattern_raises(people: Table) -> None:
@@ -111,10 +119,16 @@ def test_float_decimal_date_datetime_bool_literal(people: Table) -> None:
         active: Literal[True]
 
     rules = sqlrules.compile(Filter, people)
-    assert list(rules) == ["score", "qty", "born", "created", "active"]
-    assert len(rules["score"]) == 2
-    compiled = str(rules["born"][0].compile(dialect=sqlite.dialect()))
-    assert "born" in compiled
+    assert_rules_sql(
+        rules,
+        {
+            "score": ["people.score > 0.0", "people.score < 100.0"],
+            "qty": ["people.qty >= 1", "people.qty <= 10"],
+            "born": ["people.born >= '2000-01-01'"],
+            "created": ["people.created <= '2030-01-01 00:00:00.000000'"],
+            "active": ["people.active IN (1)"],
+        },
+    )
 
 
 def test_lt_constraint(people: Table) -> None:
@@ -122,7 +136,7 @@ def test_lt_constraint(people: Table) -> None:
         age: Annotated[int, Field(lt=65)]
 
     rules = sqlrules.compile(Filter, people)
-    assert len(rules["age"]) == 1
+    assert_rules_sql(rules, {"age": ["people.age < 65"]})
 
 
 def test_deterministic_field_order(people: Table) -> None:
@@ -132,7 +146,14 @@ def test_deterministic_field_order(people: Table) -> None:
         name: Annotated[str, Field(min_length=1)]
 
     rules = sqlrules.compile(Filter, people)
-    assert list(rules) == ["qty", "age", "name"]
+    assert_rules_sql(
+        rules,
+        {
+            "qty": ["people.qty > 0"],
+            "age": ["people.age >= 18"],
+            "name": ["length(people.name) >= 1"],
+        },
+    )
 
 
 def test_field_alias_resolves_column(people: Table) -> None:
@@ -140,15 +161,9 @@ def test_field_alias_resolves_column(people: Table) -> None:
         years: Annotated[int, Field(ge=18, alias="user_age")]
 
     rules = sqlrules.compile(Filter, people)
-    assert "years" in rules
-    compiled = str(
-        rules["years"][0].compile(
-            dialect=sqlite.dialect(),
-            compile_kwargs={"literal_binds": True},
-        )
-    )
-    assert "user_age" in compiled
-    assert ">= 18" in compiled or ">=18" in compiled.replace(" ", "")
+    assert_rules_sql(rules, {"years": ["people.user_age >= 18"]})
+    # Keys are Python field names, never aliases.
+    assert "user_age" not in rules
 
 
 def test_unsupported_container_type(people: Table) -> None:
@@ -175,7 +190,7 @@ def test_enum_and_literal(people: Table) -> None:
         status: Status
 
     rules = sqlrules.compile(Filter, people)
-    assert len(rules["status"]) == 1
+    assert_rules_sql(rules, {"status": ["people.status IN ('ACTIVE', 'DISABLED')"]})
 
 
 def test_missing_column_still_raises() -> None:
@@ -183,5 +198,5 @@ def test_missing_column_still_raises() -> None:
         age: Annotated[int, Field(ge=18)]
 
     table = Table("users", MetaData(), Column("id", Integer))
-    with pytest.raises(MissingColumnError):
+    with pytest.raises(MissingColumnError, match="age"):
         sqlrules.compile(Filter, table)

@@ -20,10 +20,6 @@ pip install "sqlrules>=1,<2"
 # or: uv add "sqlrules>=1,<2"
 ```
 
-Confirm `pip show sqlrules` reports **1.0.0 or newer**. If PyPI still serves
-an older release, install from the repository with `make install` (see the
-[README](https://github.com/eddiethedean/sqlrules#install)).
-
 Optional dialect plugins (regex, JSON, arrays, and related operators):
 
 ```bash
@@ -132,6 +128,8 @@ hand. See [design philosophy](design-philosophy.md).
 
 ## Next steps
 
+- [Examples](examples.md) — runnable scripts
+- [Upgrade from 0.x](upgrade-0x.md) — pin and plugin notes
 - [ORM / `column_map`](orm-column-map.md) — DeclarativeBase and aliases
 - [Markers](markers.md) — JSON / array / full-text with plugins
 - [Examples on GitHub](https://github.com/eddiethedean/sqlrules/tree/main/examples)

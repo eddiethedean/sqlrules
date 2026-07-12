@@ -9,17 +9,23 @@ from sqlalchemy.dialects import mssql
 from sqlrules_mssql import MssqlPlugin, __version__
 
 from sqlrules import Compiler, JsonContains, JsonHasKey, UnsupportedConstraintError
-from sqlrules.conformance import assert_builtins_preserved, assert_plugin_api_compatible
+from sqlrules.conformance import run_basic_conformance
 
 
 def test_version() -> None:
-    assert __version__ == "1.0.0"
+    assert __version__ == "1.0.1"
 
 
-def test_plugin_api() -> None:
-    plugin = MssqlPlugin()
-    assert_plugin_api_compatible(plugin)
-    assert_builtins_preserved(plugin, on_conflict="replace")
+def test_conformance() -> None:
+    # MSSQL does not register pattern; exercise length override instead.
+    class LengthFilter(BaseModel):
+        name: Annotated[str, Field(min_length=2)]
+
+    run_basic_conformance(
+        MssqlPlugin(),
+        operator="min_length",
+        model=LengthFilter,
+    )
 
 
 def test_length_uses_trailing_space_aware_len() -> None:
@@ -33,11 +39,15 @@ def test_length_uses_trailing_space_aware_len() -> None:
         cache=False,
     ).compile(Filter, table)
     dialect = mssql.dialect()
-    min_sql = str(rules["name"][0].compile(dialect=dialect)).lower()
-    max_sql = str(rules["name"][1].compile(dialect=dialect)).lower()
-    assert "len(" in min_sql and ">=" in min_sql
-    assert "len(" in max_sql and "<=" in max_sql
-    assert "||" in min_sql or "concat" in min_sql or "+" in min_sql
+    min_sql = str(
+        rules["name"][0].compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+    ).lower()
+    max_sql = str(
+        rules["name"][1].compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+    ).lower()
+    # Trailing-space-aware: LEN(name + '.') - 1, not portable length()/plain LEN(name).
+    assert min_sql == "len(items.name + '.') - 1 >= 2"
+    assert max_sql == "len(items.name + '.') - 1 <= 10"
     assert "length(" not in min_sql
     assert "length(" not in max_sql
 

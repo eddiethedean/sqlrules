@@ -61,13 +61,6 @@ plugin or core so they match.
 - For two-phase use, call `bind` after `compile_model`.
 - `dialect=` alone never loads plugins — pass `plugins=[...]`.
 
-## `pip` installs an old version / dialect package 404
-
-SQLRules **1.0.0** (and dialect packages) must be published on PyPI for
-`pip install sqlrules-postgresql` to work. Until then, clone the repository
-and run `make install`, or install wheels from `dist/` and `dist-plugins/`.
-See the [README install section](https://github.com/eddiethedean/sqlrules#install).
-
 ## Still stuck?
 
 - [FAQ](faq.md) · [ERRORS](../ERRORS.md) · [SECURITY](../SECURITY.md)

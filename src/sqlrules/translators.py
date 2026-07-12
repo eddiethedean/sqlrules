@@ -64,7 +64,7 @@ def _is_positive_finite(value: Any) -> bool:
             return False
     if isinstance(value, float):
         return math.isfinite(value) and value > 0
-    return value > 0
+    return bool(value > 0)
 
 
 def _multiple_of(

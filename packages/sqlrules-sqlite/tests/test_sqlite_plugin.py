@@ -15,7 +15,7 @@ from sqlrules.conformance import run_basic_conformance
 
 
 def test_version() -> None:
-    assert __version__ == "1.0.0"
+    assert __version__ == "1.0.1"
 
 
 def test_conformance() -> None:
@@ -23,6 +23,8 @@ def test_conformance() -> None:
 
 
 def test_pattern_compiles() -> None:
+    """SQLite REGEXP uses ``re.search`` (not Pydantic fullmatch); anchors are caller-owned."""
+
     class Filter(BaseModel):
         name: Annotated[str, Field(pattern=r"^A")]
 
@@ -32,9 +34,13 @@ def test_pattern_compiles() -> None:
         dialect="sqlite",
         cache=False,
     ).compile(Filter, table)
-    compiled = str(rules["name"][0].compile(dialect=sqlite.dialect()))
-    assert "REGEXP" in compiled
-    assert "(?i)" not in compiled
+    compiled = str(
+        rules["name"][0].compile(
+            dialect=sqlite.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    assert compiled == "items.name REGEXP '^A'"
 
 
 def test_pattern_ignore_case_prefix() -> None:
@@ -48,8 +54,15 @@ def test_pattern_ignore_case_prefix() -> None:
         cache=False,
     ).compile(Filter, table)
     compiled = str(rules["name"][0].compile(compile_kwargs={"literal_binds": True}))
-    assert "(?i)" in compiled
-    assert "REGEXP" in compiled
+    assert compiled == "items.name REGEXP '(?i)^A'"
+
+
+def test_register_regexp_null_inputs_are_false() -> None:
+    conn = sqlite3.connect(":memory:")
+    register_regexp(conn)
+    assert conn.execute("SELECT NULL REGEXP '^a'").fetchone()[0] == 0
+    assert conn.execute("SELECT 'Abc' REGEXP NULL").fetchone()[0] == 0
+    conn.close()
 
 
 def test_register_regexp_matches() -> None:
@@ -57,6 +70,8 @@ def test_register_regexp_matches() -> None:
     register_regexp(conn)
     assert conn.execute("SELECT 'Abc' REGEXP '(?i)^a'").fetchone()[0] == 1
     assert conn.execute("SELECT 'Abc' REGEXP '^a'").fetchone()[0] == 0
+    # Empty pattern: re.search('', value) is True for any string.
+    assert conn.execute("SELECT 'Abc' REGEXP ''").fetchone()[0] == 1
     conn.close()
 
 
@@ -256,5 +271,44 @@ def test_type_check_lax_int_string_uses_regexp() -> None:
         emit_type_checks=True,
         cache=False,
     ).compile(Filter, table)
-    compiled = str(rules["age"][0].compile(dialect=sqlite.dialect()))
+    compiled = str(
+        rules["age"][0].compile(
+            dialect=sqlite.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
     assert "REGEXP" in compiled
+    assert "rows.age" in compiled
+
+
+def test_type_check_lax_int_string_executes_with_register_regexp() -> None:
+    class Filter(BaseModel):
+        age: int
+
+    metadata = MetaData()
+    table = Table("rows", metadata, Column("id", String), Column("age", String))
+    rules = Compiler(
+        plugins=[SQLitePlugin()],
+        dialect="sqlite",
+        emit_type_checks=True,
+        cache=False,
+    ).compile(Filter, table)
+
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        raw = conn.connection.dbapi_connection
+        register_regexp(raw)  # type: ignore[arg-type]
+        metadata.create_all(conn)
+        conn.execute(
+            table.insert(),
+            [
+                {"id": "ok", "age": "42"},
+                {"id": "bad", "age": "x"},
+                {"id": "null", "age": None},
+            ],
+        )
+        rows = [
+            row[0]
+            for row in conn.execute(select(table.c.id).where(*rules["age"]).order_by(table.c.id))
+        ]
+    assert rows == ["ok"]

@@ -82,7 +82,6 @@ supported **constraint metadata** into expressions. See
 <div class="sr-callout">
   <strong>Install:</strong> <code>pip install "sqlrules&gt;=1,&lt;2"</code>
   — optional dialects via <code>pip install "sqlrules-postgresql&gt;=1,&lt;2"</code> (or sqlite / mysql / mssql).
-  If PyPI still serves &lt;1.0, install from the repository with <code>make install</code>.
   <code>pattern</code> needs a dialect plugin.
 </div>
 ```
@@ -109,8 +108,10 @@ See the [FAQ](guides/faq.md) or [troubleshooting](guides/troubleshooting.md).
 :maxdepth: 1
 :caption: How-to guides
 
+guides/examples
 guides/orm-column-map
 guides/markers
+guides/upgrade-0x
 guides/faq
 guides/troubleshooting
 ```

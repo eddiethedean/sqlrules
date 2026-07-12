@@ -89,16 +89,12 @@ Full walkthrough: [Getting started](https://sqlrules.readthedocs.io/en/latest/gu
 **Requires** Python 3.10+, Pydantic v2, and SQLAlchemy 2.x (pulled in
 transitively).
 
-### From PyPI (1.0+)
+### From PyPI
 
 ```bash
 pip install "sqlrules>=1,<2"
 # or: uv add "sqlrules>=1,<2"
 ```
-
-Confirm the installed version is **1.0.0 or newer** (`pip show sqlrules`).
-If PyPI still serves an older release, or dialect packages are missing, use
-**from source** below.
 
 Optional dialect plugins (same major line as core):
 
@@ -119,7 +115,7 @@ pip install "sqlrules[dialects]"   # all four
 SQLite `pattern` emits `REGEXP` — call `sqlrules_sqlite.register_regexp(connection)`
 on each connection before executing queries.
 
-### From source (repo / pre-PyPI)
+### From source (contributors)
 
 ```bash
 git clone https://github.com/eddiethedean/sqlrules.git
@@ -128,14 +124,8 @@ python -m venv .venv && source .venv/bin/activate
 make install   # editable core + all four dialect plugins
 ```
 
-Or install built wheels from a checkout that already ran `make dist`:
-
-```bash
-pip install dist/sqlrules-*.whl dist-plugins/sqlrules_*.whl
-```
-
-**End users** should prefer PyPI once 1.0+ is published. You do not need to
-clone this repo or install from `packages/` for normal application use.
+**End users** should install from PyPI. You do not need to clone this repo or
+install from `packages/` for normal application use.
 
 ### Plugin example
 
@@ -175,7 +165,6 @@ See [`examples/postgresql_pattern.py`](examples/postgresql_pattern.py).
 |---|---|
 | `UnsupportedConstraintError` on `pattern` | Install a dialect plugin and pass it to `Compiler(plugins=[...])` |
 | `NameError: sqlrules` after `from sqlrules import Compiler` | Also `import sqlrules` (or import `where`) |
-| `pip` installs &lt; 1.0 / dialect package 404 | Install [from source](#from-source-repo--pre-pypi) until PyPI has 1.0+ |
 | SQLite `REGEXP` errors at execute time | Call `register_regexp(connection)` |
 
 More: [Troubleshooting](https://sqlrules.readthedocs.io/en/latest/guides/troubleshooting.html).
@@ -257,7 +246,8 @@ Full site: **[sqlrules.readthedocs.io](https://sqlrules.readthedocs.io/en/latest
 | Topic | Link |
 |---|---|
 | Getting started | [Guide](https://sqlrules.readthedocs.io/en/latest/guides/getting-started.html) |
-| How-to guides | [ORM binding](https://sqlrules.readthedocs.io/en/latest/guides/orm-column-map.html) · [Markers](https://sqlrules.readthedocs.io/en/latest/guides/markers.html) |
+| How-to guides | [ORM binding](https://sqlrules.readthedocs.io/en/latest/guides/orm-column-map.html) · [Markers](https://sqlrules.readthedocs.io/en/latest/guides/markers.html) · [Examples](https://sqlrules.readthedocs.io/en/latest/guides/examples.html) |
+| Upgrade | [0.x → 1.0](https://sqlrules.readthedocs.io/en/latest/guides/upgrade-0x.html) |
 | Examples | [`examples/`](examples/) |
 | Spec & constraints | [SPEC](https://sqlrules.readthedocs.io/en/latest/SPEC.html) · [CONSTRAINTS](https://sqlrules.readthedocs.io/en/latest/CONSTRAINTS.html) |
 | Plugins | [Plugin system](https://sqlrules.readthedocs.io/en/latest/PLUGIN_SYSTEM.html) |

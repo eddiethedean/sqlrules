@@ -35,7 +35,7 @@ from sqlrules.markers import (
 from sqlrules.plugins import PLUGIN_API_VERSION, SQLRulesPlugin
 from sqlrules.translators import SQLRulesWarning, TranslatorRegistry, default_registry
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
     "PLUGIN_API_VERSION",

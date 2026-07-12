@@ -9,6 +9,7 @@ from sqlalchemy import Column, Integer, MetaData, String, Table
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 import sqlrules
+from assert_sql import assert_rules_sql, sql_literal
 from sqlrules.translators import TranslatorRegistry, _binary
 
 
@@ -22,8 +23,7 @@ def test_column_map_override() -> None:
         table,
         column_map={"user_age": table.c.age},
     )
-    assert "user_age" in rules
-    assert len(rules["user_age"]) == 1
+    assert_rules_sql(rules, {"user_age": ["users.age >= 18"]})
 
 
 def test_orm_attribute_resolution() -> None:
@@ -39,7 +39,7 @@ def test_orm_attribute_resolution() -> None:
         age: Annotated[int, Field(ge=21)]
 
     rules = sqlrules.compile(Filter, User)
-    assert "age" in rules
+    assert sql_literal(rules["age"][0]) == "users.age >= 21"
 
 
 def test_len_constraint() -> None:
@@ -48,17 +48,17 @@ def test_len_constraint() -> None:
 
     table = Table("users", MetaData(), Column("name", String))
     rules = sqlrules.compile(Filter, table)
-    assert len(rules["name"]) == 2
+    assert_rules_sql(
+        rules,
+        {"name": ["length(users.name) >= 2", "length(users.name) <= 10"]},
+    )
 
 
 def test_duplicate_registry_registration() -> None:
     registry = TranslatorRegistry()
     registry.register("gt", _binary(operator.gt))
-    try:
+    with pytest.raises(sqlrules.RegistryError):
         registry.register("gt", _binary(operator.gt))
-        raise AssertionError("expected RegistryError")
-    except sqlrules.RegistryError:
-        pass
 
 
 def test_exception_messages_from_compile() -> None:
@@ -115,4 +115,4 @@ def test_enum_values() -> None:
 
     table = Table("items", MetaData(), Column("color", String))
     rules = sqlrules.compile(Filter, table)
-    assert "color" in rules
+    assert_rules_sql(rules, {"color": ["items.color IN ('red', 'blue')"]})
