@@ -7,7 +7,7 @@ Generated members most application code needs. For narrative docs, see
 .. automodule:: sqlrules
    :members: compile, where, flatten, clear_model_cache, Compiler,
              UnsupportedConstraintError, MissingColumnError, InvalidModelError,
-             ConfigurationError, SQLRulesError, SQLRulesWarning,
+             ConfigurationError, SQLRulesError,
              JsonContains, JsonHasKey, ArrayContains, ArrayOverlap,
              RangeContains, RangeOverlap, FullTextMatch, ConstraintMarker,
              __version__

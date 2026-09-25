@@ -1,221 +1,79 @@
-# SQLRules Error Handling
+# Errors and Diagnostics
 
-## Philosophy
+SQLRules separates invalid model declarations, missing columns, unsupported
+rules, and backend capability gaps. Compilation never skips a retained rule.
 
-SQLRules follows a fail-fast approach. If a Pydantic constraint cannot
-be translated into a deterministic SQLAlchemy expression, the compiler
-should report the problem immediately rather than silently producing
-incomplete rules.
+## Public error hierarchy
 
-Goals:
-
-- Clear exception hierarchy
-- Helpful error messages
-- Deterministic behavior
-- Configurable handling for unsupported **constraint operators**
-- Structured diagnostics for skipped constraints
-
-------------------------------------------------------------------------
-
-## Exception Hierarchy
-
-``` text
+~~~text
 SQLRulesError
 ├── InvalidModelError
 ├── MissingColumnError
 ├── UnsupportedConstraintError
+├── CapabilityError
 ├── TranslatorError
 ├── InvalidTranslatorError
 ├── RegistryError
 ├── ConfigurationError
-├── PluginError
-└── InternalCompilerError    (reserved)
-```
+└── PluginError
+~~~
 
-All public exceptions inherit from `SQLRulesError`.
+## RuleSchema declaration errors
 
-------------------------------------------------------------------------
+RuleSchema validates supported declarations when the class is created.
+Unsupported scalar/container types, custom validators, serializers, computed
+fields, string normalization, arbitrary metadata, duplicate constraints, and
+incompatible constraint/type combinations raise TypeError with the original
+SQLRules error chained as the cause.
 
 ## InvalidModelError
 
-Raised when the input is not a supported Pydantic model.
-
-Examples:
-
-- Not a BaseModel subclass
-
-------------------------------------------------------------------------
+Compiler.compile accepts a RuleSchema class, not an unrestricted Pydantic
+BaseModel or an instance. Use from_pydantic() to convert a full model and
+inspect its report.
 
 ## MissingColumnError
 
-Raised when a constrained model field cannot be matched to a SQLAlchemy
-column. Unconstrained fields are skipped and do not trigger this error.
-
-Non-column table attributes (for example `Table.name`) are never treated
-as columns.
-
-Example message:
-
-    No SQLAlchemy column found for field 'age'. Provide a matching table
-    column, ORM attribute, or column_map entry.
-
-------------------------------------------------------------------------
+Every RuleSchema field must bind to a database column, including fields with
+type-only annotations. Binding order is an explicit column_map entry, then
+Field(column=...), then the Python field name. Pydantic aliases do not select
+columns implicitly.
 
 ## UnsupportedConstraintError
 
-Raised when SQLRules encounters a constraint operator with no translator,
-an unsupported type, or an invalid operator/type combination.
+The core or selected plugin has no translator for a retained constraint.
+Unlike SQLRules 1.x, warn and ignore policies cannot remove a rule from the
+compiled predicate.
 
-Examples:
+## CapabilityError
 
-- `pattern` (no core translator), `max_digits`, `decimal_places`
-- custom validators / `Strict`
-- unsupported types (containers, `timedelta`)
-- `multiple_of <= 0`
-- length constraints on non-`str` fields
+The backend cannot prove the requested source type, storage representation,
+server feature, or safe conversion. This is different from a known row
+mismatch:
 
-Example:
+- Known mismatched value/type: the SQL predicate evaluates to FALSE.
+- Missing implementation capability: compilation raises CapabilityError.
+- SQL NULL: matches only when the RuleSchema field is nullable.
 
-    Field 'name': constraint 'pattern' is not supported by SQLRules.
-    Remove the constraint, or set on_unsupported='warn'/'ignore'.
+The error includes backend, field, target type, source type, and reason. Use
+the [type support matrix](TYPE_SUPPORT.md) to select supported mappings.
 
-------------------------------------------------------------------------
+## TranslatorError and InvalidTranslatorError
 
-## TranslatorError
+InvalidTranslatorError is raised when a registry translator is not callable
+or cannot accept the translator signature. TranslatorError wraps an exception
+raised while building a SQLAlchemy expression or a non-expression return
+value.
 
-Raised when a registered translator fails while generating a SQLAlchemy
-expression (unexpected SQLAlchemy errors wrapped by the registry).
+## ConfigurationError and PluginError
 
-------------------------------------------------------------------------
+ConfigurationError covers invalid conflict policies, unsupported skipped-rule
+policies, and dialect assertions that disagree with the selected provider.
+PluginError covers missing or incompatible API v2 declarations, multiple
+backend providers, or missing backend hooks.
 
-## InvalidTranslatorError
+## Diagnostics
 
-Raised when registering a translator that is not callable or does not
-accept at least three positional parameters (`constraint`, `column`,
-`context`). Variadic `*args` translators are accepted.
-
-------------------------------------------------------------------------
-
-## RegistryError
-
-Raised for translator registry failures.
-
-Examples:
-
-- Duplicate registrations when `on_conflict="raise"` (default)
-- Legacy `replace=True` on `register()` is equivalent to `on_conflict="replace"`
-  on `register_constraint()` — prefer `on_conflict` in new code
-
-Missing operators raise `UnsupportedConstraintError`, not `RegistryError`.
-
-------------------------------------------------------------------------
-
-## ConfigurationError
-
-Raised when compiler configuration is inconsistent.
-
-Raised for an invalid `on_unsupported` or `on_conflict` mode.
-
-------------------------------------------------------------------------
-
-## PluginError
-
-Raised when a plugin fails validation (missing `name` / `register`, or
-`api_version` mismatch with `PLUGIN_API_VERSION`).
-
-------------------------------------------------------------------------
-
-## InternalCompilerError
-
-Reserved for unexpected internal failures. Not raised on the normal
-1.0 Application compile path.
-
-------------------------------------------------------------------------
-
-## Compiler Policies
-
-The compiler supports three behaviors for unsupported **constraint
-operators**:
-
-## raise (default)
-
-Immediately raises `UnsupportedConstraintError`.
-
-## warn
-
-Emits a `SQLRulesWarning`, records a `Diagnostic`, and skips the
-constraint.
-
-## ignore
-
-Records a `Diagnostic` and silently skips unsupported constraints.
-
-Unsupported **types** always raise, regardless of `on_unsupported`.
-
-------------------------------------------------------------------------
-
-## Structured Diagnostics
-
-After `compile` / `bind` / `compile_model`, inspect skipped constraints:
-
-```python
-compiler = sqlrules.Compiler(on_unsupported="warn")
-rules = compiler.compile(Model, table)
-for diag in compiler.diagnostics:
-    print(diag.code, diag.severity, diag.field, diag.operator, diag.message)
-```
-
-`Diagnostic` fields: `severity` (`"warning"` | `"info"`), `field`,
-`operator`, `value`, `message`, `code`.
-
-Stable diagnostic codes (1.0):
-
-| Code | When |
-|---|---|
-| `unsupported_constraint` | Operator skipped under `warn` / `ignore` |
-
-`compile_model` clears diagnostics. Diagnostics are separate from
-exceptions and do not change the rules dict return type.
-
-Do not call `compile` / `bind` concurrently on the same `Compiler`
-instance; diagnostics collection is not locked.
-
-------------------------------------------------------------------------
-
-## Error Message Guidelines
-
-Every public exception should include:
-
-- field name (when applicable)
-- constraint/operator
-- offending value (when applicable)
-- suggested resolution
-
-------------------------------------------------------------------------
-
-## Logging
-
-SQLRules does not log by default.
-
-Applications decide how to handle exceptions, warnings, and diagnostics.
-
-------------------------------------------------------------------------
-
-## Testing
-
-Each actively raised exception should have tests covering:
-
-- expected trigger
-- message contents
-- inheritance from SQLRulesError
-- policy interactions (where applicable)
-
-------------------------------------------------------------------------
-
-## Design Principles
-
-- Fail fast
-- Never silently change semantics
-- Preserve deterministic compilation
-- Prefer explicit errors over implicit behavior
-- Keep exceptions stable across minor releases
+CompiledRules.diagnostics contains compile-scoped structured information.
+CompiledRules.explain() includes bindings, conversions, assumptions, and field
+predicates. SQLRules does not retain diagnostics across calls on a Compiler.

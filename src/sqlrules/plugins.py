@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from collections.abc import Mapping
+from typing import Any, Protocol, cast, runtime_checkable
 
 from sqlrules.errors import PluginError
 from sqlrules.translators import TranslatorRegistry
 
-PLUGIN_API_VERSION = "1"
-"""Version of the translator plugin contract.
+PLUGIN_API_VERSION = "2"
+"""Version of the backend preparation and translator plugin contract.
 
-API v1 covers:
+API v2 covers:
 
 - ``SQLRulesPlugin`` shape (``name``, ``api_version``, ``register``)
-- ``TranslatorRegistry.register_constraint`` / ``register`` / ``copy`` /
-  ``operators`` / ``lookup`` / ``translate``
-- Translator signature ``(Constraint, ColumnElement, CompilationContext)``
+- optional ``BackendProvider`` shape (``prepare_value`` and ``capabilities``)
+- translators consume a normalized prepared-value expression
+- explicit selection of exactly one backend provider for table binding
 - IR value types for built-in operators, including ``PatternSpec`` for
-  ``pattern`` (use ``pattern_text()``; do not assume ``constraint.value``
-  is a bare ``str``) and ``TypeSpec`` for ``type_check`` (use ``type_spec()``)
+  ``pattern`` (use ``pattern_text()``; do not assume a bare ``str``)
 - Stable marker operator names (``json_contains``, ``array_contains``, …)
 
 Bump this string on incompatible changes to any of the above. Package
@@ -33,6 +33,21 @@ class SQLRulesPlugin(Protocol):
 
     def register(self, registry: TranslatorRegistry) -> None:
         """Register constraint translators on ``registry``."""
+
+
+@runtime_checkable
+class BackendProvider(Protocol):
+    """A dialect provider that prepares source values and reports capabilities."""
+
+    name: str
+    api_version: str
+    server_version: tuple[int, ...] | None
+
+    def prepare_value(self, column: Any, field: Any, context: Any) -> Any:
+        """Return a safe PreparedValue for one source column and logical field."""
+
+    def capabilities(self) -> Mapping[str, Any]:
+        """Describe the configured server and semantic capabilities."""
 
 
 def validate_plugin(plugin: Any) -> SQLRulesPlugin:
@@ -80,3 +95,19 @@ def validate_plugin(plugin: Any) -> SQLRulesPlugin:
         )
 
     return plugin
+
+
+def validate_backend(plugin: Any) -> BackendProvider:
+    """Validate that a registered plugin supplies SQLRules API v2 backend hooks."""
+    validate_plugin(plugin)
+    if not callable(getattr(plugin, "prepare_value", None)) or not callable(
+        getattr(plugin, "capabilities", None)
+    ):
+        raise PluginError(
+            message=(
+                f"Plugin {getattr(plugin, 'name', plugin)!r} does not provide the "
+                "API v2 backend hooks prepare_value() and capabilities()."
+            ),
+            plugin=plugin,
+        )
+    return cast(BackendProvider, plugin)

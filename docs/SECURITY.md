@@ -35,9 +35,10 @@ SQL. Security boundaries are:
 - For SQLite, understand that `register_regexp` is not a sandbox; it runs
   Python's `re` in your process.
 - Official dialect packages are released in lockstep with core — pin the
-  same major line (`sqlrules>=1,<2` and matching dialect extras).
+  same major line (`sqlrules>=2,<3` and the matching dialect package).
 
 ## Non-goals
 
-SQLRules will not provide a plugin capability system, bytecode sandbox,
-or automatic dialect detection. See [NON_GOALS.md](NON_GOALS.md).
+SQLRules does not sandbox plugins or automatically detect a backend. Providers
+report capabilities, but installing and selecting a trusted package remains
+the application's responsibility. See [NON_GOALS.md](NON_GOALS.md).

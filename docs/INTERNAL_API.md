@@ -1,91 +1,68 @@
 # SQLRules Internal API
 
-## Purpose
+This document describes implementation modules. They are not covered by the
+Application or Plugin API compatibility contracts unless explicitly re-exported
+from `sqlrules`.
 
-This document describes **implementation modules** used inside SQLRules.
-They are **not** part of the Application or Plugin semver contracts
-unless re-exported in [API.md](API.md).
+## Compilation pipeline
 
-Plugin authors should import from `sqlrules` (`TranslatorRegistry`,
-`pattern_text`, `Constraint`, `PatternSpec`, …), not from private
-helpers.
-
-------------------------------------------------------------------------
-
-## Pipeline (actual modules)
-
-``` text
-compile() / Compiler
-    │
-    ├── inspectors.inspect_model      → FieldDescriptor[]
-    ├── constraints.extract_constraints / ensure_supported_type
-    ├── cache.ModelIRCache            → ModelIR (optional)
-    ├── columns.resolve_column
-    ├── translators.TranslatorRegistry.translate
-    └── assemble dict[str, list[ColumnElement[bool]]]
+```text
+RuleSchema class
+    └── models.normalize_schema       → immutable SchemaSpec
+          └── Compiler.bind          → resolve columns and select provider
+                ├── backend provider → PreparedValue with safe type evidence
+                ├── TranslatorRegistry → constraint predicates
+                └── CompiledRules    → total root predicate + plan metadata
 ```
 
-There are no separate `IRBuilder` / `RuleAssembler` / `ModelInspector`
-classes — those names are historical. Behavior lives in the modules above
-plus `sqlrules.compiler`.
+`compile_model()` normalizes one schema without binding it to a table.
+`bind()` resolves the declared columns, asks the selected backend provider to
+prepare each source value, translates every retained constraint, and returns a
+`CompiledRules` object. The compiler does not connect to a database or execute
+SQL.
 
-------------------------------------------------------------------------
+## Modules
 
-## Compiler
+- `sqlrules.models` defines `RuleSchema`, the SQLRules `Field()` helper,
+  `RuleConfig`, and schema normalization. It accepts compatible Pydantic field
+  declarations and rejects declarations that cannot be represented as SQL
+  predicates.
+- `sqlrules.integrations.pydantic` implements `from_pydantic()` and conversion
+  reports. It is public through the `sqlrules` package re-exports.
+- `sqlrules.backend` prepares safe scalar expressions for providers. It is an
+  implementation module; provider authors implement the public `BackendProvider`
+  protocol instead of importing its private helpers.
+- `sqlrules.columns` binds `RuleSchema` field names, aliases, explicit
+  `Field(column=...)` metadata, and `column_map` entries to SQLAlchemy columns.
+- `sqlrules.constraints` extracts compatible normalized constraints.
+- `sqlrules.ir` contains schema, prepared-value, compiled-result, and translator
+  data types. The public subset is re-exported from `sqlrules`.
+- `sqlrules.translators` provides the public translator registry and built-in
+  operator translators.
+- `sqlrules.conformance` contains helpers used to check plugin contracts.
 
-Orchestrates the two phases: `compile_model` (IR) and `bind` (columns +
-translate). See the public `Compiler` in [API.md](API.md).
+## State and caching
 
-------------------------------------------------------------------------
+SQLRules does not maintain a process-wide strong-reference cache of model
+classes. `RuleSchema` declarations are normalized when compiled. The legacy
+`Compiler(cache=...)` argument and `clear_model_cache()` helper remain as
+compatibility shims; neither changes caching behavior in 2.0. SQLAlchemy
+columns and compiled predicates are always specific to a bind operation.
 
-## inspectors
+## Plugin boundary
 
-`inspect_model(model) -> list[FieldDescriptor]`
+Plugin authors should import the supported contracts from `sqlrules`:
+`SQLRulesPlugin`, `BackendProvider`, `PLUGIN_API_VERSION`, `TranslatorRegistry`,
+`Constraint`, `PatternSpec`, `PreparedValue`, `CompilationContext`, and marker
+types. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) and
+[IR_CONTRACT.md](IR_CONTRACT.md).
 
-Enumerates fields in declaration order, including string aliases.
+## Design constraints
 
-------------------------------------------------------------------------
-
-## constraints
-
-`extract_constraints` / `ensure_supported_type` / `pattern_text`
-
-`pattern_text` is part of the **Plugin API** (also exported from
-`sqlrules`). Other helpers here are internal.
-
-------------------------------------------------------------------------
-
-## columns
-
-`resolve_column(...)` maps field names / aliases / `column_map` to
-SQLAlchemy columns. Never treats non-column `Table` attributes as columns.
-
-------------------------------------------------------------------------
-
-## translators
-
-`TranslatorRegistry` and `default_registry` are **Plugin API**.
-
-------------------------------------------------------------------------
-
-## cache
-
-`ModelIRCache` — process-lifetime strong-key cache. Call `clear()` when
-using many ephemeral model classes. Not a public Application export.
-
-------------------------------------------------------------------------
-
-## plugins / conformance
-
-`SQLRulesPlugin`, `PLUGIN_API_VERSION`, and `sqlrules.conformance` are
-Plugin API. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
-
-------------------------------------------------------------------------
-
-## Design Principles
-
-- Small Application API
-- Explicit Plugin API
-- Internals may change between minors
-- Deterministic compilation
-- No database I/O
+- Every retained rule must translate or raise an actionable capability error.
+- Type conversion and validation must not rely on database predicate
+  evaluation order.
+- Model validation remains ordinary Pydantic behavior; SQL compilation only
+  consumes the supported SQLRules subset.
+- Internal module names and helpers may change without a Plugin API version
+  bump.

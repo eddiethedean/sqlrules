@@ -7,11 +7,11 @@ directory.
 ## Run them
 
 ```bash
-pip install "sqlrules>=1,<2"
+pip install "sqlrules>=2,<3" "sqlrules-sqlite>=2,<3"
 python examples/basic_compile.py
 python examples/select_usage.py
 
-pip install "sqlrules[postgresql]"
+pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
 python examples/postgresql_pattern.py
 ```
 

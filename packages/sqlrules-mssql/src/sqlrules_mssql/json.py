@@ -37,7 +37,6 @@ def _openjson_key_exists(
             sa_column("value", String),
             sa_column("type", String),
         )
-        .render_derived(name="oj", with_types=True)
         .alias("oj")
     )
     predicate = oj.c.key == key

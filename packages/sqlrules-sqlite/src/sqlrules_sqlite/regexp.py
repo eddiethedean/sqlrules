@@ -19,7 +19,10 @@ def register_regexp(connection: sqlite3.Connection) -> None:
     """
 
     def regexp(pattern: str | None, value: str | None) -> bool:
-        if pattern is None or value is None:
+        # SQLite may evaluate a REGEXP branch even when a neighboring typeof()
+        # predicate is false. Treat non-text source values as a non-match so
+        # mixed-storage tables cannot raise Python TypeError.
+        if not isinstance(pattern, str) or not isinstance(value, str):
             return False
         flags = 0
         if pattern.startswith("(?i)"):

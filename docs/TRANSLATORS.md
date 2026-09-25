@@ -76,12 +76,12 @@ Returns:
   min_length   `func.length(column) >= value`
   max_length   `func.length(column) <= value`
 
-**`pattern` (1.0):** extracted as `PatternSpec` in core IR; **no portable
+**`pattern`:** extracted as `PatternSpec` in core IR; **no portable
 core translator**. Install `sqlrules-postgresql` / `sqlrules-sqlite` /
 `sqlrules-mysql`, or register a custom translator. SQL Server
 (`sqlrules-mssql`) does **not** register `pattern`.
 
-**Not in 1.0:** `starts_with`, `ends_with`, `contains`.
+`starts_with`, `ends_with`, and portable `contains` do not have 2.0 translators.
 
 ------------------------------------------------------------------------
 
@@ -162,11 +162,8 @@ Each translator should:
 
 ## Unsupported Constraints
 
-If no translator exists, behavior depends on the compiler policy.
-
--   raise
--   warn
--   ignore
+If no translator exists, compilation raises `CapabilityError`. The 2.0
+compiler does not allow warning or ignore policies to remove a retained rule.
 
 ------------------------------------------------------------------------
 

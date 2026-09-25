@@ -3,13 +3,10 @@ from __future__ import annotations
 import inspect
 import math
 import operator
-import sys
 import threading
-import types
-import warnings
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 from sqlalchemy import func
 from sqlalchemy.sql.elements import ColumnElement
@@ -23,23 +20,6 @@ from sqlrules.errors import (
 from sqlrules.ir import CompilationContext, Constraint, OnConflict
 
 Translator = Callable[[Constraint, ColumnElement[Any], CompilationContext], ColumnElement[bool]]
-
-
-class SQLRulesWarning(UserWarning):
-    """Warning emitted when an unsupported constraint is skipped."""
-
-
-def _warning_stacklevel() -> int:
-    """Stacklevel that attributes warnings to the first frame outside sqlrules."""
-    frame: types.FrameType | None = sys._getframe(1)
-    level = 1
-    while frame is not None:
-        module = frame.f_globals.get("__name__", "")
-        if not (isinstance(module, str) and module.startswith("sqlrules")):
-            return level
-        frame = frame.f_back
-        level += 1
-    return 2
 
 
 def _binary(op: Callable[[Any, Any], Any]) -> Translator:
@@ -187,38 +167,15 @@ class TranslatorRegistry:
     def handle_missing_translator(
         self,
         constraint: Constraint,
-        context: CompilationContext,
-    ) -> None:
-        """Apply ``on_unsupported`` policy when no translator is registered."""
-        message = (
-            f"Field {constraint.field!r}: constraint {constraint.operator!r} "
-            "is not supported and will be skipped."
-        )
-        if context.on_unsupported == "raise":
-            raise UnsupportedConstraintError(
-                field=constraint.field,
-                operator=constraint.operator,
-                value=constraint.value,
-                suggestion=("Remove the constraint, or set on_unsupported='warn'/'ignore'."),
-            )
-        if context.on_unsupported == "warn":
-            context.record(
-                severity="warning",
-                field=constraint.field,
-                operator=constraint.operator,
-                value=constraint.value,
-                message=message,
-                code="unsupported_constraint",
-            )
-            warnings.warn(message, SQLRulesWarning, stacklevel=_warning_stacklevel())
-            return
-        context.record(
-            severity="info",
+    ) -> NoReturn:
+        """Fail when a retained constraint has no translator."""
+        raise UnsupportedConstraintError(
             field=constraint.field,
             operator=constraint.operator,
             value=constraint.value,
-            message=message,
-            code="unsupported_constraint",
+            suggestion=(
+                "Remove it or use from_pydantic() to convert and report unsupported declarations."
+            ),
         )
 
     def translate(
@@ -226,11 +183,10 @@ class TranslatorRegistry:
         constraint: Constraint,
         column: ColumnElement[Any],
         context: CompilationContext,
-    ) -> ColumnElement[bool] | None:
+    ) -> ColumnElement[bool]:
         translator = self.lookup(constraint.operator)
         if translator is None:
-            self.handle_missing_translator(constraint, context)
-            return None
+            self.handle_missing_translator(constraint)
 
         try:
             result = translator(constraint, column, context)

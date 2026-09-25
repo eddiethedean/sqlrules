@@ -1,44 +1,58 @@
 # sqlrules-mysql
 
-MySQL / MariaDB dialect plugin for [SQLRules](https://github.com/eddiethedean/sqlrules).
+MySQL backend provider for [SQLRules](https://github.com/eddiethedean/sqlrules).
+The package version follows the core 2.x line.
 
 ## Install
 
 ```bash
-pip install sqlrules-mysql
+pip install "sqlrules>=2,<3" "sqlrules-mysql>=2,<3"
 ```
 
-## Usage
+## Use
 
 ```python
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+from sqlalchemy import Column, JSON, MetaData, String, Table
 
-from sqlrules import Compiler, FullTextMatch, JsonContains
+from sqlrules import Compiler, FullTextMatch, JsonContains, RuleSchema, where
 from sqlrules_mysql import MysqlPlugin
 
-class RowFilter(BaseModel):
+rows = Table(
+    "rows",
+    MetaData(),
+    Column("name", String),
+    Column("meta", JSON),
+    Column("body", String),
+)
+
+
+class RowRules(RuleSchema):
     name: Annotated[str, Field(pattern=r"^A")]
     meta: Annotated[dict[str, Any], JsonContains({"active": True})]
     body: Annotated[str, FullTextMatch("sqlrules")]
 
-compiler = Compiler(plugins=[MysqlPlugin()], dialect="mysql")
+
+provider = MysqlPlugin(server_version=(8, 0, 36))
+compiled = Compiler(plugins=[provider]).compile(RowRules, rows)
+statement = rows.select().where(*where(compiled))
 ```
 
-## Operators
+## Capabilities
 
-| IR operator | Notes |
-|---|---|
-| `pattern` | `REGEXP` (case-insensitive under typical collations) |
-| `type_check` | Shape/type predicates from `TypeSpec` (partial matrix) |
-| `json_contains` | `JSON_CONTAINS(column, payload) = 1` |
-| `json_has_key` | `JSON_CONTAINS_PATH(column, 'one', '$.key') = 1` |
-| `fulltext_match` | `MATCH(column) AGAINST (value)` — requires a FULLTEXT index |
+- `pattern`: MySQL `REGEXP`
+- JSON containment and key lookup
+- Full-text matching (requires a matching FULLTEXT index)
+- Safe lax text-to-int conversion on MySQL 8.0+
 
-## Security note
+Text-to-float and text-to-Decimal are compile-time capability errors. String
+Literal and Enum fields need an explicit binary or case-sensitive collation.
+See the [type support matrix](https://sqlrules.readthedocs.io/en/latest/TYPE_SUPPORT.html).
 
-`pattern` / `fulltext_match` values are bound parameters, but evaluation cost
-is engine-dependent. Prefer static/allowlisted patterns and queries from
-untrusted input. See
-[SECURITY](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).
+## Pattern cost
+
+Untrusted regular expressions and full-text queries can be expensive. Prefer
+static or allowlisted values. See the SQLRules
+[security notes](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).

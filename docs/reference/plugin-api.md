@@ -7,9 +7,10 @@ Symbols for dialect plugins and advanced two-phase compile. Prefer
 ```{eval-rst}
 .. automodule:: sqlrules
    :no-index:
-   :members: PLUGIN_API_VERSION, SQLRulesPlugin, TranslatorRegistry,
-             default_registry, pattern_text, type_spec, CompilationContext, Constraint,
-             PatternSpec, TypeSpec, ModelIR, FieldIR, FieldDescriptor, Diagnostic,
+   :members: PLUGIN_API_VERSION, SQLRulesPlugin, BackendProvider,
+             TranslatorRegistry, default_registry, pattern_text, CompilationContext,
+             Constraint, PatternSpec, PreparedValue, RuleField, SchemaSpec,
+             CompiledRules, FieldResult, FieldDescriptor, Diagnostic,
              PluginError, RegistryError, TranslatorError, InvalidTranslatorError,
              InternalCompilerError
    :imported-members:

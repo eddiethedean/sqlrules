@@ -1,180 +1,101 @@
 # SQLRules Compiler Architecture
 
-## Purpose
-
-The SQLRules compiler transforms a constrained Pydantic model into a
-dictionary of SQLAlchemy WHERE expressions.
-
-The compiler never connects to a database, executes SQL, or generates
-SQL strings. It only produces SQLAlchemy expression objects.
+The compiler normalizes SQLRules-owned Pydantic schemas, asks one explicitly
+selected backend to prepare each bound column, translates retained constraints,
+and combines the results into one total predicate. It does not connect to a
+database or execute SQL.
 
 ## Pipeline
 
-``` text
-Pydantic Model
-      │
-      ▼
-Model Introspection
-      │
-      ▼
-Field Extraction
-      │
-      ▼
-Constraint Extraction
-      │
-      ▼
-Intermediate Representation (IR)
-      │
-      ▼
-Constraint Translators
-      │
-      ▼
-SQLAlchemy Expressions
-      │
-      ▼
-Rule Dictionary
+```text
+RuleSchema declaration
+        │ class-time validation and metadata normalization
+        ▼
+Immutable SchemaSpec / RuleField values
+        │ bind field names to SQLAlchemy expressions
+        ▼
+Backend PreparedValue(source, value, valid, is_null)
+        │ translate constraints over the prepared value
+        ▼
+Field predicates
+        │ AND + SQL NULL normalization
+        ▼
+CompiledRules.predicate
 ```
 
-## Stage 1 -- Model Introspection
+`RuleSchema` subclasses retain Pydantic construction and validation behavior.
+Unsupported declarations fail when the class is created. Full Pydantic models
+are accepted through `from_pydantic()`, which returns a generated rule model
+and a conversion report.
 
-Inputs: - Pydantic BaseModel subclass
+## Schema representation
 
-Responsibilities: - Validate the input model. - Enumerate model
-fields. - Preserve declaration order.
+`SchemaSpec` and `RuleField` contain table-independent information: field
+order, annotation, logical type, nullability, strictness, constraints,
+defaults, descriptive metadata, SQL column name, and conversion provenance.
+They contain no table-bound SQL expressions. Every declared field must bind;
+an annotation alone is a rule.
 
-Output: - Iterable of field definitions (later cached as `ModelIR`).
+The normalizer reads public Pydantic field information and an explicit metadata
+allowlist. It does not execute validators, serializers, or default factories.
+The compiler normalizes at each compile call so rule compilation does not rely
+on mutable shared diagnostics or cached SQL expressions.
 
-Table / column binding happens in Phase 2 (`bind`), not Stage 1.
+## Source preparation and predicate grouping
 
-## Stage 2 -- Field Extraction
+Each backend provider returns a `PreparedValue` containing the original
+column, a safe normalized expression, a type/coercion validity predicate, a
+SQL NULL test, and capability details. Bounds, lengths, patterns, and domains
+consume the normalized expression.
 
-For each field:
+For a required field:
 
--   Python type
--   Optionality
--   Metadata
--   Field name
--   Alias (optional)
-
-Unsupported field definitions fail fast.
-
-## Stage 3 -- Constraint Extraction
-
-Read only constraints that have deterministic SQL equivalents.
-
-Examples: - gt - ge - lt - le - multiple_of - min_length - max_length -
-Literal - Enum
-
-`pattern` is normalized into IR (`operator="pattern"`) but has no
-portable core translator.
-
-Constraints without SQL equivalents are delegated to the
-unsupported-constraint policy.
-
-## Stage 4 -- Intermediate Representation
-
-Each constraint becomes a normalized object.
-
-Example:
-
-``` text
-Constraint(
-    field="age",
-    operator="ge",
-    value=18,
-)
+```text
+column IS NOT NULL AND valid AND every constraint(value)
 ```
 
-The IR isolates compiler logic from both Pydantic and SQLAlchemy APIs.
+For a nullable field, SQL NULL is an allowed branch; a failed conversion that
+produces NULL remains distinguishable from an original SQL NULL. The compiler
+normalizes the result to SQL TRUE/FALSE, then ANDs all fields into
+`CompiledRules.predicate`. `notwhere()` complements that total root.
 
-## Stage 5 -- Translators
+The backend must make conversions safe regardless of SQL predicate evaluation
+order. Unsupported representations raise `CapabilityError` during compile;
+invalid row values become false predicates.
 
-Each constraint is translated independently.
+## Translators and providers
 
-Examples:
+Portable translators handle scalar operators such as `ge`, `multiple_of`, and
+`min_length`. Plugins add backend operators such as JSON containment, arrays,
+ranges, regex, or full text. Backend providers implement source preparation
+and capability reporting in addition to registering translators.
 
--   ge → column \>= value
--   gt → column \> value
--   min_length → func.length(column) \>= value
--   Literal → column.in\_(...)
+`Compiler(plugins=[...])` requires exactly one backend provider. Its translator
+registry is a private snapshot; compile calls keep their diagnostics local.
+The `dialect=` option is only a compatibility consistency check and never
+selects or discovers a backend.
 
-Every translator returns one SQLAlchemy expression.
+## Result API
 
-## Stage 6 -- Rule Assembly
+`CompiledRules` contains the full predicate, per-field results, diagnostics,
+backend version, assumptions, and conversion provenance. Its `explain()` method
+returns a structured compile plan without running database `EXPLAIN`.
 
-Expressions are grouped by field.
+`where()` and `flatten()` return `[compiled.predicate]` to preserve the
+spread-style SQLAlchemy call. `notwhere()` returns its total complement.
 
-Example:
+## Errors
 
-``` python
-{
-    "age": [
-        users.c.age >= 18,
-        users.c.age <= 65,
-    ]
-}
-```
+- `InvalidModelError`: an unrestricted Pydantic model was passed directly.
+- `UnsupportedConstraintError`: a declaration has no accepted SQL meaning.
+- `MissingColumnError`: a declared rule field cannot be bound.
+- `CapabilityError`: the selected provider cannot safely implement a retained
+  type conversion or operator.
+- `PluginError` / `RegistryError`: a provider or translator contract is invalid.
 
-Ordering is deterministic and follows the source model.
+## Build extension
 
-## Error Handling
-
-Modes:
-
--   raise (default)
--   warn
--   ignore
-
-Errors include:
-
--   UnsupportedConstraintError
--   MissingColumnError
--   InvalidModelError
--   TranslatorError
-
-## Caching
-
-Phase-1 model IR is cached in-process by model class (default on).
-Cached values are immutable field descriptors and constraints — never
-SQLAlchemy column objects. Disable with `cache=False`.
-
-Translation remains deterministic.
-
-## Extension Points
-
-Available today:
-
--   Inject a custom `TranslatorRegistry` via `Compiler(registry=...)`
--   Register versioned plugins via `Compiler(plugins=[...])`
--   Override operators with `register_constraint(..., on_conflict=...)`
--   Optional `dialect=` hint on `CompilationContext`
-
-Reserved for later:
-
--   Compiler pass plugins
--   Entry-point / auto-discovery
-
-## Design Principles
-
--   Pure function compiler
--   No database dependency
--   Deterministic output
--   SQLAlchemy-first
--   Easy to test
--   Easy to extend
--   Fail fast on unsupported semantics
-
-## Public Contract
-
-``` python
-rules = sqlrules.compile(UserFilter, users)
-```
-
-Returns:
-
-``` python
-dict[str, list]
-```
-
-where each value is a list of SQLAlchemy boolean expressions suitable
-for passing directly to `.where(*expressions)`.
+Custom operators register a translator accepting `(constraint, prepared_value,
+context)` and returning a SQLAlchemy boolean expression. Backend providers may
+implement `prepare_value()` and `capabilities()` to establish source type
+evidence and safe conversions. See [PLUGIN_SYSTEM](PLUGIN_SYSTEM.md).

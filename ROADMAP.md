@@ -1,7 +1,8 @@
 # Roadmap
 
 The 2.x series introduces SQLRules-owned rule schemas and an explicit Pydantic
-conversion bridge. This is a planned design; the current shipped line is 1.x.
+conversion bridge. Phase 2.0 is in implementation; its release gates remain
+open until database conformance and package checks pass.
 API sketches and semantic decisions live in [the 2.0 design](docs/V2_DESIGN.md),
 with implementation steps and release gates in [Milestones](docs/MILESTONES.md).
 
@@ -16,7 +17,7 @@ Core and all four official dialect packages remain versioned together.
 | 2.2 | 2.2.0 | Nested JSON schemas, tagged unions, and collection rules |
 | 2.3 | 2.3.0 | Named transforms, custom type mappings, schema export, and integration tools |
 
-## 2.0.0 — Rule schemas and semantic foundations (planned)
+## 2.0.0 — Rule schemas and semantic foundations (implementation in progress)
 
 - Own `RuleSchema`, `Field`, and `RuleConfig` on Pydantic v2. Models retain
   normal construction, validation, serialization, and FastAPI use. Restrict
@@ -42,8 +43,8 @@ Core and all four official dialect packages remain versioned together.
   semantic changes. The original remains a normal Pydantic model, and the
   converted result is also a usable Pydantic model. Compilation always enforces
   every retained rule.
-- Introduce plugin API v2, explicit backend capabilities, bounded schema caches,
-  and independent compilation state. Provide migration from direct Pydantic
+- Introduce plugin API v2, explicit backend capabilities, immutable normalized
+  schema metadata, and independent compilation state. Provide migration from direct Pydantic
   input, bare rule dictionaries, and opt-in type checks.
 
 Release gate: freeze and implement a useful capability matrix for all four
@@ -91,8 +92,8 @@ needed to preserve existing result sets.
 
 ## Quality and compatibility across 2.x
 
-Database execution conformance, compiler benchmarks, diagnostics, concurrency,
-cache bounds, documentation, and package checks begin in 2.0 and continue through
+Database execution conformance, compiler benchmarks, diagnostics, concurrent
+compilation behavior, documentation, and package checks begin in 2.0 and continue through
 every phase. Later releases extend the supported vocabulary without silently
 changing the acceptance rules of existing schemas. Pydantic compatibility is a
 versioned, documented subset with explicit SQL storage differences.

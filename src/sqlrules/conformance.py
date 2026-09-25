@@ -5,12 +5,13 @@ from __future__ import annotations
 import contextlib
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy import Column, MetaData, String, Table
 from sqlalchemy.sql.elements import ColumnElement
 
 from sqlrules.compiler import Compiler
 from sqlrules.errors import PluginError, RegistryError
+from sqlrules.models import RuleSchema
 from sqlrules.plugins import PLUGIN_API_VERSION, SQLRulesPlugin, validate_plugin
 from sqlrules.translators import TranslatorRegistry, default_registry
 
@@ -76,7 +77,7 @@ def assert_translates_operator(
     plugin: SQLRulesPlugin,
     *,
     operator: str,
-    model: type[BaseModel] | None = None,
+    model: type[RuleSchema] | None = None,
     table: Any | None = None,
     field: str = "name",
 ) -> ColumnElement[bool]:
@@ -84,11 +85,24 @@ def assert_translates_operator(
     validate_plugin(plugin)
 
     if model is None:
+        if operator == "min_length":
 
-        class PatternFilter(BaseModel):
-            name: Annotated[str, Field(pattern=r"^a")]
+            class MinimumLengthFilter(RuleSchema):
+                name: Annotated[str, Field(min_length=2)]
 
-        model = PatternFilter
+            model = MinimumLengthFilter
+        elif operator == "max_length":
+
+            class MaximumLengthFilter(RuleSchema):
+                name: Annotated[str, Field(max_length=20)]
+
+            model = MaximumLengthFilter
+        else:
+
+            class PatternFilter(RuleSchema):
+                name: Annotated[str, Field(pattern=r"^a")]
+
+            model = PatternFilter
 
     if table is None:
         table = Table("items", MetaData(), Column("name", String))
@@ -97,11 +111,17 @@ def assert_translates_operator(
     if operator not in compiler.registry:
         raise AssertionError(f"Plugin {plugin.name!r} did not register operator {operator!r}")
 
-    rules = compiler.compile(model, table)
-    if field not in rules or not rules[field]:
+    schema = compiler.compile_model(model)
+    rule_field = next((item for item in schema.fields if item.name == field), None)
+    if rule_field is None or not any(item.operator == operator for item in rule_field.constraints):
         raise AssertionError(f"Plugin {plugin.name!r}: expected expressions for field {field!r}")
 
-    expression = rules[field][0]
+    compiled = compiler.compile(model, table)
+    field_result = next((item for item in compiled.fields if item.name == field), None)
+    if field_result is None:
+        raise AssertionError(f"Plugin {plugin.name!r}: missing compiled field {field!r}")
+
+    expression = field_result.predicate
     if not isinstance(expression, ColumnElement):
         raise AssertionError(
             f"Plugin {plugin.name!r}: translator for {operator!r} "
@@ -121,7 +141,7 @@ def run_basic_conformance(
     plugin: SQLRulesPlugin,
     *,
     operator: str = "pattern",
-    model: type[BaseModel] | None = None,
+    model: type[RuleSchema] | None = None,
     table: Any | None = None,
     field: str = "name",
 ) -> None:

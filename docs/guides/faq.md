@@ -1,75 +1,60 @@
 # FAQ
 
-## What does SQLRules actually return?
+## What does SQLRules return?
 
-A dictionary mapping **Python field names** to lists of SQLAlchemy boolean
-`ColumnElement`s. Use `sqlrules.where(rules)` (alias `flatten`) to pass them
-to `.where(...)`.
+Compiler.compile() returns CompiledRules, including the total root predicate,
+ordered field results, compile diagnostics, and a structured explain plan.
+where(compiled) and notwhere(compiled) return one-item lists for spread-style
+SQLAlchemy WHERE calls.
 
-## Does it validate request data or apply instance values?
+## Does SQLRules validate request data?
 
-No. Pydantic still validates inputs. SQLRules only reads **constraint
-metadata** (`Field(ge=18)`, `min_length`, markers, …) and compiles
-expressions. Runtime values such as `UserFilter(age=25)` are **not** turned
-into `column == 25`.
+RuleSchema is a normal Pydantic model and supports model_validate(),
+model_dump(), and FastAPI integration. SQLRules compilation uses its field
+declarations to query database rows; it does not turn an instance value such
+as age=25 into a database equality predicate.
 
-## Why doesn’t `pattern` work out of the box?
+## How do I use a full Pydantic model?
 
-`pattern` is extracted into IR as `PatternSpec`, but there is no portable
-regex operator across databases. Install a dialect plugin or register a
-custom translator. See [CONSTRAINTS](../CONSTRAINTS.md) and
-[PLUGIN_SYSTEM](../PLUGIN_SYSTEM.md).
+Call sqlrules.integrations.pydantic.from_pydantic(). It returns a generated
+RuleSchema and a report describing unsupported Python-only behavior that was
+removed or changed. Direct compile of an unrestricted BaseModel is rejected.
 
-SQL Server (`sqlrules-mssql`) does **not** register `pattern`.
+## Why does a plain type annotation compile?
 
-## How do I use JSON / array / full-text operators?
+Every scalar annotation is a rule. Lax mode checks supported backend
+conversions; strict mode checks the observable database logical type.
+Optional fields allow SQL NULL.
 
-Use markers from `sqlrules.markers` (for example `JsonContains`) in
-`Annotated[...]`, then compile with a dialect plugin that registers those
-operators. See [Use dialect markers](markers.md).
+## Why do I need a backend plugin?
 
-## What is `dialect=` on `Compiler`?
+Backend providers establish source type evidence, safe coercions, dialect
+capabilities, and the versioned support profile. Select exactly one provider
+when compiling. The compiler does not inspect a connection or infer a dialect
+from the SQLAlchemy expression.
 
-A **hint** for translators—not automatic dialect detection and **not** plugin
-loading. Pass `plugins=[...]` explicitly. See [API](../API.md).
+## What is dialect= on Compiler?
 
-## `compile` vs `Compiler`?
+It is an optional assertion against the provider name. It does not select or
+load a provider.
 
-Module-level `sqlrules.compile` is the one-shot Application API (no plugins).
-Use `Compiler(plugins=[...])` when you need plugins, a custom registry, or
-two-phase `compile_model` / `bind`.
+## How do I bind renamed columns?
 
-Do not call `compile` / `bind` concurrently on the **same** `Compiler`
-instance.
+Use column_map keyed by the Python field name or SQLRules Field(column=...).
+Pydantic aliases keep their usual runtime behavior but do not bind columns.
 
-## How do I bind ORM models or renamed columns?
+## Can notwhere() return every failing row?
 
-Pass a Declarative class as `table`, or use `column_map={...}`. See
-[ORM / column_map](orm-column-map.md).
+Yes. SQLRules normalizes field and root predicates so they do not produce SQL
+UNKNOWN. notwhere(compiled) returns the total complement of the complete
+root predicate.
 
-## Why did an unconstrained field disappear from the rules dict?
+## Where are type and dialect limitations documented?
 
-Fields with no supported constraints are omitted from the rules dict. Their
-**types** must still be in the support matrix (whole-model rule).
-
-Pass `emit_type_checks=True` to emit `type_check` IR for supported scalar
-annotations (requires a dialect plugin or custom translator to bind — same
-footgun as `pattern`).
-
-## When should I clear the model IR cache?
-
-Call `sqlrules.clear_model_cache()` when creating many ephemeral models
-(`pydantic.create_model`) so the process-wide Phase-1 cache does not grow
-without bound. Use `cache=False` on `compile` / `Compiler` to skip caching
-for a one-off compile.
-
-## Where is the stable API boundary?
-
-[API](../API.md) documents Application, Plugin, and Internal tiers. Semver
-applies to Application and Plugin surfaces. See also
-[Support & compatibility](../project/support.md).
+See [TYPE_SUPPORT](../TYPE_SUPPORT.md), [DIALECT_SUPPORT](../DIALECT_SUPPORT.md),
+and [PLUGIN_SYSTEM](../PLUGIN_SYSTEM.md).
 
 ## More help
 
 [Troubleshooting](troubleshooting.md) · [Errors](../ERRORS.md) ·
-[Start here](start-here.md)
+[Getting started](getting-started.md)

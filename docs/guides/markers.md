@@ -1,66 +1,66 @@
-# Use dialect markers (JSON, arrays, full-text)
+# Use dialect markers
 
-Markers in `sqlrules.markers` (also re-exported from `sqlrules`) attach
-dialect-specific operators to a field. Core extracts them into IR; a dialect
-**plugin** must register translators.
+Markers in sqlrules.markers attach a database-specific operator to a
+RuleSchema field. The selected backend must support both the marker and the
+bound SQL column type.
 
-## Install and register a plugin
+## Select a plugin
 
-```bash
-pip install "sqlrules-postgresql>=1,<2"
-# or from this repo: make install
-```
+~~~bash
+pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
+~~~
 
-```python
+~~~python
 from typing import Annotated, Any
 
-from pydantic import BaseModel
 from sqlalchemy import Column, MetaData, Table
 from sqlalchemy.dialects.postgresql import JSONB
 
-import sqlrules
-from sqlrules import Compiler, JsonContains
+from sqlrules import Compiler, JsonContains, RuleSchema, where
 from sqlrules_postgresql import PostgresPlugin
 
 rows = Table("rows", MetaData(), Column("meta", JSONB))
 
-class RowFilter(BaseModel):
+
+class RowRules(RuleSchema):
     meta: Annotated[dict[str, Any], JsonContains({"active": True})]
 
-compiler = Compiler(plugins=[PostgresPlugin()], dialect="postgresql")
-rules = compiler.compile(RowFilter, rows)
-stmt = rows.select().where(*sqlrules.where(rules))
-```
 
-`dialect=` is a **hint** for translators — it does not load plugins.
+compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
+compiled = compiler.compile(RowRules, rows)
+statement = rows.select().where(*where(compiled))
+~~~
 
 ## Common markers
 
 | Marker | Typical plugin support |
 |---|---|
-| `JsonContains` / `JsonHasKey` | PostgreSQL, SQLite, MySQL, MSSQL (JSON helpers) |
-| `ArrayContains` / `ArrayOverlap` | PostgreSQL |
-| `RangeContains` / `RangeOverlap` | PostgreSQL |
-| `FullTextMatch` | MySQL |
+| JsonContains / JsonHasKey | PostgreSQL, SQLite, MySQL, SQL Server JSON helpers |
+| ArrayContains / ArrayOverlap | PostgreSQL |
+| RangeContains / RangeOverlap | PostgreSQL |
+| FullTextMatch | MySQL |
 
-See [DIALECT_SUPPORT](../DIALECT_SUPPORT.md) for the full matrix.
+List and dict fields require a compatible marker. Markers express database
+operators; they do not validate nested Python items or JSON schemas.
 
-## Pattern + markers together
+## Patterns and markers
 
-```python
+~~~python
+from typing import Annotated, Any
 from pydantic import Field
-from sqlrules import JsonContains
+from sqlrules import JsonContains, RuleSchema
 
-class RowFilter(BaseModel):
-    name: Annotated[str, Field(pattern=r"^A")]
+
+class RowRules(RuleSchema):
+    name: Annotated[str, Field(pattern="^A")]
     meta: Annotated[dict[str, Any], JsonContains({"active": True})]
-```
+~~~
 
-Both need a plugin that registers `pattern` and the marker operators
-(PostgreSQL does). SQL Server (`sqlrules-mssql`) does **not** register
-`pattern`.
+The selected provider must register both pattern and JSON operations.
+PostgreSQL does; SQL Server does not register pattern.
 
-## Security note
+SQLite emits REGEXP for pattern and selected text coercions. Register
+sqlrules_sqlite.register_regexp() on each SQLite connection when those
+expressions are used.
 
-Prefer static marker payloads and static `Field(pattern=...)` values.
-Untrusted regex can be expensive once translated — see [SECURITY](../SECURITY.md).
+Prefer static marker payloads and pattern values. See [SECURITY](../SECURITY.md).

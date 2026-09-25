@@ -1,55 +1,48 @@
 # Support and compatibility
 
-## License
-
-SQLRules is released under the [MIT License](https://github.com/eddiethedean/sqlrules/blob/main/LICENSE).
-
 ## Support posture
 
-Community support is **best-effort** via
-[GitHub Issues](https://github.com/eddiethedean/sqlrules/issues). There is no
-commercial SLA, paid support contract, or guaranteed response time.
-
-Before opening an issue, check the [FAQ](../guides/faq.md) and
-[Troubleshooting](../guides/troubleshooting.md).
+Community support is best-effort through
+[GitHub Issues](https://github.com/eddiethedean/sqlrules/issues). Check the
+[FAQ](../guides/faq.md) and [Troubleshooting](../guides/troubleshooting.md)
+before opening an issue.
 
 ## Compatibility and pinning
 
 | Surface | Stability |
 |---|---|
-| Application API (`compile`, `where`, `Compiler`, …) | Semver — stable in 1.x |
-| Plugin API (`PLUGIN_API_VERSION`, IR, registry) | Semver + exact `api_version` match |
+| Application API (`RuleSchema`, `Compiler`, `where`, `notwhere`, conversion) | Semver — 2.x contract |
+| Plugin API (`PLUGIN_API_VERSION`, provider hooks, IR, registry) | Exact `api_version` match |
 | Internal modules | Unstable — may change without notice |
 
-Recommended pins for applications:
+Install core and a matching official provider from the same major line:
 
 ```bash
-pip install "sqlrules>=1,<2"
-pip install "sqlrules-postgresql>=1,<2"   # if needed
+pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
 ```
 
-Official dialect plugins are released in **lockstep** with core on the same
-major line. See [API tiers](../API.md) and [Security](../SECURITY.md).
-
-## Security reports
-
-Please open a
-[GitHub security advisory](https://github.com/eddiethedean/sqlrules/security/advisories/new)
-for vulnerabilities. Do not file public issues for undisclosed security
-problems. See [SECURITY](../SECURITY.md) for the trust model (no DB I/O;
-plugins are arbitrary code; pattern/ReDoS cost).
+The four official providers are released in lockstep with core. See [API
+tiers](../API.md) and [Security](../SECURITY.md).
 
 ## Supported versions
 
 | Version line | Status |
 |---|---|
-| 1.x | Current stable |
-| 0.x | Historical — upgrade to 1.x |
+| 2.x | Current implementation and release target |
+| 1.x | Previous stable line; use the 1.x to 2.x migration guide |
+| 0.x | Historical |
 
-Security fixes target the current 1.x line. Older 0.x releases are not
-actively maintained.
+The semantic profile uses Pydantic 2.13.4 as its conformance reference while
+the runtime dependency accepts Pydantic v2. SQLAlchemy 2.x and Python 3.10+
+are supported.
+
+## Security reports
+
+Use a [GitHub security advisory](https://github.com/eddiethedean/sqlrules/security/advisories/new)
+for vulnerabilities. Do not file public issues for undisclosed problems. See
+[SECURITY](../SECURITY.md) for the trust model.
 
 ## Code of conduct
 
-Participation is governed by the
+Participation follows the project's
 [Code of Conduct](https://github.com/eddiethedean/sqlrules/blob/main/CODE_OF_CONDUCT.md).

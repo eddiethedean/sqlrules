@@ -14,8 +14,9 @@ class InvalidModelError(SQLRulesError):
 
     def __str__(self) -> str:
         return (
-            f"Expected a Pydantic BaseModel subclass, got {self.model!r}. "
-            "Pass a model class such as class UserFilter(BaseModel): ..."
+            f"Expected a SQLRules RuleSchema subclass, got {self.model!r}. "
+            "Convert unrestricted Pydantic models with "
+            "sqlrules.integrations.pydantic.from_pydantic()."
         )
 
 
@@ -43,7 +44,10 @@ class UnsupportedConstraintError(SQLRulesError):
         )
         if self.suggestion:
             return f"{message} {self.suggestion}"
-        return f"{message} Remove the constraint, or set on_unsupported='warn'/'ignore'."
+        return (
+            f"{message} Remove it or use from_pydantic() to convert and report "
+            "unsupported declarations."
+        )
 
 
 @dataclass(slots=True)
@@ -88,7 +92,7 @@ class ConfigurationError(SQLRulesError):
         if self.option == "on_unsupported":
             return (
                 f"Invalid configuration value for {self.option!r}: {self.value!r}. "
-                "Use one of: 'raise', 'warn', 'ignore'."
+                "SQLRules 2.0 requires 'raise' so retained rules cannot be omitted."
             )
         if self.option == "on_conflict":
             return (
@@ -96,6 +100,23 @@ class ConfigurationError(SQLRulesError):
                 "Use one of: 'raise', 'replace', 'ignore'."
             )
         return f"Invalid configuration value for {self.option!r}: {self.value!r}."
+
+
+@dataclass(slots=True)
+class CapabilityError(SQLRulesError):
+    """A backend cannot implement a retained rule for a bound source type."""
+
+    backend: str
+    field: str
+    target_type: str
+    source_type: str
+    reason: str
+
+    def __str__(self) -> str:
+        return (
+            f"Backend {self.backend!r} cannot compile field {self.field!r} from "
+            f"{self.source_type} to {self.target_type}: {self.reason}"
+        )
 
 
 @dataclass(slots=True)

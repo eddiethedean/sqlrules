@@ -3,13 +3,13 @@
 Pick the path that matches what you need. Each link is a single next step—not
 the full documentation map.
 
-## I want to compile constraints from a Pydantic model
+## I want to compile SQL-compatible Pydantic rules
 
-[Getting started](getting-started.md) — install `sqlrules`, compile one model,
-and attach the rules to a SQLAlchemy `select()`.
+[Getting started](getting-started.md) — define a `RuleSchema`, select one
+backend provider, and attach its predicate to a SQLAlchemy `select()`.
 
-Remember: SQLRules compiles **Field metadata** (`ge=18`), not instance values
-(`UserFilter(age=25)`).
+For an unrestricted application model, use `from_pydantic()` and review its
+conversion report before compiling the generated rules class.
 
 ## I need dialect-specific operators (regex, JSON, arrays)
 

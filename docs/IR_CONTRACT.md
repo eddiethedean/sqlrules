@@ -1,61 +1,70 @@
-# IR contract (Plugin API v1)
+# IR contract (Plugin API v2)
 
-This document freezes the intermediate representation that Plugin API
-version `"1"` may rely on. Semver for plugins follows
-`PLUGIN_API_VERSION`, not the core package minor.
+This page describes the stable intermediate representation available to
+Plugin API version 2. The exact compatibility value is
+sqlrules.PLUGIN_API_VERSION.
 
-## Roots
+## Schema IR
 
 | Type | Role |
 |---|---|
-| `ModelIR` | Frozen model + ordered `FieldIR` tuple |
-| `FieldIR` | `FieldDescriptor` + ordered `Constraint` tuple |
-| `FieldDescriptor` | Field name, annotation, metadata, aliases |
-| `Constraint` | `(field, operator, value)` |
-| `PatternSpec` | `(pattern: str, ignore_case: bool)` for `pattern` |
-| `TypeSpec` | `(python_type, strict, allow_none)` for `type_check` |
-| `CompilationContext` | `on_unsupported`, diagnostics collector, optional `dialect` hint |
-| `Diagnostic` | Structured skip/warn records (Plugin-visible; prefer not to depend on fields from Application code) |
+| SchemaSpec | RuleSchema class, ordered fields, empty-schema policy, provenance |
+| RuleField | Name, annotation, logical type, nullability, strictness, constraints, metadata |
+| Constraint | Field name, stable operator name, normalized value |
 
-All IR dataclasses are frozen (`slots=True`). Phase-1 IR never stores
-SQLAlchemy columns.
+Schema IR is independent of table bindings. It contains no SQLAlchemy
+expressions. RuleField values preserve Python field order and source model
+metadata. The compiler normalizes each class per compile, so mutable extension
+payloads cannot leave stale process-wide schema IR.
+
+## Backend preparation
+
+| Type | Role |
+|---|---|
+| PreparedValue | Source column, normalized SQL value, total validity, null identity, logical type, coercion, capability |
+| CompilationContext | Backend name, configured server version, assumptions, diagnostics |
+| Diagnostic | Compile-scoped structured result message |
+
+BackendProvider.prepare_value(column, field, context) returns PreparedValue.
+Every conversion must be safe for malformed and out-of-range row values even
+if a database changes predicate evaluation order. Validity is total and does
+not rely on a CAST being guarded by a separate AND expression.
+
+Constraint translators receive the normalized PreparedValue.value expression
+as their SQLAlchemy expression argument. They do not reimplement source
+coercion or infer stored Python types.
+
+## Result IR
+
+| Type | Role |
+|---|---|
+| FieldResult | Ordered bound field predicate and source/capability summary |
+| CompiledRules | Complete root predicate, fields, diagnostics, backend, and assumptions |
+
+CompiledRules.predicate is the authoritative complete predicate. It evaluates
+to SQL TRUE or FALSE. where(compiled) returns a one-item list with the root;
+notwhere(compiled) returns a one-item list with its complement. flatten()
+aliases where(). Empty schemas are accepted only when explicitly configured;
+their root is TRUE.
 
 ## Operators
 
-Portable operators extracted by core: `gt`, `ge`, `lt`, `le`,
-`multiple_of`, `min_length`, `max_length`, `pattern`, `literal`, `enum`.
-
-Opt-in operator (when `emit_type_checks=True`): `type_check` with
-`TypeSpec` values. Core extracts IR only — no portable translator
-(same pattern as `pattern`).
-
-Frozen marker operator names: `json_contains`, `json_has_key`,
-`array_contains`, `array_overlap`, `range_contains`, `range_overlap`,
-`fulltext_match`.
-
-`pattern` values are `PatternSpec` (or legacy `str` via `pattern_text()`).
-Always call `pattern_text(constraint.value)` in translators.
-
-`type_check` values are `TypeSpec`. Always call `type_spec(constraint.value)`
-in translators.
-
-## Application vs Plugin use
-
-- **Application:** prefer `compile` / `Compiler` / markers / exceptions.
-  Treat IR types as advanced (two-phase `compile_model` / `bind`).
-- **Plugin:** may depend on `Constraint`, `PatternSpec`, `TypeSpec`,
-  `CompilationContext`, `ModelIR`, `TranslatorRegistry`, markers,
-  `pattern_text`, and `type_spec`.
-
-## Whole-model type matrix
-
-Every field annotation on a compiled model must be inside the type support
-matrix — including unconstrained fields. Unsupported types (for example
-`timedelta`) raise even when the field has no constraints. Split filter
-models from DTOs that carry unsupported types.
-
-## Not in IR (1.0)
-
-`max_digits` and `decimal_places` are rejected at extract time. Unknown
-Field metadata keys are rejected rather than turned into invented
+Portable core operators are gt, ge, lt, le, multiple_of, min_length,
+max_length, literal, and enum. Pattern and dialect markers remain plugin
 operators.
+
+Frozen marker operator names are json_contains, json_has_key, array_contains,
+array_overlap, range_contains, range_overlap, and fulltext_match.
+
+The opt-in type_check / TypeSpec IR from API v1 is removed from the 2.0
+compiler path. Scalar annotations now produce a backend-prepared type rule
+automatically.
+
+## Plugin compatibility
+
+API v2 plugins must expose the exact api_version string. Backend providers
+must expose prepare_value() and capabilities(). The compiler requires exactly
+one provider when binding a schema. Constraint plugins can be included with
+that provider and register translators through TranslatorRegistry.
+
+See [PLUGIN_SYSTEM](PLUGIN_SYSTEM.md) for translator examples.

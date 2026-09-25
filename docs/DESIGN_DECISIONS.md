@@ -1,474 +1,83 @@
 # SQLRules Design Decisions
 
-## Purpose
-
-This document records the major design decisions behind SQLRules so
-future development stays consistent, focused, and easy to reason about.
-
-SQLRules exists to do one thing well:
-
-> Compile constrained Pydantic models into SQLAlchemy WHERE-rule
-> dictionaries.
-
-------------------------------------------------------------------------
-
-## Decision 1: SQLRules is a Compiler, Not a Query Builder
-
-## Decision
-
-SQLRules compiles model metadata into SQLAlchemy boolean expressions.
-
-It does not build complete queries.
-
-## Rationale
-
-SQLAlchemy already provides excellent query composition. SQLRules should
-produce reusable pieces that fit naturally into SQLAlchemy Core and ORM
-workflows.
-
-## Consequences
-
-SQLRules returns expressions such as:
-
-``` python
-users.c.age >= 18
-```
-
-not full statements such as:
-
-``` python
-select(users).where(users.c.age >= 18)
-```
-
-------------------------------------------------------------------------
-
-## Decision 2: Return a Dictionary Grouped by Field
-
-## Decision
-
-The primary output format is:
-
-``` python
-dict[str, list[ColumnElement[bool]]]
-```
-
-Example:
-
-``` python
-{
-    "age": [
-        users.c.age >= 18,
-        users.c.age <= 65,
-    ],
-    "name": [
-        func.length(users.c.name) >= 2,
-    ],
-}
-```
-
-## Rationale
-
-A dictionary preserves field-level meaning and lets users compose rules
-selectively.
-
-## Consequences
-
-Users can apply all rules:
-
-``` python
-stmt = select(users).where(*sqlrules.where(rules))
-```
-
-or only some rules:
-
-``` python
-stmt = select(users).where(*rules["age"])
-```
-
-------------------------------------------------------------------------
-
-## Decision 3: SQLAlchemy Expressions, Not SQL Strings
-
-## Decision
-
-SQLRules returns SQLAlchemy expression objects.
-
-## Rationale
-
-SQL strings are dialect-sensitive, harder to compose, and easier to
-misuse. SQLAlchemy expressions are safer, composable, and backend-aware.
-
-## Consequences
-
-SQLRules never renders SQL strings directly.
-
-------------------------------------------------------------------------
-
-## Decision 4: Pydantic v2 First
-
-## Decision
-
-SQLRules targets Pydantic v2 first.
-
-## Rationale
-
-Pydantic v2 has a modern metadata model based heavily on `Annotated` and
-constraint metadata. Supporting v1 would add complexity before the
-package proves its core value.
-
-## Consequences
-
-Initial compatibility target:
-
--   Python 3.10+
--   Pydantic v2
--   SQLAlchemy 2.x
-
-Pydantic v1 support may be considered later as a compatibility plugin or
-separate adapter.
-
-------------------------------------------------------------------------
-
-## Decision 5: Fail Fast by Default
-
-## Decision
-
-Unsupported constraints raise errors by default.
-
-## Rationale
-
-Silently ignoring constraints could produce overly broad SQL filters and
-create correctness or security issues.
-
-## Consequences
-
-Default mode:
-
-``` python
-on_unsupported="raise"
-```
-
-Optional modes:
-
--   warn
--   ignore
-
-------------------------------------------------------------------------
-
-## Decision 6: Only Deterministic Constraints Are Supported
-
-## Decision
-
-SQLRules only supports constraints that have deterministic SQL
-equivalents.
-
-## Supported Examples
-
--   gt
--   ge
--   lt
--   le
--   min_length
--   max_length
--   multiple_of
--   Literal
--   Enum
-
-## Unsupported Examples
-
--   custom validators
--   model validators
--   computed fields
--   arbitrary Python predicates
-
-## Rationale
-
-SQLRules should never pretend that arbitrary Python validation logic can
-be safely converted to SQL.
-
-------------------------------------------------------------------------
-
-## Decision 7: Optionality Does Not Generate Rules by Default
-
-## Decision
-
-`Optional[T]` does not automatically produce `IS NULL` or `IS NOT NULL`
-expressions.
-
-## Rationale
-
-Optionality describes whether a value may be absent or null during
-validation. It does not always imply a SQL filtering rule.
-
-## Consequences
-
-Future configuration may allow explicit nullability policies, but the
-default behavior remains no rule.
-
-------------------------------------------------------------------------
-
-## Decision 8: Keep the Intermediate Representation Dialect-Neutral
-
-## Decision
-
-The IR describes semantic intent, not database-specific syntax.
-
-Example:
-
-``` python
-Constraint(field="name", operator="min_length", value=2)
-```
-
-## Rationale
-
-Dialect-specific behavior belongs in translators, not in the compiler
-core.
-
-## Consequences
-
-The same IR can be translated differently by SQLite, PostgreSQL, MySQL,
-SQL Server, or Oracle plugins.
-
-------------------------------------------------------------------------
-
-## Decision 9: Plugins Are Explicit
-
-## Decision
-
-SQLRules 0.3 ships an explicit plugin API:
-
-```python
-Compiler(plugins=[PostgresPlugin()], on_conflict="raise", dialect="postgresql")
-```
-
-There is no automatic discovery. Plugins declare `api_version` matching
-`PLUGIN_API_VERSION`.
-
-## Rationale
-
-Explicit plugin registration avoids hidden behavior, improves
-reproducibility, and keeps the compiler deterministic.
-
-## Consequences
-
-See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md). Official starter packages:
-`sqlrules-postgresql` and `sqlrules-sqlite`.
-
-------------------------------------------------------------------------
-
-## Decision 10: No Database Connections
-
-## Decision
-
-SQLRules never opens database connections or reflects database metadata.
-
-## Rationale
-
-The package should be safe to use in any environment, including
-application startup, tests, CI, and code generation tools.
-
-## Consequences
-
-Users provide SQLAlchemy tables, ORM classes, aliases, or explicit
-column maps.
-
-------------------------------------------------------------------------
-
-## Decision 11: Small Public API
-
-## Decision
-
-The public API should remain minimal.
-
-Initial API:
-
-``` python
-sqlrules.compile(...)
-sqlrules.where(...)
-sqlrules.flatten(...)
-```
-
-## Rationale
-
-A small API is easier to document, test, stabilize, and maintain.
-
-## Consequences
-
-Advanced behavior should live behind compiler options, internal
-components, or plugins rather than expanding the top-level API too
-early.
-
-------------------------------------------------------------------------
-
-## Decision 12: Two-Phase Compilation
-
-## Decision
-
-SQLRules separates static model compilation from table binding.
-
-## Phase 1: Static Compilation
-
-- inspect Pydantic model
-- extract constraints
-- build `ModelIR` (cached by default)
-
-## Phase 2: Binding
-
-- resolve SQLAlchemy columns
-- translate IR to expressions
-
-## Rationale
-
-Static model work can be cached and reused across multiple tables,
-aliases, ORM models, or column maps.
-
-## Consequences
-
-`Compiler.compile_model` / `Compiler.bind` expose the phases.
-`sqlrules.compile(...)` remains the one-shot public API.
-
-------------------------------------------------------------------------
-
-## Decision 13: Prefer Simple Translators
-
-## Decision
-
-Basic constraints should use simple function-based translators where
-possible.
-
-Example:
-
-``` python
-"gt": operator.gt
-"ge": operator.ge
-```
-
-## Rationale
-
-Many translations are direct operator mappings and do not need complex
-class hierarchies.
-
-## Consequences
-
-Dedicated translator classes should be reserved for more complex
-constraints such as:
-
--   min_length
--   max_length
--   pattern
--   Literal
--   Enum
--   dialect-specific behavior
-
-------------------------------------------------------------------------
-
-## Decision 14: Stable Errors Matter
-
-## Decision
-
-SQLRules exceptions should be structured and stable.
-
-## Rationale
-
-Clear errors make the package easier to use, test, and integrate into
-developer tools.
-
-## Consequences
-
-All public exceptions inherit from:
-
-``` python
-SQLRulesError
-```
-
-Exceptions should include structured context such as:
-
--   field
--   constraint
--   value
--   translator
--   suggested fix
-
-------------------------------------------------------------------------
-
-## Decision 15: Documentation Drives Implementation
-
-## Decision
-
-SQLRules planning documents are treated as implementation guidance.
-
-## Rationale
-
-The package is intentionally small, so high-quality design docs can
-prevent scope creep and architectural drift.
-
-## Consequences
-
-New features should update relevant docs before implementation.
-
-------------------------------------------------------------------------
-
-## Open Questions
-
-## Should SQLRules Support Pydantic v1?
-
-Likely not in core initially.
-
-Possible future path:
-
--   `sqlrules-pydantic-v1`
--   adapter layer
--   compatibility mode
-
-------------------------------------------------------------------------
-
-## Should SQLRules Include a CompiledRules Object?
-
-Potential API:
-
-``` python
-compiled = sqlrules.compile(UserFilter, users)
-
-compiled.rules
-compiled.where()
-compiled.field("age")
-```
-
-This may improve ergonomics while preserving dictionary output.
-
-------------------------------------------------------------------------
-
-## Should Regex Be Core or Dialect Plugin?
-
-**Decided for 0.2 / 0.3:**
-
-- IR support in core (`Constraint(operator="pattern", ...)`)
-- No portable core translator
-- Translator support via `TranslatorRegistry` and dialect plugins
-  (`sqlrules-postgresql`, `sqlrules-sqlite`)
-
-------------------------------------------------------------------------
-
-## Should Nullability Rules Be Optional?
-
-Potential future configuration:
-
-``` python
-null_policy="ignore"      # default
-null_policy="not_null"
-null_policy="is_null"
-```
-
-This should not be part of the initial MVP unless a strong use case
-emerges.
-
-------------------------------------------------------------------------
-
-## Summary
-
-SQLRules should stay small, explicit, deterministic, and composable.
-
-The most important design boundary is this:
-
-> SQLRules converts supported Pydantic constraints into SQLAlchemy WHERE
-> expressions. Nothing more.
+SQLRules 2.0 compiles an intentionally limited subset of Pydantic model
+declarations into SQL predicates. These decisions define the semantic contract
+for the 2.x series.
+
+## 1. Rule schemas remain Pydantic models
+
+`RuleSchema` is a `pydantic.BaseModel` subclass. Instances keep normal Pydantic
+validation, serialization, JSON Schema, and framework integration behavior.
+SQLRules limits the declarations inside a RuleSchema to the types, constraints,
+and compatible metadata that it can compile; it does not restrict how callers
+instantiate or use the model.
+
+Compatible Pydantic imports work directly in class declarations. SQLRules adds
+`Field(column=...)` and `RuleConfig` for database binding and SQL-specific
+options. Unrestricted Pydantic models can be passed through `from_pydantic()`;
+conversion returns another Pydantic model and a report for removed semantics.
+
+## 2. Type annotations always create row rules
+
+Every scalar annotation contributes a predicate, even without an explicit
+constraint. Lax mode is the default and follows the documented SQLRules
+coercion profile. `strict=True`, `ConfigDict(strict=True)`, and compatible
+strict metadata require the observed database value to have the declared
+logical type. Strictness and supported constraints are inspectable on the
+compiled plan.
+
+The database cannot recover the Python object originally supplied to an ORM.
+SQLRules therefore defines types in terms of database storage evidence and
+documents backend differences, including representations it cannot prove.
+
+## 3. Prepare values safely before applying constraints
+
+An explicit backend provider prepares each source column into a logical value,
+validity predicate, NULL state, and capability description. Constraints run
+against the prepared value. Invalid coercions are non-matches. Conversion
+safety cannot depend on SQL evaluation order or short-circuiting.
+
+If a provider cannot prove that a mapping or conversion is safe, compilation
+raises `CapabilityError`. A known row-level type mismatch is a false predicate
+instead. The capability matrix is part of the public semantic contract.
+
+## 4. Every retained declaration must be enforced
+
+Unsupported declarations on a RuleSchema raise during class construction or
+compilation. Unsupported retained constraints never produce warnings or get
+silently dropped. `from_pydantic()` is the explicit conversion boundary for
+dropping incompatible behavior, and its report records what changed.
+
+## 5. Compile predicates, not queries
+
+SQLRules creates SQLAlchemy boolean expressions and never opens a connection,
+inspects live database metadata, renders SQL strings, or executes statements.
+Applications compose the result into Core or ORM queries.
+
+`CompiledRules` contains a total root predicate, per-field results,
+diagnostics, backend assumptions, and conversion provenance. `where()` returns
+the root predicate in a list for spread-style SQLAlchemy calls. `notwhere()`
+returns its complement. SQL NULL, invalid conversions, and failed constraints
+are partitioned by those two helpers.
+
+## 6. Backend selection is explicit
+
+Exactly one backend provider prepares source values for a bind. Constraint
+plugins may add translators, but cannot silently substitute source coercion
+semantics. Server versions and collation or storage assumptions are explicit
+and appear in capabilities or the compiled explain plan.
+
+## 7. Reuse normalized declarations without global model caches
+
+`Compiler.compile_model()` and `bind()` expose normalization and table binding
+as separate operations. Normalized schema metadata is immutable. SQLRules does
+not keep process-wide model-class cache entries; table-bound predicates are
+created for the supplied columns. Legacy cache arguments remain inert
+compatibility shims in 2.0.
+
+## 8. Version semantics, not just syntax
+
+The supported Pydantic declaration subset, coercion rules, backend evidence,
+NULL behavior, and unsupported cases are versioned. New 2.x phases can add
+features, but must preserve the acceptance behavior of existing schemas unless
+a deliberate compatibility change is documented.

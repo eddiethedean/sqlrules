@@ -7,9 +7,9 @@
     <span class="sr-badge">Pydantic → SQLAlchemy</span>
     <span class="sr-badge">Python {{ python_requires }}</span>
   </div>
-  <p class="sr-hero-kicker">Constraint metadata → WHERE expressions</p>
-  <p class="sr-hero-title">Compile constraints into WHERE rules</p>
-  <p class="sr-lead">SQLRules turns a safe subset of Pydantic field constraints into deterministic SQLAlchemy expressions—no database connection, plugins for dialect operators. It compiles <strong>Field metadata</strong>, not model instance values.</p>
+  <p class="sr-hero-kicker">Pydantic RuleSchema → SQLAlchemy predicates</p>
+  <p class="sr-hero-title">Compile rules into total predicates</p>
+  <p class="sr-lead">SQLRules validates RuleSchema models with Pydantic, then compiles their supported declarations through one explicit backend. It performs no database I/O and returns both matching and failing-row predicates.</p>
   <p>
     <a class="sr-hero-cta" href="guides/start-here.html">Start here →</a>
     <a class="sr-hero-cta sr-hero-cta--secondary" href="guides/getting-started.html" style="margin-left:0.75rem">Getting started</a>
@@ -26,7 +26,7 @@ Pick the path that matches how you work:
 :link: guides/getting-started
 :link-type: doc
 
-**Compile constraints from models.** Install `sqlrules`, map a Pydantic model to a table, and pass `where(rules)` into SQLAlchemy.
+**Compile supported schemas.** Define a RuleSchema, select a backend provider, and pass where(compiled) or notwhere(compiled) into SQLAlchemy.
 
 +++
 **Open getting started →**
@@ -72,16 +72,16 @@ Pick the path that matches how you work:
 :::{admonition} Not a query builder
 :class: note
 
-SQLRules does not connect to a database, generate SQL strings, or turn
-validated request payloads into `WHERE` predicates. It only compiles
-supported **constraint metadata** into expressions. See
+SQLRules does not connect to a database or generate SQL strings. RuleSchema
+is still a normal Pydantic model, but the compiler uses the schema's rules to
+select matching database rows. See
 [design philosophy](guides/design-philosophy.md).
 :::
 
 ```{raw} html
 <div class="sr-callout">
-  <strong>Install:</strong> <code>pip install "sqlrules&gt;=1,&lt;2"</code>
-  — optional dialects via <code>pip install "sqlrules-postgresql&gt;=1,&lt;2"</code> (or sqlite / mysql / mssql).
+  <strong>Install:</strong> <code>pip install "sqlrules&gt;=2,&lt;3"</code>
+  — add the matching dialect package from the same 2.x line.
   <code>pattern</code> needs a dialect plugin.
 </div>
 ```
@@ -112,6 +112,7 @@ guides/examples
 guides/orm-column-map
 guides/markers
 guides/upgrade-0x
+guides/upgrade-1x
 guides/faq
 guides/troubleshooting
 ```

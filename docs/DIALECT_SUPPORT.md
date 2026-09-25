@@ -1,208 +1,65 @@
-# SQLRules Dialect Support
-
-## Purpose
-
-SQLRules compiles Pydantic constraints into SQLAlchemy expressions.
-SQLAlchemy already abstracts many database differences, but some
-operators and functions have dialect-specific behavior. This document
-defines how SQLRules handles those differences while keeping the
-compiler deterministic.
-
-------------------------------------------------------------------------
-
-## Philosophy
-
-1.  Prefer portable SQLAlchemy constructs.
-2.  Keep the core compiler dialect-neutral.
-3.  Isolate database-specific behavior behind dialect extensions.
-4.  Never silently change semantics based on the active database.
-
-------------------------------------------------------------------------
-
-## Support Levels
-
-  Level          Meaning
-  -------------- -------------------------------------------------
-  Core           Uses only portable SQLAlchemy expressions.
-  Enhanced       Uses optional dialect-specific translators.
-  Experimental   Feature exists but semantics differ by backend.
-
-------------------------------------------------------------------------
-
-## Dialects
-
-Core emits portable SQLAlchemy Core expressions. The table below describes
-**intended** dialect posture, not a certified multi-backend test matrix.
-
-  Dialect             Status        Notes
-  ------------ -------------------- --------------------------------
-  SQLite             Core + plugin  `sqlrules-sqlite` — REGEXP + JSON
-  PostgreSQL         Core + plugin  `sqlrules-postgresql` — regex, JSONB, ARRAY, range
-  MySQL              Core + plugin  `sqlrules-mysql` — REGEXP, JSON, full-text
-  MariaDB            Core + plugin  Follows MySQL plugin where practical
-  SQL Server         Core + plugin  `sqlrules-mssql` — JSON + `LEN`
-  Oracle             Planned        Core support after 1.0
-
-------------------------------------------------------------------------
-
-## Core Portable Constraints
-
-These should compile identically across supported databases:
-
--   gt
--   ge
--   lt
--   le
--   multiple_of
--   min_length
--   max_length
--   Literal
--   Enum
-
-------------------------------------------------------------------------
-
-## Shared dialect markers
-
-Dialect-oriented operators are expressed with `sqlrules.markers` and
-extracted into IR. Core does not translate them; plugins register
-translators for the stable operator names:
-
--   `JsonContains` → `json_contains`
--   `JsonHasKey` → `json_has_key`
--   `ArrayContains` → `array_contains`
--   `ArrayOverlap` → `array_overlap`
--   `RangeContains` → `range_contains`
--   `RangeOverlap` → `range_overlap`
--   `FullTextMatch` → `fulltext_match`
-
-`list` / `dict` field annotations are allowed for marker-driven fields.
-Portable constraints on containers still raise.
-
-------------------------------------------------------------------------
-
-## PostgreSQL
-
-Package: `sqlrules-postgresql`
-
--   `pattern` → `~` or `~*` (`PatternSpec.ignore_case`)
--   JSONB containment / key checks
--   ARRAY contains / overlap
--   range `@>` / `&&`
-
-------------------------------------------------------------------------
-
-## SQLite
-
-Package: `sqlrules-sqlite`
-
--   `pattern` via `REGEXP` — call `register_regexp(connection)`
--   Case-insensitive patterns use a `(?i)` prefix understood by the helper
--   JSON helpers via JSON1 `json_extract` / `json_type`
-
-------------------------------------------------------------------------
-
-## MySQL / MariaDB
-
-Package: `sqlrules-mysql`
-
--   `pattern` → `REGEXP`
--   JSON operators (`JSON_CONTAINS`, `JSON_CONTAINS_PATH`)
--   `fulltext_match` → `MATCH ... AGAINST` (requires FULLTEXT index)
-
-------------------------------------------------------------------------
-
-## SQL Server
-
-Package: `sqlrules-mssql`
-
--   `min_length` / `max_length` → `LEN`
--   JSON helpers via `JSON_VALUE` / `JSON_QUERY`
--   `pattern` is not registered (no deterministic portable regex)
-
-------------------------------------------------------------------------
-
-## Oracle
-
-Long-term goals:
-
--   Oracle-specific translators
--   Optimized string semantics
--   Date/time enhancements
-
-------------------------------------------------------------------------
-
-## Translator Selection
-
-The compiler dispatches through a registry.
-
-``` text
-Constraint IR
-      │
-      ▼
-Core Translator
-      │
-      ├── Portable implementation
-      │
-      └── Dialect override (optional)
-```
-
-If no override exists, the portable translator is used.
-
-------------------------------------------------------------------------
-
-## Plugin Packages
-
-Official plugins:
-
--   sqlrules-postgresql
--   sqlrules-sqlite
--   sqlrules-mysql
--   sqlrules-mssql
-
-Each package registers only the translators relevant to its backend.
-
-------------------------------------------------------------------------
-
-## Testing Strategy
-
-Every supported dialect should include:
-
--   Unit tests
--   SQL compilation tests
--   Regression tests
-
-The same Pydantic model should produce equivalent logical behavior
-across supported databases whenever a portable translation exists.
-
-------------------------------------------------------------------------
-
-## Compatibility Policy
-
-Minor SQLRules releases may add dialect features.
-
-Major releases may change plugin APIs but should preserve the behavior
-of portable translators whenever possible.
-
-------------------------------------------------------------------------
-
-## Non-Goals
-
-SQLRules will not:
-
--   Open database connections
--   Detect the active database automatically
--   Rewrite SQL generated by SQLAlchemy
--   Emulate unsupported database features
-
-Applications remain responsible for selecting the correct dialect
-plugin.
-
-------------------------------------------------------------------------
-
-## Design Principles
-
--   Portable by default
--   Explicit dialect extensions
--   Stable compiler behavior
--   No hidden database assumptions
--   Maximum SQLAlchemy compatibility
+# SQLRules 2.0 Dialect Support
+
+SQLRules requires the caller to select one backend provider. A dialect name
+alone never changes compilation behavior, and the compiler does not inspect a
+live connection.
+
+## Official providers
+
+| Package | Provider | Backend-specific rules |
+|---|---|---|
+| sqlrules-postgresql | PostgresPlugin | Regex, JSONB, ARRAY, range, and safe text parsing on PostgreSQL 16+ |
+| sqlrules-sqlite | SQLitePlugin | Runtime storage-class checks, REGEXP, JSON helpers |
+| sqlrules-mysql | MysqlPlugin | REGEXP, JSON, full-text, and safe integer text conversion on MySQL 8.0+ |
+| sqlrules-mssql | MssqlPlugin | JSON at SQL Server 2016+ / compatibility level 130+, SQL Server LEN behavior, and TRY_CAST conversions on SQL Server 2012+ |
+
+Select exactly one backend provider, optionally with constraint plugins:
+
+~~~python
+from sqlrules import Compiler
+from sqlrules_postgresql import PostgresPlugin
+
+compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
+compiled = compiler.compile(UserRules, users)
+~~~
+
+Each provider separates source preparation from constraint translation. It
+reports capabilities and produces a PreparedValue containing the original
+source, normalized SQL expression, null state, validity predicate, and
+coercion description. Constraint translators operate on the prepared
+expression. The compiler combines the complete field rules under one total
+root predicate.
+
+## Capability rules
+
+- A known row mismatch becomes a non-match.
+- A source representation the provider cannot safely inspect or convert raises
+  CapabilityError during compilation.
+- Retained rules are never skipped by warn or ignore policies.
+- The provider does not emit casts that can throw for malformed row data.
+- Server versions, database compatibility levels, and storage assumptions are
+  visible in capabilities() and CompiledRules.explain().
+
+See [TYPE_SUPPORT](TYPE_SUPPORT.md) for the type, conversion, collation, null,
+and version matrix.
+
+## Markers
+
+Dialect markers are declared with sqlrules.markers. The official plugins keep
+the stable operators json_contains, json_has_key, array_contains,
+array_overlap, range_contains, range_overlap, and fulltext_match where the
+backend has an applicable type.
+
+Container item validation and nested JSON schemas are not part of 2.0.
+RuleSchema accepts list/dict annotations only for supported marker-driven
+fields. A backend still requires an actual JSON, array, or range source type.
+
+## Plugin API v2
+
+Custom constraint plugins implement SQLRulesPlugin with name, api_version,
+and register(registry). Backend providers also implement prepare_value() and
+capabilities(). The exact version string is exported as PLUGIN_API_VERSION.
+Plugins written for API v1 must be adapted because they do not expose source
+preparation or backend capabilities.
+
+See [PLUGIN_SYSTEM](PLUGIN_SYSTEM.md) for the registry and translator contract.

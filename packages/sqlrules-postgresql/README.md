@@ -1,76 +1,63 @@
 # sqlrules-postgresql
 
-PostgreSQL dialect plugin for [SQLRules](https://github.com/eddiethedean/sqlrules).
+PostgreSQL backend provider for [SQLRules](https://github.com/eddiethedean/sqlrules).
+The package version follows the core 2.x line.
 
 ## Install
 
 ```bash
-pip install sqlrules-postgresql
+pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
 ```
 
-## Usage
+## Use
 
 ```python
-import re
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
-from sqlalchemy import Column, MetaData, Table
-from sqlalchemy.dialects.postgresql import ARRAY, INT4RANGE, JSONB, TEXT
+from pydantic import Field
+from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy.dialects.postgresql import ARRAY, INT4RANGE, JSONB
 
-from sqlrules import ArrayContains, Compiler, JsonContains, RangeContains
+from sqlrules import ArrayContains, Compiler, JsonContains, RangeContains, RuleSchema, where
 from sqlrules_postgresql import PostgresPlugin
 
-class RowFilter(BaseModel):
-    name: Annotated[str, Field(pattern=re.compile(r"^a", re.I))]
+rows = Table(
+    "rows",
+    MetaData(),
+    Column("name", String),
+    Column("meta", JSONB),
+    Column("tags", ARRAY(String)),
+    Column("span", INT4RANGE),
+)
+
+
+class RowRules(RuleSchema):
+    name: Annotated[str, Field(pattern=r"^A")]
     meta: Annotated[dict[str, Any], JsonContains({"active": True})]
     tags: Annotated[list[str], ArrayContains(["admin"])]
     span: Annotated[int, RangeContains(5)]
 
-table = Table(
-    "rows",
-    MetaData(),
-    Column("name", TEXT),
-    Column("meta", JSONB),
-    Column("tags", ARRAY(TEXT)),
-    Column("span", INT4RANGE),
-)
 
-compiler = Compiler(plugins=[PostgresPlugin()], dialect="postgresql")
-rules = compiler.compile(RowFilter, table)
+compiled = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))]).compile(
+    RowRules, rows
+)
+statement = rows.select().where(*where(compiled))
 ```
 
-## Operators
+## Capabilities
 
-| IR operator | SQLAlchemy / PostgreSQL |
-|---|---|
-| `pattern` | `~` or `~*` (when `PatternSpec.ignore_case`) |
-| `type_check` | Shape/type predicates from `TypeSpec` (see matrix below) |
-| `json_contains` | JSONB `contains` / `@>` |
-| `json_has_key` | JSONB `has_key` / `?` |
-| `array_contains` | array `contains` |
-| `array_overlap` | array `overlap` / `&&` |
-| `range_contains` | range `@>` |
-| `range_overlap` | range `&&` |
+- `pattern`: PostgreSQL `~` / `~*`
+- JSONB containment and key membership
+- ARRAY containment and overlap
+- Range containment and overlap
+- Safe lax text-to-int/float/Decimal parsing on PostgreSQL 16+
 
-### `type_check` matrix (approximate)
+String Literal and Enum fields require a column with `C` or `POSIX`
+collation. Review the [type support matrix](https://sqlrules.readthedocs.io/en/latest/TYPE_SUPPORT.html)
+for the exact conversion profile and limitations.
 
-Enable with `Compiler(..., emit_type_checks=True)`. Not full Pydantic
-parity — inexpressible pairs raise.
+## Pattern cost
 
-| Python type | Lax | Strict |
-|---|---|---|
-| `int` | Integer column; String `~` digit pattern; numeric whole-number | Integer column only |
-| `bool` | unsupported (raise) | Boolean `IN (true, false)` |
-| `str` | String/Text `IS NOT NULL` | same |
-| `float` / `Decimal` | numeric column; String float-ish `~` | numeric column |
-| `date` / `datetime` / `time` / `UUID` | typed column or String format `~` | typed column |
-
-`Optional[T]` → `(column IS NULL) OR <predicate>`.
-
-## Security note
-
-`pattern` becomes a PostgreSQL regex (`~` / `~*`). Untrusted pattern strings
-can cause expensive engine-side evaluation (ReDoS-class cost). Prefer
-static/allowlisted patterns. See
-[SECURITY](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).
+Untrusted regular expressions can cause expensive engine-side evaluation.
+Prefer patterns authored with the rule model. See the SQLRules
+[security notes](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).
