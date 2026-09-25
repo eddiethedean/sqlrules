@@ -3,7 +3,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.dialects.postgresql import JSONB
+
 from sqlrules.backend import prepare_scalar
+from sqlrules.errors import CapabilityError
 from sqlrules.ir import CompilationContext, PreparedValue, RuleField
 from sqlrules.plugins import PLUGIN_API_VERSION
 from sqlrules.translators import TranslatorRegistry
@@ -55,6 +58,21 @@ class PostgresPlugin:
         field: RuleField,
         context: CompilationContext,
     ) -> PreparedValue:
+        if (
+            field.python_type is dict
+            and any(
+                item.operator in {"json_contains", "json_has_key"} for item in field.constraints
+            )
+            and not isinstance(column.type, JSONB)
+        ):
+            raise CapabilityError(
+                self.name,
+                field.name,
+                "jsonb",
+                type(column.type).__name__,
+                "PostgreSQL JSON markers require a JSONB column; generic JSON does not provide "
+                "the containment and key operators used by SQLRules.",
+            )
         return prepare_scalar(column, field, context, backend=self.name)
 
     def register(self, registry: TranslatorRegistry) -> None:

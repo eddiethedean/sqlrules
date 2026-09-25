@@ -165,6 +165,16 @@ def _validate_string_domain_collation(
         constraint.operator in {"literal", "enum"} for constraint in field.constraints
     ):
         return
+    if backend == "mysql" and type(column.type).__name__.lower() in {"char", "nchar"}:
+        raise CapabilityError(
+            backend,
+            field.name,
+            "str",
+            source,
+            "exact string-domain membership is unavailable for CHAR columns because "
+            "trailing-space retrieval depends on the PAD_CHAR_TO_FULL_LENGTH SQL mode; "
+            "use VARCHAR storage.",
+        )
     collation = getattr(column.type, "collation", None)
     if backend == "postgresql" and collation not in {"C", "POSIX"}:
         reason = "string domain membership requires an explicit deterministic C or POSIX collation."
@@ -172,19 +182,14 @@ def _validate_string_domain_collation(
         reason = "string domain membership requires SQLite's BINARY collation."
     elif (
         backend == "mysql"
-        and not (
-            isinstance(collation, str)
-            and (collation.lower().endswith("_bin") or "_cs" in collation.lower())
-        )
-        or backend == "mssql"
-        and not (
-            isinstance(collation, str)
-            and ("_bin" in collation.lower() or "_cs" in collation.lower())
-        )
+        and not (isinstance(collation, str) and collation.lower().endswith("_bin"))
+    ) or (
+        backend == "mssql"
+        and not (isinstance(collation, str) and collation.lower().endswith(("_bin2", "_bin2_utf8")))
     ):
         reason = (
-            "string domain membership requires an explicit case-sensitive or binary "
-            "column collation."
+            "string domain membership requires an explicit binary collation; MySQL "
+            "requires a _bin collation and SQL Server requires a _BIN2 collation."
         )
     else:
         return
@@ -273,12 +278,22 @@ def prepare_scalar(
 
     compatible = source == target
     if target == "float" and source in {"int", "decimal"} and not field.strict:
-        max_float = Decimal("1.7976931348623157e308")
-        in_float_range = and_(column >= -max_float, column <= max_float)
-        converted = case(
-            (in_float_range, sa_cast(column, Float())),
-            else_=sa_cast(null(), Float()),
-        )
+        float_type: TypeEngine[Any] = Float()
+        if backend == "mysql":
+            from sqlalchemy.dialects.mysql import DOUBLE
+
+            float_type = DOUBLE()
+            # MySQL's integer and DECIMAL domains are far narrower than IEEE
+            # double, so every accepted value is in range and needs no guard.
+            converted = sa_cast(column, float_type)
+            in_float_range = true_expression()
+        else:
+            max_float = Decimal("1.7976931348623157e308")
+            in_float_range = and_(column >= -max_float, column <= max_float)
+            converted = case(
+                (in_float_range, sa_cast(column, float_type)),
+                else_=sa_cast(null(), float_type),
+            )
         return PreparedValue(
             source=column,
             value=converted,
@@ -289,6 +304,15 @@ def prepare_scalar(
             capability="bounded-numeric-to-float",
         )
     if target == "decimal" and source == "int" and not field.strict:
+        if backend in {"mysql", "mssql"}:
+            raise CapabilityError(
+                backend,
+                field.name,
+                target,
+                source,
+                "the dialect's default DECIMAL precision cannot represent every signed "
+                "64-bit integer.",
+            )
         converted = sa_cast(column, Numeric())
         return PreparedValue(
             source=column,
@@ -323,6 +347,18 @@ def prepare_scalar(
         )
     if compatible:
         valid = true_expression()
+        if (
+            backend == "postgresql"
+            and target == "float"
+            and any(
+                constraint.operator in {"gt", "ge", "lt", "le"} for constraint in field.constraints
+            )
+        ):
+            from sqlalchemy import literal
+
+            # PostgreSQL sorts NaN above all finite floats, unlike Python's
+            # ordered comparisons, which all return false for NaN.
+            valid = column != literal(float("nan"), type_=Float())
         if target == "int" and backend == "mysql" and getattr(column.type, "unsigned", False):
             valid = and_(column >= 0, column <= (2**63) - 1)
         if target == "bool" and backend in {"mysql", "mssql"}:

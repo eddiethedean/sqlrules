@@ -366,13 +366,15 @@ def normalize_schema(model: type[BaseModel]) -> SchemaSpec:
         )
         if model.model_config.get(key) not in (None, False)
     }
+    if model.model_config.get("allow_inf_nan") is False:
+        incompatible_config["allow_inf_nan"] = False
     if incompatible_config:
         raise UnsupportedConstraintError(
             model.__name__,
             "model_config",
             incompatible_config,
-            "String coercion, normalization, and global length settings are "
-            "outside the SQLRules 2.0 declaration subset.",
+            "String coercion, normalization, global length settings, and the "
+            "non-finite numeric policy are outside the SQLRules 2.0 declaration subset.",
         )
 
     fields: list[RuleField] = []

@@ -8,7 +8,8 @@ from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 from typing import Any, NoReturn, cast
 
-from sqlalchemy import Float, func
+from sqlalchemy import Float, Unicode, and_, func, literal, or_
+from sqlalchemy import cast as sa_cast
 from sqlalchemy.sql.elements import ColumnElement
 
 from sqlrules.errors import (
@@ -113,6 +114,24 @@ def _in_values(
     column: ColumnElement[Any],
     context: CompilationContext,
 ) -> ColumnElement[bool]:
+    values = constraint.value
+    if not values:
+        return cast(ColumnElement[bool], column.in_(values))
+    if context.dialect in {"mysql", "mssql"} and all(isinstance(value, str) for value in values):
+        exact_matches: list[ColumnElement[bool]] = []
+        for value in values:
+            bound = literal(value)
+            if context.dialect == "mysql":
+                same_length = func.char_length(column) == func.char_length(bound)
+            else:
+                # SQL Server pads strings during equality comparisons. Compare
+                # unbounded Unicode byte lengths to avoid padding and truncation
+                # from the source column's declared size.
+                same_length = func.datalength(sa_cast(column, Unicode())) == func.datalength(
+                    sa_cast(bound, Unicode())
+                )
+            exact_matches.append(and_(column == bound, same_length))
+        return or_(*exact_matches)
     return cast(ColumnElement[bool], column.in_(constraint.value))
 
 

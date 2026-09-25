@@ -26,7 +26,7 @@ casts:
 | Source representation | Target | 2.0 behavior |
 |---|---|---|
 | Matching native logical type | Same type | Match, then apply constraints |
-| Integer | float or Decimal | Lax conversion |
+| Integer | float or Decimal | Lax conversion where the backend can represent the full signed 64-bit source range; see the backend matrix |
 | Float or Decimal | int | Lax conversion only when the value is an exact integer in signed 64-bit range |
 | Numeric text | int | Signed decimal digits with optional surrounding whitespace; accepted magnitude is limited by the backend profile |
 | Numeric text | float | Decimal/exponent grammar where the backend has a safe parser |
@@ -61,8 +61,8 @@ test suite.
 |---|---|---|---|
 | PostgreSQL 16+ | bool, int, float, Decimal, str, date, datetime, time, UUID | text to int/float/Decimal; int or Decimal to float; integral float/Decimal to int | Pass server_version for text conversions. String Literal/Enum requires collation C or POSIX. |
 | SQLite 3.x | runtime integer, real, and text classes | text to int/float; integral real to int; integer to float; lax bool from integer 0/1 | Strict bool, Decimal, date/time, and UUID require storage mappings and raise CapabilityError. Text checks require register_regexp(). Text-to-int is limited to 18 digits. |
-| MySQL 8.0+ | Boolean (0/1 checked), integer, float, Decimal, text, date/time | text to int; integer/Decimal to float; integral float/Decimal to int | UUID storage is not treated as native evidence. Text-to-float and text-to-Decimal are rejected. String Literal/Enum requires an explicit binary or case-sensitive collation. |
-| SQL Server 2012+ | bit, integer, float, Decimal, text, date/time, uniqueidentifier | text to int/float; integer/Decimal to float; integral float/Decimal to int | Text-to-Decimal is rejected. JSON markers additionally require SQL Server 2016+ and explicit database `compatibility_level >= 130` because they use `OPENJSON`. String Literal/Enum requires an explicit binary or case-sensitive collation. Regex pattern translation is unavailable. |
+| MySQL 8.0+ | Boolean (0/1 checked), integer, float, Decimal, text, date/time | text to int; integer/Decimal to float; integral float/Decimal to int | UUID storage is not treated as native evidence. Text-to-float and text-to-Decimal are rejected. Integer-to-Decimal is rejected because the default cast precision is too small for every signed 64-bit integer. String Literal/Enum requires an explicit `_bin` collation; membership checks character length to account for PAD SPACE collations. `CHAR` columns are rejected because trailing-space retrieval depends on a session mode. |
+| SQL Server 2012+ | bit, integer, float, Decimal, text, date/time, uniqueidentifier | text to int/float; integer/Decimal to float; integral float/Decimal to int | Text-to-Decimal and integer-to-Decimal are rejected because a default cast precision cannot represent the full source domain. JSON markers additionally require SQL Server 2016+ and explicit database `compatibility_level >= 130` because they use `OPENJSON`. String Literal/Enum requires an explicit `_BIN2` collation; membership also checks byte length to account for padded string equality. Regex pattern translation is unavailable. |
 
 The provider capability report lists the configured version and assumptions.
 If the source SQLAlchemy type does not establish the required logical type,
@@ -84,7 +84,9 @@ pattern translator.
 
 String Literal and Enum membership requires comparisons with case-sensitive
 semantics. PostgreSQL requires C or POSIX collation, SQLite uses BINARY, and
-MySQL/SQL Server require an explicit binary or case-sensitive column collation.
+MySQL requires an explicit `_bin` collation and SQL Server requires `_BIN2`.
+Their string-domain predicates additionally compare candidate and column lengths
+so trailing spaces cannot make distinct Python strings match.
 This prevents server-default case folding from silently broadening a domain.
 
 The type and constraint combination is checked when RuleSchema is created.
