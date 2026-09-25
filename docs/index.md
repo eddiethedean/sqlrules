@@ -159,6 +159,7 @@ DESIGN_DECISIONS
 project/support
 project/roadmap
 MILESTONES
+V2_DESIGN
 project/changelog
 project/contributing
 ```

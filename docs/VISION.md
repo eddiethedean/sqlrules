@@ -1,7 +1,20 @@
 # Vision
 
-SQLRules is a tiny compiler that bridges Pydantic model constraints and
-SQLAlchemy WHERE expressions.
+SQLRules 1.x is a tiny compiler that bridges Pydantic model constraints and
+SQLAlchemy WHERE expressions. The 2.x roadmap makes SQLRules-owned rule
+schemas the primary input, with explicit Pydantic conversion.
+
+Native rule schemas remain Pydantic v2 models: users can instantiate them,
+validate and serialize data, and use them in FastAPI. SQLRules restricts the
+declarations inside a rule model to types and constraints it can compile. A
+full Pydantic model stays usable as-is; conversion produces a restricted model
+and reports any behavior it removes or changes.
+
+In 2.0, annotations are active type rules, lax coercion is the default, and
+strict mode requires the declared logical type. Compilation exposes its
+bindings and conversion assumptions; a Pydantic conversion report explains
+any behavior removed or changed. The semantic contract is described in
+[the 2.0 design](V2_DESIGN.md), with delivery gates in [Milestones](MILESTONES.md).
 
 ## Goals
 
@@ -14,6 +27,7 @@ SQLAlchemy WHERE expressions.
 ## North star
 
 ```python
-rules = sqlrules.compile(UserFilter, users)
-stmt = select(users).where(*sqlrules.where(rules))
+compiled = compiler.compile(UserRules, users)
+matching = select(users).where(*sqlrules.where(compiled))
+failing = select(users).where(*sqlrules.notwhere(compiled))
 ```

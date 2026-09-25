@@ -1,5 +1,8 @@
 # Architecture
 
+This page describes the shipped 1.x compiler. The proposed 2.0 schema,
+coercion, and result architecture is in [the 2.0 design](V2_DESIGN.md).
+
 ```text
 Pydantic Model
     ↓
