@@ -422,15 +422,15 @@ def test_live_json_markers_handle_values_null_and_malformed_documents(
 
 
 def test_live_postgresql_array_and_range_markers() -> None:
+    url = os.getenv("SQLRULES_TEST_POSTGRESQL_URL")
+    if not url:
+        pytest.skip("SQLRULES_TEST_POSTGRESQL_URL is not configured")
+
     from psycopg.types.range import Range
 
     class StructuredRules(RuleSchema):
         tags: Annotated[list[str], ArrayContains(["admin"])]
         span: Annotated[int, RangeContains(5)]
-
-    url = os.getenv("SQLRULES_TEST_POSTGRESQL_URL")
-    if not url:
-        pytest.skip("SQLRULES_TEST_POSTGRESQL_URL is not configured")
 
     engine = create_engine(url)
     table = Table(

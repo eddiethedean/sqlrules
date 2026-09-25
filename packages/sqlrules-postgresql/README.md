@@ -38,9 +38,7 @@ class RowRules(RuleSchema):
     span: Annotated[int, RangeContains(5)]
 
 
-compiled = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))]).compile(
-    RowRules, rows
-)
+compiled = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))]).compile(RowRules, rows)
 statement = rows.select().where(*where(compiled))
 ```
 

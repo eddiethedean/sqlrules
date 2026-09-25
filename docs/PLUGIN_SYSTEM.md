@@ -24,9 +24,7 @@ class PatternPlugin:
     def register(self, registry: TranslatorRegistry) -> None:
         registry.register_constraint(
             "pattern",
-            lambda constraint, value, context: value.op("~")(
-                pattern_text(constraint.value)[0]
-            ),
+            lambda constraint, value, context: value.op("~")(pattern_text(constraint.value)[0]),
             on_conflict="replace",
         )
 ~~~

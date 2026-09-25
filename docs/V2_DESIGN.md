@@ -32,6 +32,7 @@ import sqlrules
 from pydantic import ConfigDict, Field, PositiveInt, StrictBool, StringConstraints
 from sqlrules_postgresql import PostgresPlugin
 
+
 class UserRules(sqlrules.RuleSchema):
     model_config = ConfigDict(strict=False)
 
@@ -40,6 +41,7 @@ class UserRules(sqlrules.RuleSchema):
     name: Annotated[str, StringConstraints(min_length=2)]
     status: Literal["active", "disabled"]
     verified: StrictBool
+
 
 user = UserRules.model_validate({
     "id": "12",

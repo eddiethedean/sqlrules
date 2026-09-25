@@ -181,9 +181,7 @@ from sqlrules.translators import default_registry
 registry = default_registry()
 registry.register_constraint(
     "pattern",
-    lambda constraint, column, context: column.op("~")(
-        pattern_text(constraint.value)[0]
-    ),
+    lambda constraint, column, context: column.op("~")(pattern_text(constraint.value)[0]),
     on_conflict="replace",
 )
 compiler = Compiler(registry=registry)
@@ -200,6 +198,7 @@ class PatternPlugin:
             lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
             on_conflict="replace",
         )
+
 
 compiler = Compiler(plugins=[PatternPlugin()])
 ```

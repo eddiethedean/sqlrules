@@ -21,9 +21,7 @@ class UserRules(RuleSchema):
     minimum_age: int
 
 
-compiled = Compiler(
-    plugins=[PostgresPlugin(server_version=(16, 0))]
-).compile(
+compiled = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))]).compile(
     UserRules,
     users,
     column_map={
