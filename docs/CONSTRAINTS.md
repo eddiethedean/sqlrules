@@ -16,10 +16,10 @@ The full source-type matrix is in [TYPE_SUPPORT](TYPE_SUPPORT.md).
 | pattern | Pattern match when the selected plugin implements it |
 
 Portable translators are registered by core for comparisons, multiple_of,
-length, and domain membership. Pattern requires a backend translator.
-Floating-point fields and float divisors for `multiple_of` raise
-`CapabilityError`; SQLite also rejects non-integral `Decimal` divisors because
-its modulo operator converts operands to integers.
+length, and domain membership. Pattern requires a backend translator. The
+built-in `multiple_of` translator raises `CapabilityError` for floating-point
+fields, float divisors, and SQLite non-integral `Decimal` divisors. A plugin
+can replace that translator with an implementation suited to its backend.
 
 ~~~python
 from typing import Annotated

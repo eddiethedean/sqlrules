@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, true
@@ -118,25 +117,6 @@ class Compiler:
             prepared = provider.prepare_value(column, field, context)
             constraint_expressions: list[ColumnElement[bool]] = []
             for constraint in field.constraints:
-                if constraint.operator == "multiple_of":
-                    nonintegral_decimal_divisor = (
-                        isinstance(constraint.value, Decimal)
-                        and constraint.value != constraint.value.to_integral_value()
-                    )
-                    if (
-                        prepared.logical_type == "float"
-                        or isinstance(constraint.value, float)
-                        or (provider.name == "sqlite" and nonintegral_decimal_divisor)
-                    ):
-                        raise CapabilityError(
-                            provider.name,
-                            field.name,
-                            prepared.logical_type,
-                            type(prepared.value.type).__name__,
-                            "the backend modulo operator cannot safely represent this "
-                            "floating-point rule; SQLite also truncates non-integral "
-                            "Decimal divisors.",
-                        )
                 if self._registry.lookup(constraint.operator) is None:
                     raise CapabilityError(
                         provider.name,

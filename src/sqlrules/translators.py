@@ -8,10 +8,11 @@ from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 from typing import Any, NoReturn, cast
 
-from sqlalchemy import func
+from sqlalchemy import Float, func
 from sqlalchemy.sql.elements import ColumnElement
 
 from sqlrules.errors import (
+    CapabilityError,
     InvalidTranslatorError,
     RegistryError,
     TranslatorError,
@@ -47,6 +48,13 @@ def _is_positive_finite(value: Any) -> bool:
     return bool(value > 0)
 
 
+def _logical_type_name(column: ColumnElement[Any]) -> str:
+    try:
+        return column.type.python_type.__name__.lower()
+    except (AttributeError, NotImplementedError):
+        return type(column.type).__name__.lower()
+
+
 def _multiple_of(
     constraint: Constraint,
     column: ColumnElement[Any],
@@ -59,6 +67,27 @@ def _multiple_of(
             operator="multiple_of",
             value=value,
             suggestion="multiple_of requires a finite positive numeric value.",
+        )
+    if isinstance(column.type, Float) or isinstance(value, float):
+        raise CapabilityError(
+            context.dialect or "unknown",
+            constraint.field,
+            _logical_type_name(column),
+            type(column.type).__name__,
+            "the built-in modulo translator does not support floating-point fields or divisors.",
+        )
+    if (
+        context.dialect == "sqlite"
+        and isinstance(value, Decimal)
+        and value != value.to_integral_value()
+    ):
+        raise CapabilityError(
+            context.dialect,
+            constraint.field,
+            _logical_type_name(column),
+            type(column.type).__name__,
+            "SQLite converts modulo operands to integers and would truncate this "
+            "non-integral Decimal divisor.",
         )
     return cast(ColumnElement[bool], (column % value) == 0)
 
@@ -190,7 +219,7 @@ class TranslatorRegistry:
 
         try:
             result = translator(constraint, column, context)
-        except UnsupportedConstraintError:
+        except (CapabilityError, UnsupportedConstraintError):
             raise
         except Exception as exc:  # pragma: no cover - defensive wrapper
             raise TranslatorError(
