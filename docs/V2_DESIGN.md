@@ -43,13 +43,15 @@ class UserRules(sqlrules.RuleSchema):
     verified: StrictBool
 
 
-user = UserRules.model_validate({
-    "id": "12",
-    "age": "21",
-    "name": "Ada",
-    "status": "active",
-    "verified": True,
-})
+user = UserRules.model_validate(
+    {
+        "id": "12",
+        "age": "21",
+        "name": "Ada",
+        "status": "active",
+        "verified": True,
+    }
+)
 data = user.model_dump()
 
 compiler = sqlrules.Compiler(
