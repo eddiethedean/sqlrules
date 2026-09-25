@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from sqlalchemy import func
 from sqlalchemy.sql.elements import ColumnElement
 
 from sqlrules.constraints import pattern_text
@@ -15,8 +16,10 @@ def translate_pattern(
 ) -> ColumnElement[bool]:
     """Translate ``pattern`` to MySQL/MariaDB ``REGEXP``.
 
-    MySQL ``REGEXP`` is case-insensitive for non-binary collations. SQLRules
-    follows that dialect behavior rather than inventing ``REGEXP BINARY``.
+    MySQL's default matching follows the expression collation. Preserve an
+    explicit ``re.IGNORECASE`` flag with ``REGEXP_LIKE``'s match type.
     """
-    pattern, _ignore_case = pattern_text(constraint.value)
+    pattern, ignore_case = pattern_text(constraint.value)
+    if ignore_case:
+        return cast(ColumnElement[bool], func.regexp_like(column, pattern, "i"))
     return cast(ColumnElement[bool], column.op("REGEXP")(pattern))

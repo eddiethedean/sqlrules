@@ -131,7 +131,7 @@ def _is_container_type(annotation: Any) -> bool:
 
 
 # Flags that change pattern text semantics and are not represented in PatternSpec.
-_UNSUPPORTED_PATTERN_FLAGS = re.VERBOSE | re.DOTALL | re.MULTILINE
+_UNSUPPORTED_PATTERN_FLAGS = re.ASCII | re.VERBOSE | re.DOTALL | re.MULTILINE
 
 
 def _normalize_pattern(field_name: str, pattern: Any) -> PatternSpec:
@@ -145,6 +145,7 @@ def _normalize_pattern(field_name: str, pattern: Any) -> PatternSpec:
             names = [
                 name
                 for name, bit in (
+                    ("ASCII", re.ASCII),
                     ("VERBOSE", re.VERBOSE),
                     ("DOTALL", re.DOTALL),
                     ("MULTILINE", re.MULTILINE),

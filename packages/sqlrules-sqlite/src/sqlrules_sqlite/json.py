@@ -42,7 +42,8 @@ def _extract_equals(
             func.json_type(safe_json, path) == "null",
         )
     if isinstance(expected, bool):
-        return cast(ColumnElement[bool], extracted == (1 if expected else 0))
+        json_type = "true" if expected else "false"
+        return cast(ColumnElement[bool], func.json_type(safe_json, path) == json_type)
     if isinstance(expected, (dict, list)):
         compact = _compact_dumps(expected)
         return cast(
@@ -50,7 +51,10 @@ def _extract_equals(
             func.json(extracted) == func.json(literal(compact)),
         )
     if isinstance(expected, (int, float)):
-        return cast(ColumnElement[bool], extracted == expected)
+        return cast(
+            ColumnElement[bool],
+            func.json_type(safe_json, path).in_(("integer", "real")) & (extracted == expected),
+        )
     if isinstance(expected, str):
         return cast(ColumnElement[bool], extracted == expected)
     compact = _compact_dumps(expected)
