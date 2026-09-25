@@ -334,8 +334,15 @@ def normalize_schema(model: type[BaseModel]) -> SchemaSpec:
             None,
             "A custom __init__ has no equivalent SQL rule semantics.",
         )
+    if getattr(model, "__pydantic_post_init__", None):
+        raise UnsupportedConstraintError(
+            model.__name__,
+            "model_post_init",
+            None,
+            "A custom model_post_init callback has no equivalent SQL rule semantics.",
+        )
     for hook in ("__get_pydantic_core_schema__", "__get_pydantic_json_schema__"):
-        if hook in model.__dict__:
+        if any(hook in base.__dict__ for base in model.__mro__ if base is not BaseModel):
             raise UnsupportedConstraintError(
                 model.__name__,
                 hook,

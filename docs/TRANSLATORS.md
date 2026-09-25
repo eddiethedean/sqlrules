@@ -65,7 +65,7 @@ Returns:
   ge            `column >= value`
   lt            `column < value`
   le            `column <= value`
-  multiple_of   `column % value == 0`
+  multiple_of   `column % value == 0` for backend-supported numeric types
 
 ------------------------------------------------------------------------
 
@@ -73,8 +73,8 @@ Returns:
 
   Constraint   Translation
   ------------ --------------------------------
-  min_length   `func.length(column) >= value`
-  max_length   `func.length(column) <= value`
+  min_length   backend-specific character-length comparison
+  max_length   backend-specific character-length comparison
 
 **`pattern`:** extracted as `PatternSpec` in core IR; **no portable
 core translator**. Install `sqlrules-postgresql` / `sqlrules-sqlite` /

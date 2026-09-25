@@ -9,7 +9,7 @@ The full source-type matrix is in [TYPE_SUPPORT](TYPE_SUPPORT.md).
 | Declaration | Rule |
 |---|---|
 | gt / ge / lt / le | Comparison after type preparation |
-| multiple_of | Modulo equality after type preparation |
+| multiple_of | Modulo equality where the backend has safe numeric modulo semantics |
 | min_length / max_length | Backend length comparison |
 | Literal[...] | Membership in the homogeneous literal domain |
 | Enum | Membership in the enum value domain |
@@ -17,6 +17,9 @@ The full source-type matrix is in [TYPE_SUPPORT](TYPE_SUPPORT.md).
 
 Portable translators are registered by core for comparisons, multiple_of,
 length, and domain membership. Pattern requires a backend translator.
+Floating-point fields and float divisors for `multiple_of` raise
+`CapabilityError`; SQLite also rejects non-integral `Decimal` divisors because
+its modulo operator converts operands to integers.
 
 ~~~python
 from typing import Annotated

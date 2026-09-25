@@ -59,14 +59,21 @@ def _model_name(model: type[Any]) -> str:
 
 def _decorator_features(model: type[BaseModel]) -> list[tuple[str, str]]:
     decorators = getattr(model, "__pydantic_decorators__", None)
-    if decorators is None:
-        return []
     result: list[tuple[str, str]] = []
-    for name in ("field_validators", "model_validators", "field_serializers", "model_serializers"):
-        entries = getattr(decorators, name, {}) or {}
-        result.extend((name, str(item)) for item in entries)
-    computed = getattr(decorators, "computed_fields", {}) or {}
-    result.extend(("computed_fields", str(item)) for item in computed)
+    if decorators is not None:
+        for name in (
+            "field_validators",
+            "model_validators",
+            "field_serializers",
+            "model_serializers",
+        ):
+            entries = getattr(decorators, name, {}) or {}
+            result.extend((name, str(item)) for item in entries)
+        computed = getattr(decorators, "computed_fields", {}) or {}
+        result.extend(("computed_fields", str(item)) for item in computed)
+    post_init = getattr(model, "__pydantic_post_init__", None)
+    if post_init:
+        result.append(("model_post_init", str(post_init)))
     return result
 
 
@@ -285,6 +292,32 @@ def from_pydantic(
                 "translated into SQL rules.",
             )
         )
+
+    if getattr(model, "__pydantic_custom_init__", False):
+        entries.append(
+            _report_entry(
+                source_name,
+                "custom __init__",
+                "custom_init_removed",
+                "changed",
+                "unknown",
+                "The generated rules model uses Pydantic's standard initializer; "
+                "the source model's custom initializer was not copied.",
+            )
+        )
+    for hook in ("__get_pydantic_core_schema__", "__get_pydantic_json_schema__"):
+        if any(hook in base.__dict__ for base in model.__mro__ if base is not BaseModel):
+            entries.append(
+                _report_entry(
+                    source_name,
+                    hook,
+                    "pydantic_schema_hook_removed",
+                    "changed",
+                    "unknown",
+                    "Custom Pydantic schema hooks are not copied to the generated "
+                    "rules model.",
+                )
+            )
 
     source_config = dict(model.model_config)
     strict = bool(source_config.pop("strict", False))

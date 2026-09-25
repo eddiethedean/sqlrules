@@ -22,9 +22,7 @@ def translate_json_contains(
     context: CompilationContext,
 ) -> ColumnElement[bool]:
     """Translate ``json_contains`` to MySQL ``JSON_CONTAINS``."""
-    payload = constraint.value
-    if not isinstance(payload, str):
-        payload = json.dumps(payload, separators=(",", ":"))
+    payload = json.dumps(constraint.value, separators=(",", ":"))
     return cast(ColumnElement[bool], func.json_contains(column, payload) == 1)
 
 
