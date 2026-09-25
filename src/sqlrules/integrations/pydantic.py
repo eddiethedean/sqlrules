@@ -314,8 +314,7 @@ def from_pydantic(
                     "pydantic_schema_hook_removed",
                     "changed",
                     "unknown",
-                    "Custom Pydantic schema hooks are not copied to the generated "
-                    "rules model.",
+                    "Custom Pydantic schema hooks are not copied to the generated rules model.",
                 )
             )
 
