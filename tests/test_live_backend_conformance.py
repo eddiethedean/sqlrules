@@ -471,7 +471,7 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
         pytest.skip("SQLRULES_TEST_MYSQL_URL is not configured")
 
     class FullTextRules(RuleSchema):
-        body: Annotated[str, FullTextMatch("database")]
+        body: Annotated[str, FullTextMatch("sqlruleswidget")]
 
     engine = create_engine(url)
     table = Table(
@@ -487,7 +487,7 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
             connection.execute(
                 insert(table),
                 [
-                    {"id": 1, "body": "sqlrules database predicates"},
+                    {"id": 1, "body": "sqlruleswidget fulltext predicates"},
                     {"id": 2, "body": "apples and oranges"},
                     {"id": 3, "body": "query another unrelated word"},
                 ],
