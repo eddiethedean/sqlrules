@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from sqlalchemy import and_, false, true
+from sqlalchemy import and_, true
 from sqlalchemy.sql.elements import ColumnElement
 
+from sqlrules.backend import total_predicate
 from sqlrules.columns import resolve_column
 from sqlrules.errors import CapabilityError, ConfigurationError, MissingColumnError, PluginError
 from sqlrules.ir import (
@@ -133,7 +134,7 @@ class Compiler:
                 field_predicate = prepared.is_null | matched_value
             else:
                 field_predicate = column.is_not(None) & matched_value
-            field_predicate = _total(field_predicate)
+            field_predicate = total_predicate(field_predicate)
             root_expressions.append(field_predicate)
             field_results.append(
                 FieldResult(
@@ -148,7 +149,7 @@ class Compiler:
                 )
             )
 
-        predicate = _total(and_(*root_expressions) if root_expressions else true())
+        predicate = total_predicate(and_(*root_expressions) if root_expressions else true())
         return CompiledRules(
             predicate=predicate,
             fields=tuple(field_results),
@@ -218,12 +219,6 @@ def _resolve_rule_column(
         except MissingColumnError as exc:
             raise MissingColumnError(field=field.name) from exc
     return resolve_column(field.name, table)
-
-
-def _total(expression: ColumnElement[Any]) -> ColumnElement[bool]:
-    from sqlalchemy import func
-
-    return func.coalesce(expression, false())
 
 
 def clear_model_cache() -> None:

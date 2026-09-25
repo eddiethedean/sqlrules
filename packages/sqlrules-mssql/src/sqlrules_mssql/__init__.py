@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, cast
 
-from sqlalchemy import String, case, false, func, literal
+from sqlalchemy import String, case, func, literal
 from sqlalchemy.sql.elements import ColumnElement
 
-from sqlrules.backend import prepare_scalar
+from sqlrules.backend import prepare_scalar, total_predicate
 from sqlrules.errors import CapabilityError
 from sqlrules.ir import CompilationContext, PreparedValue, RuleField
 from sqlrules.plugins import PLUGIN_API_VERSION
@@ -106,12 +106,12 @@ class MssqlPlugin:
                     source_name,
                     "SQL Server JSON markers require a text or JSON column.",
                 )
-            valid = func.coalesce(func.isjson(column) == 1, false())
+            valid = total_predicate(func.isjson(column) == 1)
             safe_json = case((valid, column), else_=literal("{}"))
             return PreparedValue(
                 source=column,
                 value=cast(ColumnElement[Any], safe_json),
-                valid=cast(ColumnElement[bool], valid),
+                valid=valid,
                 is_null=cast(ColumnElement[bool], column.is_(None)),
                 logical_type="json",
                 coercion="validated-json-text",

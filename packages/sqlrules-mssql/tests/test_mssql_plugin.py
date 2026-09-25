@@ -51,6 +51,17 @@ def test_text_to_integer_uses_try_cast_and_digit_validation() -> None:
     assert compiled.fields[0].coercion == "text-to-int"
 
 
+def test_sql_server_totalizes_predicates_with_case_expressions() -> None:
+    class Rules(RuleSchema):
+        value: int
+
+    table = Table("rows", MetaData(), Column("value", String))
+    compiled = Compiler(plugins=[MssqlPlugin(server_version=(16, 0))]).compile(Rules, table)
+    sql = str(compiled.predicate.compile(dialect=dialect())).lower()
+    assert "case when" in sql
+    assert "coalesce(" not in sql
+
+
 def test_pattern_remains_a_capability_error() -> None:
     class Rules(RuleSchema):
         name: Annotated[str, Field(pattern="^A")]

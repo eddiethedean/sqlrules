@@ -129,7 +129,7 @@ def test_empty_schema_compiles_to_true_only_when_explicitly_allowed() -> None:
         __rule_config__ = RuleConfig(allow_empty=True)
 
     compiled = Compiler(plugins=[SQLitePlugin()]).compile(Empty, Table("items", MetaData()))
-    assert "coalesce" in str(compiled.predicate)
+    assert "case when" in str(compiled.predicate).lower()
     assert "true" in str(compiled.predicate)
 
 

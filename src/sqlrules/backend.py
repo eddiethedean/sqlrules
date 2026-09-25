@@ -19,6 +19,7 @@ from sqlalchemy import (
     false,
     func,
     null,
+    true,
 )
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.sql.elements import ColumnElement
@@ -109,7 +110,18 @@ def _target_sql_type(kind: str) -> TypeEngine[Any]:
 
 
 def _total(predicate: ColumnElement[Any]) -> ColumnElement[bool]:
-    return cast(ColumnElement[bool], func.coalesce(predicate, false()))
+    return total_predicate(predicate)
+
+
+def total_predicate(predicate: ColumnElement[Any]) -> ColumnElement[bool]:
+    """Convert a possibly UNKNOWN SQL predicate into a total predicate.
+
+    ``COALESCE(predicate, false)`` is not valid on SQL Server because its
+    predicate syntax cannot be used as a scalar function argument. A searched
+    CASE expression works across the supported dialects and maps both FALSE
+    and UNKNOWN to false.
+    """
+    return case((predicate, true()), else_=false()) == true()
 
 
 def _known_mismatch(

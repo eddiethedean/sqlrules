@@ -480,10 +480,9 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
         Column("id", Integer, primary_key=True),
         Column("body", String(255)),
     )
-    index = Index(f"ix_fulltext_{uuid4().hex[:8]}", table.c.body, mysql_prefix="FULLTEXT")
+    _index = Index(f"ix_fulltext_{uuid4().hex[:8]}", table.c.body, mysql_prefix="FULLTEXT")
     try:
         table.create(engine)
-        index.create(engine)
         with engine.begin() as connection:
             connection.execute(
                 insert(table),
