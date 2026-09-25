@@ -210,130 +210,165 @@ coercions that broaden accepted data require an explicit opt-in or profile.
 
 ### Outcome
 
-A complete SQLRules-owned Pydantic model workflow: declare or convert a model,
-instantiate and validate it with normal Pydantic APIs, use it as a FastAPI
-request or response model, then bind its SQL-compatible declarations with an
-explicit backend and use the complete predicate in a SQLAlchemy query. Type-only
-fields, lax coercion, strict mode, nullable constraints, and conversion reports
-are required in this first release.
+A user can define or convert a Pydantic-compatible rules model, use it normally
+for Python validation and in FastAPI, then compile its SQL-compatible fields
+into a safe predicate for one explicitly selected database backend. The
+predicate identifies matching rows; `notwhere()` identifies every row that
+fails the complete rule set.
+
+### Scope
+
+2.0 includes supported scalar fields and constraints, type-only annotations,
+lax and strict behavior, nullable handling, Pydantic metadata normalization,
+Pydantic model conversion with a loss report, a total grouped predicate, plugin
+API v2, and coordinated releases of core plus all four official dialects.
+
+2.0 does not translate arbitrary Python validators or serializers, expose
+general `all()`/`any()` or cross-field rule syntax, add nested JSON schema or
+collection item validation, or add named normalization transforms. Those
+capabilities remain staged in 2.1–2.3. A full Pydantic model using unsupported
+features remains usable in application code; the converter reports or removes
+those features before SQL compilation.
+
+### Delivery order
+
+The critical path is **A → B → C → D → E**. Start backend prototypes during A
+to test whether proposed coercions are implementable. Finish production dialect
+work after the semantic matrix and plugin contract are fixed. E can prepare
+migration material while D runs, but release depends on all gates.
 
 ### Work package A — Freeze semantics and backend commitments
 
-- Specify the SQLRules logical types, conversion table, strictness precedence,
-  literal/enum domains, nullable truth tables, and root negation semantics in
-  the design document.
-- Distinguish a known data mismatch (false) from unsupported implementation
-  capability (compile error). Capture observed storage types, numeric limits,
-  decimal precision, time zones, string behavior, and database settings.
-- Freeze supported server versions and a useful minimum capability matrix for
-  PostgreSQL, SQLite, MySQL, and SQL Server. Require each backend's native scalar
-  baseline where observable, nullable constraints, existing applicable operators,
-  and a named set of useful coercions. Record emulated/unavailable types explicitly.
-- Establish a reference semantic corpus and pin the Pydantic versions used for
-  comparison. Record deliberate differences, including strict logical matching.
+- Freeze one versioned SQLRules semantic profile: supported logical types,
+  lax conversions, strictness precedence, constraint ordering, optional/null
+  behavior, Literal/Enum behavior, and the complement used by `notwhere()`.
+- For each Pydantic declaration form, classify it as translated, metadata-only,
+  or rejected. List supported `Field` options, `Annotated` markers, constrained
+  aliases, and `ConfigDict` keys; pin the Pydantic v2 reference version.
+- Publish a matrix for PostgreSQL, SQLite, MySQL, and SQL Server. Each entry
+  names the server version, source storage type, target type, strictness,
+  operator, and one of: supported, requires explicit mapping, or compile error.
+  Identify the minimum useful scalar and constraint set required from every
+  backend; mark other combinations unsupported instead of leaving them implicit.
+- Define the boundary between a row mismatch (predicate false) and a missing
+  backend capability (compile error). Record assumptions about SQLite storage,
+  emulated bool/date/UUID values, decimal precision, time zones, collation, and
+  required database settings.
+- Build a reference corpus with ordinary values, SQL NULL, malformed input,
+  overflow, fractional values, and boundary values. Compare Python
+  `model_validate()` behavior to SQL only where the database exposes equivalent
+  source type information; record deliberate differences.
 
-Exit: the matrix and expected acceptance cases are reviewed before finalizing
-backend implementations. Existing regex-only type approximations do not count
-as proof of conversion correctness.
+Exit: the semantic profile and matrix contain no unresolved 2.0 decisions.
+Every supported entry has expected match/fail examples, and every unsupported
+entry has a specific compile-time outcome. Regex shape checks alone do not
+qualify as proof of a conversion.
 
 ### Work package B — Own declarations and conversion
 
-Depends on A's schema semantics; can proceed alongside the backend prototypes.
+Depends on A's frozen declaration and validation semantics; prototypes may
+start earlier to expose mismatches.
 
-- Implement `RuleSchema`, `Field`, `RuleConfig`, `Annotated` aliases, single
-  inheritance, explicit column mapping, and immutable normalized schemas.
-  `RuleSchema` subclasses Pydantic `BaseModel` and supports normal construction,
-  `model_validate()`, `model_dump()`, and FastAPI use. Its class construction
-  rejects field types, constraints, and custom validation behavior that cannot
-  be represented as SQL rules. Once constructed, the model can be used anywhere
-  a Pydantic model is accepted; SQLRules does not restrict application usage.
-- Normalize Pydantic `FieldInfo`, `ConfigDict`, strict/constrained aliases,
-  `Annotated` metadata, and compatible `annotated_types` constraints through a
-  documented allowlist. Do not require `sqlrules.Field` for ordinary Pydantic
-  constraints. Keep SQLRules helpers for SQL-only metadata and config.
-- Resolve annotations before schema finalization and reject unsupported types,
-  metadata, field options, and incompatible type/constraint pairs.
-- Preserve title, description, and examples as metadata from the beginning.
-- Implement `from_pydantic()` with warn/drop/raise policies and a report of
-  preserved rules, metadata, dropped features, and changed/unknown semantics.
-- Preserve type-only fields and strictness. Do not execute Python validators,
-  default factories, or serializers to infer SQL. Require explicit opt-in for
-  an empty converted schema and for mapping Pydantic aliases to database columns.
-- Keep unrestricted Pydantic models usable in application code; require the
-  converter before compiling one, and produce an actionable error if callers
-  pass a plain `BaseModel` directly to the compiler.
+- Implement `RuleSchema` as a Pydantic v2 `BaseModel` subclass. Support ordinary
+  construction, `model_validate()`, `model_dump()`, and use in FastAPI. Limit
+  declarations at class creation to the A allowlist; do not limit application
+  use of a successfully created model.
+- Normalize public Pydantic `FieldInfo`, `ConfigDict`, strict/constrained
+  aliases, `Annotated` metadata, and supported `annotated_types` markers into
+  one immutable schema representation. Keep `sqlrules.Field` for SQL-only
+  metadata such as column binding; ordinary constraints need no SQLRules import.
+- Resolve forward references before finalization. Reject unsupported field
+  types, constraint/type combinations, arbitrary metadata, custom validators,
+  serializers, computed fields, and unknown rule-related config with the class
+  and field location in the error.
+- Preserve defaults and default factories for Python model construction, but
+  never turn them into SQL predicates or execute them while extracting rules.
+  Preserve title, description, examples, and aliases as runtime/inspection
+  metadata; require an explicit policy before aliases affect column binding.
+- Implement `from_pydantic()` with `warn`, `drop`, and `raise` policies. Return
+  a generated `RuleSchema` class and a deterministic report covering retained
+  rules, metadata, dropped features, changed behavior, and uncertainty. Never
+  execute source validators, serializers, or default factories to infer SQL.
+- Reject empty converted schemas unless explicitly allowed. Reject direct
+  compilation of an unrestricted `BaseModel` and point callers to the helper.
 
-Exit: native and converted schemas share one representation; conversion retains
-provenance and returns a usable `RuleSchema` model class. Its report names every
-source-model behavior removed or changed by conversion; parity with discarded
-validators is not promised.
+Exit: native and converted models normalize to the same schema representation.
+Representative Pydantic imports compile, invalid declarations fail during
+class creation, generated models still pass Pydantic/FastAPI use, and converter
+reports identify each semantic loss without changing the source model.
 
 ### Work package C — Compiler IR and result contract
 
 Depends on A; integrates the schema representation from B.
 
-- Build typed expression nodes and boolean grouping internally in 2.0.
-  Nullable fields and domain constraints must already use complete groups.
-- Introduce prepared values carrying source/null identity, a safe normalized
-  expression, and a non-null validity predicate. Constraint translators consume
-  the normalized expression.
-- Return `CompiledRules` with one authoritative predicate, ordered field
-  information, per-result diagnostics, and a structured `explain()` plan.
-  `where(compiled)` returns `[compiled.predicate]` and `notwhere(compiled)`
-  returns `[~compiled.predicate]`; both work with the existing spread-style
-  `.where(*...)` call. `flatten(compiled)` remains an alias for `where()`.
+- Define the normalized schema-to-IR boundary. The IR must retain field order,
+  source locations, nullability, strictness, coercion profile, and converter
+  provenance without retaining table-bound SQL expressions.
+- Build typed prepared values and grouped predicates. A prepared value carries
+  source/null identity, a safe normalized expression, and a validity predicate;
+  constraints operate on the normalized expression. All field rules combine
+  under one root predicate.
+- Stabilize the public result contract: `CompiledRules.predicate` is the full
+  root; `where()` returns a one-item list containing it; `notwhere()` returns a
+  one-item list containing its complement; `flatten()` aliases `where()`.
+  Diagnostics and `explain()` belong to that compile result.
+- Define plugin API v2 with distinct source preparation, capability reporting,
+  and constraint translation. Require an explicit backend provider and stable
+  capability errors. Do not allow `warn`/`ignore` to omit a retained rule.
 - Freeze registry snapshots, isolate per-call state, and bound schema caches.
-  Avoid retaining tables or stale mutable metadata in cached schema IR.
-- Define plugin API v2 with source preparation, capability declarations,
-  and constraint translation. Require an explicit backend provider.
+  Keep diagnostics and table-bound expressions out of shared cached schema IR.
 
-Exit: the compiler can express null grouping and future model-level rules
-without changing the result API in 2.1. Invalid data produces total boolean
-predicates and compilation state is safe to share as documented.
+Exit: public result behavior is fixed, nullable/grouping semantics are
+representable without later API changes, and IR-level truth tables show every
+logical result is true or false. Backend execution confirms SQL totality in D.
+Concurrent compiles cannot share mutable diagnostics.
 
 ### Work package D — Execute safe dialect translations
 
-Depends on A and C; prototypes should begin early enough to refine the matrix.
+Depends on the frozen A matrix and C plugin contract. Backend prototypes run
+alongside A; production implementation follows the contract.
 
-- Implement the frozen matrix in all four official plugins. Use runtime type
-  evidence where storage permits mixed types; no SQLite affinity-only shortcut.
-- Prove that supported conversions are safe for malformed and out-of-range
-  values, even when the database optimizer reorders predicate evaluation.
-- Exercise type-only fields, numeric comparisons after coercion, strict
-  mismatches, nullable bounds, literal/enum membership, and dialect markers.
-- Prove that `where(compiled)` and `notwhere(compiled)` partition test rows
-  exactly: required and optional SQL NULLs, malformed values, failed
-  conversions, and explicitly allowed empty schemas each appear on one side
-  only.
-- Declare server-version requirements, database setting assumptions, and any
-  connection helpers in capabilities and compiled plans.
+- Implement every advertised matrix entry in the four official dialect
+  packages. Use runtime type evidence where storage permits mixed types; never
+  treat SQLite affinity alone as proof of a row's logical type.
+- For each supported entry, execute valid, invalid, NULL, malformed, and
+  boundary-value fixtures on the stated server version. Confirm unsafe values
+  never cause conversion exceptions, even if the optimizer changes evaluation
+  order.
+- Verify all scalar annotation-only fields and supported constraints, strict
+  mismatches, optional branches, Literal/Enum domains, and existing compatible
+  dialect markers. Unsupported and mapping-required cases must return stable,
+  actionable compile errors.
+- For every fixture row, prove exactly one of `where(compiled)` and
+  `notwhere(compiled)` selects it. Include rows failing multiple fields,
+  required/optional SQL NULLs, failed coercions, and allowed empty schemas.
+- Record server versions, database settings, extension requirements, and
+  explicit mapping assumptions in the support matrix and compile plan.
 
-Exit: real database execution confirms accepted row sets and conversion safety
-for every advertised matrix entry. Unsupported entries produce stable, useful
-errors. SQL rendering assertions supplement execution coverage.
+Exit: each advertised backend/type/operator combination has execution evidence
+on its stated database version. SQL string assertions supplement but cannot
+replace those checks.
 
 ### Work package E — Migration and coordinated 2.0.0 release
 
-Depends on B, C, and D passing their gates.
+Depends on B, C, and D passing their exits.
 
-- Document migration from direct Pydantic inputs, rule dictionaries,
-  `emit_type_checks`, and the old optional dialect hint behavior. Preserve the
-  list-returning `where()` call shape; show `notwhere()` and direct
-  `~compiled.predicate` usage.
-- Update API/IR/plugin contracts, README, runnable examples, support matrices,
-  and release tooling for plugin API v2 and package pins `>=2,<3`.
-- Establish cold/warm compilation performance baselines and regression budgets;
-  exercise concurrency, cache limits, wheel imports, the converter, and
-  FastAPI request/response integration.
-- Run lint, typing, database conformance, documentation builds, and coordinated
-  core/plugin package checks. Demonstrate the full declaration and conversion
-  paths in the migration guide.
-- Verify Pydantic-imported declarations, FastAPI request/response use, and
-  converter warnings against the pinned Pydantic v2 release.
+- Write migration guidance from direct Pydantic compilation, bare rule
+  dictionaries, `emit_type_checks`, and the legacy dialect hint. Preserve the
+  spread-style `where()` call and document `notwhere()`.
+- Update API, IR, plugin, README, runnable examples, support matrices, and
+  release tooling. Remove stale references to plugin API v1 and package pins
+  `>=1,<2`; align all five distribution versions at **2.0.0**.
+- Run database conformance, converter reports, Pydantic model validation,
+  FastAPI request/response checks, concurrency/cache checks, docs builds, and
+  wheel installation checks from clean environments. Record warm/cold compile
+  performance baselines for later comparison.
+- Confirm each example in the migration guide runs against its documented
+  backend and adapter setup. Publish the frozen type/coercion capability matrix.
 
-Release gate: all five packages are ready to publish as **2.0.0**. The default
-scalar, strict/lax, nullable, adapter, and result contracts are complete; later
-phases are not prerequisites for a useful 2.0 release.
+Exit: the five packages build and install at **2.0.0**; release checks pass;
+the migration guide maps every removed 1.x input pattern; and all A–D gates are
+linked to execution evidence. Later phases are not prerequisites for release.
 
 ## 2.1.0 — Public Rule Composition (planned)
 
