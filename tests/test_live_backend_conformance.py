@@ -471,7 +471,7 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
         pytest.skip("SQLRULES_TEST_MYSQL_URL is not configured")
 
     class FullTextRules(RuleSchema):
-        body: Annotated[str, FullTextMatch("sqlruleswidget")]
+        body: Annotated[str, FullTextMatch("+sqlruleswidget")]
 
     engine = create_engine(url)
     table = Table(
@@ -499,6 +499,11 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
             failed = set(
                 connection.execute(select(table.c.id).where(*notwhere(compiled))).scalars()
             )
+            if matched != {1}:
+                scores = connection.execute(
+                    select(table.c.id, table.c.body.match("+sqlruleswidget").label("score"))
+                ).all()
+                pytest.fail(f"full-text matched {matched!r}; direct boolean scores={scores!r}")
         assert matched == {1}
         assert failed == {2, 3}
         assert matched | failed == {1, 2, 3}
