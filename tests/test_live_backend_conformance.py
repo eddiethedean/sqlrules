@@ -489,6 +489,7 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
                 [
                     {"id": 1, "body": "sqlrules database predicates"},
                     {"id": 2, "body": "apples and oranges"},
+                    {"id": 3, "body": "query another unrelated word"},
                 ],
             )
             compiled = Compiler(plugins=[MysqlPlugin(server_version=(8, 0, 36))]).compile(
@@ -499,8 +500,8 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
                 connection.execute(select(table.c.id).where(*notwhere(compiled))).scalars()
             )
         assert matched == {1}
-        assert failed == {2}
-        assert matched | failed == {1, 2}
+        assert failed == {2, 3}
+        assert matched | failed == {1, 2, 3}
     finally:
         table.drop(engine, checkfirst=True)
         engine.dispose()

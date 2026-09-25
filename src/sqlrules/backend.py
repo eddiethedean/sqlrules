@@ -22,7 +22,7 @@ from sqlalchemy import (
     true,
 )
 from sqlalchemy import cast as sa_cast
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, False_, True_
 from sqlalchemy.sql.sqltypes import NullType
 from sqlalchemy.types import TypeEngine
 
@@ -121,6 +121,8 @@ def total_predicate(predicate: ColumnElement[Any]) -> ColumnElement[bool]:
     CASE expression works across the supported dialects and maps both FALSE
     and UNKNOWN to false.
     """
+    if isinstance(predicate, (True_, False_)):
+        return predicate
     return case((predicate, true()), else_=false()) == true()
 
 
