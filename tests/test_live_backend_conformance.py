@@ -492,18 +492,14 @@ def test_live_mysql_fulltext_marker_uses_an_indexed_source() -> None:
                     {"id": 3, "body": "query another unrelated word"},
                 ],
             )
-            compiled = Compiler(plugins=[MysqlPlugin(server_version=(8, 0, 36))]).compile(
-                FullTextRules, table
-            )
+        compiled = Compiler(plugins=[MysqlPlugin(server_version=(8, 0, 36))]).compile(
+            FullTextRules, table
+        )
+        with engine.connect() as connection:
             matched = set(connection.execute(select(table.c.id).where(*where(compiled))).scalars())
             failed = set(
                 connection.execute(select(table.c.id).where(*notwhere(compiled))).scalars()
             )
-            if matched != {1}:
-                scores = connection.execute(
-                    select(table.c.id, table.c.body.match("+sqlruleswidget").label("score"))
-                ).all()
-                pytest.fail(f"full-text matched {matched!r}; direct boolean scores={scores!r}")
         assert matched == {1}
         assert failed == {2, 3}
         assert matched | failed == {1, 2, 3}
