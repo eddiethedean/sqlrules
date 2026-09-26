@@ -64,7 +64,10 @@ def _openjson_key_matches(
         )
         .alias("oj")
     )
-    predicate = oj.c.key == key
+    predicate = _exact_text_equals(
+        oj.c.key,
+        literal(key, type_=Unicode()),
+    )
     if json_type is not None:
         predicate = predicate & (oj.c.type == json_type)
     if expected_value is not None:
