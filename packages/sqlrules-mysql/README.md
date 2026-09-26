@@ -3,6 +3,9 @@
 MySQL backend provider for [SQLRules](https://github.com/eddiethedean/sqlrules).
 The package version follows the core 2.x line.
 
+This provider targets MySQL 8.0+. MariaDB is outside the supported server
+matrix because its regular-expression function API differs from MySQL's.
+
 ## Install
 
 ```bash

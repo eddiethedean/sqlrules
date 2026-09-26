@@ -165,6 +165,10 @@ def _validate_string_domain_collation(
         constraint.operator in {"literal", "enum"} for constraint in field.constraints
     ):
         return
+    if backend != "sqlite" and source != "str":
+        # Native typed columns on these backends cannot contain text values.
+        # A strict mismatch needs no string comparison or collation evidence.
+        return
     if backend == "mysql" and type(column.type).__name__.lower() in {"char", "nchar"}:
         raise CapabilityError(
             backend,
@@ -279,12 +283,14 @@ def prepare_scalar(
     compatible = source == target
     if target == "float" and source in {"int", "decimal"} and not field.strict:
         float_type: TypeEngine[Any] = Float()
-        if backend == "mysql":
-            from sqlalchemy.dialects.mysql import DOUBLE
+        if backend in {"mysql", "mssql"}:
+            # SQL Server DECIMAL is limited to 38 digits and integer types to
+            # 64 bits, so these source domains always fit in IEEE double.
+            # Avoid binding the 309-digit float bound as SQL NUMERIC.
+            if backend == "mysql":
+                from sqlalchemy.dialects.mysql import DOUBLE
 
-            float_type = DOUBLE()
-            # MySQL's integer and DECIMAL domains are far narrower than IEEE
-            # double, so every accepted value is in range and needs no guard.
+                float_type = DOUBLE()
             converted = sa_cast(column, float_type)
             in_float_range = true_expression()
         else:

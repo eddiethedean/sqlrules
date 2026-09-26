@@ -14,7 +14,7 @@ def translate_pattern(
     column: ColumnElement[Any],
     context: CompilationContext,
 ) -> ColumnElement[bool]:
-    """Translate ``pattern`` to MySQL/MariaDB ``REGEXP``.
+    """Translate ``pattern`` to MySQL ``REGEXP_LIKE``.
 
     MySQL's default matching follows the expression collation. Use
     ``REGEXP_LIKE``'s match type to keep SQLRules patterns case-sensitive by

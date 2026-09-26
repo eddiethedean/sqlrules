@@ -16,7 +16,7 @@ __version__ = "2.0.0"
 
 
 class MysqlPlugin:
-    """Register MySQL / MariaDB constraint translators."""
+    """Register MySQL constraint translators."""
 
     name = "mysql"
     api_version = PLUGIN_API_VERSION

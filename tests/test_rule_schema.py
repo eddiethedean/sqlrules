@@ -272,6 +272,31 @@ def test_from_pydantic_does_not_run_default_factories_during_conversion() -> Non
     assert calls == 1
 
 
+def test_from_pydantic_splits_supported_string_constraints_from_transforms() -> None:
+    class Request(BaseModel):
+        name: Annotated[
+            str,
+            StringConstraints(
+                strip_whitespace=True,
+                min_length=2,
+                max_length=12,
+                pattern=r"^[A-Z]",
+            ),
+        ]
+
+    conversion = from_pydantic(Request, on_incompatible="drop")
+    field = Compiler().compile_model(conversion.model).fields[0]
+    assert {item.operator for item in field.constraints} == {
+        "min_length",
+        "max_length",
+        "pattern",
+    }
+    assert any(
+        entry.reason_code == "unsupported_metadata" and "strip_whitespace" in entry.feature
+        for entry in conversion.report.entries
+    )
+
+
 def test_empty_conversion_requires_allow_empty() -> None:
     class Request(BaseModel):
         payload: bytes

@@ -13,6 +13,9 @@ live connection.
 | sqlrules-mysql | MysqlPlugin | REGEXP, JSON, full-text, and safe integer text conversion on MySQL 8.0+ |
 | sqlrules-mssql | MssqlPlugin | JSON at SQL Server 2016+ / compatibility level 130+, SQL Server LEN behavior, and TRY_CAST conversions on SQL Server 2012+ |
 
+The MySQL provider targets MySQL 8.0+. MariaDB is outside the supported server
+matrix because its regular-expression function API differs from MySQL's.
+
 Select exactly one backend provider, optionally with constraint plugins:
 
 ~~~python

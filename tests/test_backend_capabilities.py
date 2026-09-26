@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 import pytest
 from pydantic import Field
@@ -87,6 +88,69 @@ def test_numeric_lax_conversions_and_backend_limits_are_explicit() -> None:
         Compiler(plugins=[MysqlPlugin(server_version=(8, 0, 36))]).compile(FloatRules, text)
 
 
+def test_postgresql_text_numeric_conversion_requires_v16_and_uses_safe_input_check() -> None:
+    class IntegerRules(RuleSchema):
+        value: int
+
+    table = Table("text_values", MetaData(), Column("value", String))
+    with pytest.raises(CapabilityError, match="PostgreSQL 16+"):
+        Compiler(plugins=[PostgresPlugin()]).compile(IntegerRules, table)
+
+    compiled = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))]).compile(
+        IntegerRules, table
+    )
+    statement = compiled.predicate.compile(dialect=postgresql_dialect())
+    assert compiled.fields[0].coercion == "text-to-int"
+    assert "pg_input_is_valid" in str(statement)
+
+
+def test_sqlite_float_conversion_and_decimal_capability_boundary() -> None:
+    class FloatRules(RuleSchema):
+        value: float
+
+    text = Table("text_values", MetaData(), Column("value", String))
+    compiled = Compiler(plugins=[SQLitePlugin()]).compile(FloatRules, text)
+    assert compiled.fields[0].coercion == "sqlite-numeric-to-float"
+    assert "REGEXP" in str(compiled.predicate.compile())
+
+    class DecimalRules(RuleSchema):
+        value: Decimal
+
+    numeric = Table("decimal_values", MetaData(), Column("value", Numeric))
+    with pytest.raises(CapabilityError, match="cannot prove exact Decimal precision"):
+        Compiler(plugins=[SQLitePlugin()]).compile(DecimalRules, numeric)
+
+
+def test_sql_server_numeric_to_float_avoids_huge_numeric_bounds() -> None:
+    class FloatRules(RuleSchema):
+        value: float
+
+    provider = MssqlPlugin(server_version=(16, 0))
+    tables = (
+        Table("integer_values", MetaData(), Column("value", Integer)),
+        Table("decimal_values", MetaData(), Column("value", Numeric(38, 0))),
+    )
+    expected_coercions = ("int-to-float", "decimal-to-float")
+    for table, coercion in zip(tables, expected_coercions, strict=True):
+        compiled = Compiler(plugins=[provider]).compile(FloatRules, table)
+        statement = compiled.predicate.compile(dialect=mssql_dialect())
+        assert compiled.fields[0].coercion == coercion
+        assert "CAST" in str(statement).upper()
+        assert not any(
+            isinstance(value, Decimal) and value.adjusted() > 37
+            for value in statement.params.values()
+        )
+
+
+def test_float_multiple_of_fails_as_an_explicit_capability_error() -> None:
+    class Rules(RuleSchema):
+        value: float = Field(multiple_of=0.5)
+
+    table = Table("floating_values", MetaData(), Column("value", Float))
+    with pytest.raises(CapabilityError, match="floating-point fields or divisors"):
+        Compiler(plugins=[PostgresPlugin()]).compile(Rules, table)
+
+
 def test_constraints_cannot_be_applied_to_a_known_mismatched_storage_type() -> None:
     class Positive(RuleSchema):
         value: int = Field(strict=True, gt=0)
@@ -101,3 +165,12 @@ def test_constraints_cannot_be_applied_to_a_known_mismatched_storage_type() -> N
     text = Table("text", MetaData(), Column("value", String))
     with pytest.raises(CapabilityError, match="outside the frozen SQLRules 2.0 lax profile"):
         Compiler(plugins=[PostgresPlugin()]).compile(BooleanRules, text)
+
+
+def test_strict_string_literal_on_numeric_storage_is_a_known_mismatch() -> None:
+    class StatusRules(RuleSchema):
+        status: Literal["ready"] = Field(strict=True)
+
+    table = Table("statuses", MetaData(), Column("status", Integer))
+    compiled = Compiler(plugins=[PostgresPlugin()]).compile(StatusRules, table)
+    assert compiled.fields[0].coercion == "strict-mismatch:int-to-str"
