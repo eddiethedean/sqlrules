@@ -1,8 +1,8 @@
 # SQLRules 2.0 Design
 
 Status: SQLRules 2.0 implementation contract. The core and four official
-packages target the 2.0.0 line; the milestone gates track remaining release
-conformance evidence.
+packages target the 2.0.0 line; [the type support matrix](TYPE_SUPPORT.md) and
+CI record release conformance evidence.
 See [Milestones](MILESTONES.md) for implementation order and release scope.
 
 ## Product contract

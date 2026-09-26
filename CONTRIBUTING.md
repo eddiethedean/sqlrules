@@ -58,12 +58,12 @@ Dialect packages are tested but not included in that fail-under.
 
 - Declare `name`, `api_version` (`PLUGIN_API_VERSION`), and `register(registry)`.
 - Prefer `register_constraint(..., on_conflict=...)`.
-- Use `pattern_text()` for `pattern` values (`PatternSpec` is part of API v1).
+- Use `pattern_text()` for `pattern` values (`PatternSpec` is part of API v2).
 - Use `type_spec()` / `TypeSpec` when implementing `type_check` translators.
 - Run `sqlrules.conformance.run_basic_conformance(plugin)` for API shape;
   add golden SQL asserts for dialect correctness.
 - Official dialect packages live under `packages/`. They pin
-  `sqlrules>=1,<2` and must share the same release tag version as core.
+  `sqlrules>=2,<3` and must share the same release tag version as core.
 - Develop from the monorepo with `make install`; see each package README for
   operators, and [PLUGIN_SYSTEM](https://sqlrules.readthedocs.io/en/latest/PLUGIN_SYSTEM.html)
   for the full contract.

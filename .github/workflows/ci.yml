@@ -93,7 +93,7 @@ jobs:
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build twine
+          python -m pip install build "twine>=7.0"
 
       - name: Build core
         run: python -m build

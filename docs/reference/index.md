@@ -22,7 +22,7 @@ parameter / return / exception contract.
 
 - [SPEC](../SPEC.md) — return shape, binding, unsupported policy
 - [API](../API.md) — Application / Plugin / Internal tiers
-- [IR_CONTRACT](../IR_CONTRACT.md) — frozen Plugin API v1 IR schema
+- [IR_CONTRACT](../IR_CONTRACT.md) — compiler IR and Plugin API v2 contract
 - [CONSTRAINTS](../CONSTRAINTS.md) — operator → expression map
 - [TYPE_SUPPORT](../TYPE_SUPPORT.md) · [ERRORS](../ERRORS.md) · [SECURITY](../SECURITY.md)
 

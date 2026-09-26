@@ -1,8 +1,8 @@
 # Roadmap
 
 The 2.x series introduces SQLRules-owned rule schemas and an explicit Pydantic
-conversion bridge. Phase 2.0 is in implementation; its release gates remain
-open until database conformance and package checks pass.
+conversion bridge. Phase 2.0 implementation and release checks are complete;
+the 2.0.0 release is prepared but has not been tagged or published.
 API sketches and semantic decisions live in [the 2.0 design](docs/V2_DESIGN.md),
 with implementation steps and release gates in [Milestones](docs/MILESTONES.md).
 
@@ -17,7 +17,7 @@ Core and all four official dialect packages remain versioned together.
 | 2.2 | 2.2.0 | Nested JSON schemas, tagged unions, and collection rules |
 | 2.3 | 2.3.0 | Named transforms, custom type mappings, schema export, and integration tools |
 
-## 2.0.0 — Rule schemas and semantic foundations (implementation in progress)
+## 2.0.0 — Rule schemas and semantic foundations (release ready)
 
 - Own `RuleSchema`, `Field`, and `RuleConfig` on Pydantic v2. Models retain
   normal construction, validation, serialization, and FastAPI use. Restrict
@@ -47,11 +47,10 @@ Core and all four official dialect packages remain versioned together.
   schema metadata, and independent compilation state. Provide migration from direct Pydantic
   input, bare rule dictionaries, and opt-in type checks.
 
-Release gate: freeze and implement a useful capability matrix for all four
-backends, prove supported behavior with database execution tests, and show that
-`where(compiled)` matches and `notwhere(compiled)` failures partition each tested
-row set. Complete migration, docs, and package checks. Publish the first stable
-2.0 as **2.0.0**.
+Release gate: **complete** on merged `main`. The capability matrix is published;
+CI passes live database conformance for PostgreSQL, MySQL, and SQL Server and
+SQLite execution coverage; and package, migration, docs, and version checks
+pass. The prepared release remains unpublished until its `v2.0.0` tag is pushed.
 
 ## 2.1.0 — Rule composition (planned)
 

@@ -48,14 +48,16 @@ does not claim to recover the Python object originally inserted into a row.
 ## Backend matrix
 
 The following matrix describes compile-time support in the implementation.
-Exact execution evidence is tracked separately from SQL rendering and must be
-recorded for each supported server release before publishing 2.0.0. The CI
-`Live database conformance` job runs against PostgreSQL 16, MySQL 8.0, and SQL
-Server 2022. Its shared corpus checks malformed text, integer overflow,
-fractional/strict mismatches, SQL NULL, native scalar constraints, UUID where
-native storage exists, and the `where()`/`notwhere()` partition. SQLite runs
-the corresponding in-memory storage and malformed JSON cases in the regular
-test suite.
+Execution evidence is provided by CI's [live database conformance job](../.github/workflows/ci.yml)
+and its [shared backend corpus](../tests/test_live_backend_conformance.py),
+which run against PostgreSQL 16, MySQL 8.0, and SQL Server 2022. The corpus
+checks malformed text, integer overflow, fractional and strict mismatches,
+SQL NULL, native scalar constraints, UUID where native storage exists, and the
+`where()`/`notwhere()` partition. SQLite execution coverage is in the regular
+suite's [storage and JSON tests](../tests/test_sqlite_execution.py) and
+[plugin tests](../packages/sqlrules-sqlite/tests/test_sqlite_plugin.py). The
+2.0.0 implementation's live database conformance job passed on
+[the merged main commit](https://github.com/eddiethedean/sqlrules/actions/runs/36252286710).
 
 | Backend | Native scalar source types | Lax conversions | Important limitations |
 |---|---|---|---|

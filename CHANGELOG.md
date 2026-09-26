@@ -7,20 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-26
+
 ### Added
 
-- SQLRules 2.0 `RuleSchema`, Pydantic conversion with deterministic reports,
-  explicit backend providers, safe scalar preparation, `CompiledRules`, and
-  `notwhere()`.
-- Coordinated 2.0.0 package metadata, API v2 documentation, examples, and
-  migration guidance.
+- `RuleSchema`, a Pydantic v2 model with SQL-compatible declarations, normal
+  Pydantic construction and validation, and FastAPI support.
+- `from_pydantic()` conversion with deterministic reports, explicit backend
+  providers, safe scalar preparation, `CompiledRules`, and `notwhere()`.
+- Plugin API v2, a published type and coercion support matrix, migration
+  guidance, and coordinated 2.0.0 package metadata.
 
 ### Changed
 
-- Compilation now requires SQLRules-compatible declarations and exactly one
+- Compilation now accepts SQLRules-compatible declarations and requires one
   explicit backend provider. Every supported scalar annotation is a rule.
-- Backend coercion and strictness follow the published 2.0 semantic profile;
-  retained rules cannot be omitted with warn/ignore settings.
+- Lax coercion, strict type checks, nullable behavior, and invalid-value
+  handling now follow the versioned 2.0 semantic profile. Retained rules
+  cannot be omitted with warn/ignore settings.
+
+### Fixed
+
+- Make SQLite float preparation safe for values outside the finite range.
+- Preserve SQL Server JSON nested-array paths during structural comparisons.
+- Accept surrounding whitespace for supported text-to-integer conversions.
 
 ## [1.0.1] - 2026-07-11
 
@@ -206,6 +216,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs clarify that `on_unsupported` does not soften unsupported types;
   plugin / two-phase compile designs are marked as future
 
+[2.0.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0
 [1.0.1]: https://github.com/eddiethedean/sqlrules/releases/tag/v1.0.1
 [1.0.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v1.0.0
 [0.4.0]: https://github.com/eddiethedean/sqlrules/releases/tag/v0.4.0

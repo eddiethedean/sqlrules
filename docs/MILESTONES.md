@@ -195,10 +195,11 @@ No new major features.
 
 ## 2.x Release Policy
 
-Status: implementation in progress. The [2.0 design](V2_DESIGN.md) defines the
-API and semantic contract. Phase 2.0 ends with **2.0.0**, phase 2.1 with **2.1.0**, and
-so on. Internal work packages below are dependency steps within a release.
-Dates are assigned after each phase's capability and conformance scope is fixed.
+Status: release ready, not yet published. The [2.0 design](V2_DESIGN.md)
+defines the API and semantic contract. Phase 2.0 ends with **2.0.0**, phase 2.1
+with **2.1.0**, and so on. Internal work packages below are dependency steps
+within a release. Dates are assigned after each phase's capability and
+conformance scope is fixed.
 
 Core and the four official dialect packages stay in lockstep. Core already
 depends on Pydantic v2; the conversion helper ships in the core distribution.
@@ -206,7 +207,7 @@ depends on Pydantic v2; the conversion helper ships in the core distribution.
 while preserving the 2.0 semantic profile for existing schemas. Additional
 coercions that broaden accepted data require an explicit opt-in or profile.
 
-## 2.0.0 — Rule Schemas and Semantic Foundations (in progress)
+## 2.0.0 — Rule Schemas and Semantic Foundations (release ready)
 
 ### Outcome
 
@@ -357,8 +358,8 @@ Depends on B, C, and D passing their exits.
   dictionaries, `emit_type_checks`, and the legacy dialect hint. Preserve the
   spread-style `where()` call and document `notwhere()`.
 - Update API, IR, plugin, README, runnable examples, support matrices, and
-  release tooling. Remove stale references to plugin API v1 and package pins
-  `>=1,<2`; align all five distribution versions at **2.0.0**.
+  release tooling. Remove stale release instructions for plugin API v1 and
+  package pins `>=1,<2`; align all five distribution versions at **2.0.0**.
 - Run database conformance, converter reports, Pydantic model validation,
   FastAPI request/response checks, concurrent compilation and cache-compatibility
   checks, docs builds, and wheel installation checks from clean environments.
@@ -367,9 +368,11 @@ Depends on B, C, and D passing their exits.
 - Confirm each example in the migration guide runs against its documented
   backend and adapter setup. Publish the frozen type/coercion capability matrix.
 
-Exit: the five packages build and install at **2.0.0**; release checks pass;
-the migration guide maps every removed 1.x input pattern; and all A–D gates are
-linked to execution evidence. Later phases are not prerequisites for release.
+Exit: the five packages build and install at **2.0.0**; CI and local release
+checks pass; the migration guide maps every removed 1.x input pattern; and all
+A–D gates have execution evidence. The source release is prepared on `main`;
+publishing still requires the maintainer to push tag `v2.0.0`. Later phases are
+not prerequisites for release.
 
 ## 2.1.0 — Public Rule Composition (planned)
 
