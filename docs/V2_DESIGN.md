@@ -1,8 +1,9 @@
 # SQLRules 2.0 Design
 
 Status: SQLRules 2.0 implementation contract. The core and four official
-packages target the 2.0.0 line; [the type support matrix](TYPE_SUPPORT.md) and
-CI record release conformance evidence.
+packages shipped as [version 2.0.0](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
+on 2026-09-26. [The type support matrix](TYPE_SUPPORT.md) and CI record the
+release conformance evidence.
 See [Milestones](MILESTONES.md) for implementation order and release scope.
 
 ## Product contract

@@ -4,7 +4,15 @@ Maintainer checklist for publishing core and all four dialect plugins in
 lockstep. The release workflow is tag-driven; pushing a release tag publishes
 the five distributions to PyPI.
 
-## Preflight
+## 2.0.0 release record
+
+SQLRules **2.0.0** was released on **2026-09-26**. The [annotated `v2.0.0`
+tag](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0) and
+[successful release workflow](https://github.com/eddiethedean/sqlrules/actions/runs/36253446180)
+are published. PyPI confirms version 2.0.0 for `sqlrules`,
+`sqlrules-postgresql`, `sqlrules-sqlite`, `sqlrules-mysql`, and `sqlrules-mssql`.
+
+## Preflight for future releases
 
 1. Confirm the release commit is on `main`, its CI run is green, and the
    checkout is clean.
@@ -29,15 +37,17 @@ the five distributions to PyPI.
    to Trusted Publishing, configure it for all five PyPI projects and update
    the publish step to omit its password input before the release.
 
-## Tag and publish
+## Tag and publish a future release
 
-For the prepared 2.0.0 release:
+Replace the placeholder with the coordinated version after the release commit
+has passed all checks:
 
 ```bash
+VERSION="<release-version>"
 git switch main
 git pull --ff-only
-git tag -a v2.0.0 -m "sqlrules 2.0.0"
-git push origin v2.0.0
+git tag -a "v${VERSION}" -m "sqlrules ${VERSION}"
+git push origin "v${VERSION}"
 ```
 
 The [release workflow](.github/workflows/release.yml) runs CI, verifies the
@@ -53,10 +63,10 @@ partial upload can be retried by rerunning the workflow for the same tag.
    - https://pypi.org/project/sqlrules-sqlite/
    - https://pypi.org/project/sqlrules-mysql/
    - https://pypi.org/project/sqlrules-mssql/
-2. Smoke-install in a clean environment:
+2. Smoke-install the released version in a clean environment:
 
    ```bash
-   pip install "sqlrules==2.0.0" "sqlrules-postgresql==2.0.0"
+   pip install "sqlrules==${VERSION}" "sqlrules-postgresql==${VERSION}"
    python -c "import sqlrules; from sqlrules_postgresql import PostgresPlugin; print(sqlrules.__version__)"
    ```
 

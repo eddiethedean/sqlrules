@@ -195,10 +195,12 @@ No new major features.
 
 ## 2.x Release Policy
 
-Status: release ready, not yet published. The [2.0 design](V2_DESIGN.md)
-defines the API and semantic contract. Phase 2.0 ends with **2.0.0**, phase 2.1
-with **2.1.0**, and so on. Internal work packages below are dependency steps
-within a release. Dates are assigned after each phase's capability and
+Status: **2.0.0 released on 2026-09-26**. The [GitHub Release](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
+and [tagged release workflow](https://github.com/eddiethedean/sqlrules/actions/runs/36253446180)
+record the release; all five core and dialect packages are published on PyPI.
+The [2.0 design](V2_DESIGN.md) defines the API and semantic contract. Phase
+2.1 ends with **2.1.0**, and so on. Internal work packages below are dependency
+steps within a release. Dates are assigned after each phase's capability and
 conformance scope is fixed.
 
 Core and the four official dialect packages stay in lockstep. Core already
@@ -207,7 +209,7 @@ depends on Pydantic v2; the conversion helper ships in the core distribution.
 while preserving the 2.0 semantic profile for existing schemas. Additional
 coercions that broaden accepted data require an explicit opt-in or profile.
 
-## 2.0.0 — Rule Schemas and Semantic Foundations (release ready)
+## 2.0.0 — Rule Schemas and Semantic Foundations (released)
 
 ### Outcome
 
@@ -370,9 +372,9 @@ Depends on B, C, and D passing their exits.
 
 Exit: the five packages build and install at **2.0.0**; CI and local release
 checks pass; the migration guide maps every removed 1.x input pattern; and all
-A–D gates have execution evidence. The source release is prepared on `main`;
-publishing still requires the maintainer to push tag `v2.0.0`. Later phases are
-not prerequisites for release.
+A–D gates have execution evidence. Tag `v2.0.0` was published on 2026-09-26,
+the release workflow passed, and all five distributions are available on
+PyPI. Later phases are not prerequisites for the 2.0.0 release.
 
 ## 2.1.0 — Public Rule Composition (planned)
 

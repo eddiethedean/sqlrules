@@ -56,8 +56,8 @@ SQL NULL, native scalar constraints, UUID where native storage exists, and the
 `where()`/`notwhere()` partition. SQLite execution coverage is in the regular
 suite's [storage and JSON tests](../tests/test_sqlite_execution.py) and
 [plugin tests](../packages/sqlrules-sqlite/tests/test_sqlite_plugin.py). The
-2.0.0 implementation's live database conformance job passed on
-[the merged main commit](https://github.com/eddiethedean/sqlrules/actions/runs/36252286710).
+The `v2.0.0` release workflow, including live database conformance, passed on
+[the tagged release run](https://github.com/eddiethedean/sqlrules/actions/runs/36253446180).
 
 | Backend | Native scalar source types | Lax conversions | Important limitations |
 |---|---|---|---|

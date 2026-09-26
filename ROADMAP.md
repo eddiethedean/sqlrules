@@ -1,8 +1,9 @@
 # Roadmap
 
 The 2.x series introduces SQLRules-owned rule schemas and an explicit Pydantic
-conversion bridge. Phase 2.0 implementation and release checks are complete;
-the 2.0.0 release is prepared but has not been tagged or published.
+conversion bridge. Phase 2.0 shipped as [SQLRules 2.0.0](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
+on 2026-09-26. Its [tagged release workflow](https://github.com/eddiethedean/sqlrules/actions/runs/36253446180)
+passed, and all five core and dialect packages are published on PyPI.
 API sketches and semantic decisions live in [the 2.0 design](docs/V2_DESIGN.md),
 with implementation steps and release gates in [Milestones](docs/MILESTONES.md).
 
@@ -17,7 +18,7 @@ Core and all four official dialect packages remain versioned together.
 | 2.2 | 2.2.0 | Nested JSON schemas, tagged unions, and collection rules |
 | 2.3 | 2.3.0 | Named transforms, custom type mappings, schema export, and integration tools |
 
-## 2.0.0 — Rule schemas and semantic foundations (release ready)
+## 2.0.0 — Rule schemas and semantic foundations (released 2026-09-26)
 
 - Own `RuleSchema`, `Field`, and `RuleConfig` on Pydantic v2. Models retain
   normal construction, validation, serialization, and FastAPI use. Restrict
@@ -47,10 +48,11 @@ Core and all four official dialect packages remain versioned together.
   schema metadata, and independent compilation state. Provide migration from direct Pydantic
   input, bare rule dictionaries, and opt-in type checks.
 
-Release gate: **complete** on merged `main`. The capability matrix is published;
-CI passes live database conformance for PostgreSQL, MySQL, and SQL Server and
-SQLite execution coverage; and package, migration, docs, and version checks
-pass. The prepared release remains unpublished until its `v2.0.0` tag is pushed.
+Release gate: **complete**. The capability matrix is published; CI passes live
+database conformance for PostgreSQL, MySQL, and SQL Server and SQLite execution
+coverage; and package, migration, docs, and version checks pass. The `v2.0.0`
+tag and GitHub Release are published, and all five distributions are available
+at version **2.0.0** on PyPI.
 
 ## 2.1.0 — Rule composition (planned)
 
