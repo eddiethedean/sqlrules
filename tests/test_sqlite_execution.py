@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, StrictInt
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine, insert, select
-from sqlrules_sqlite import SQLitePlugin, register_regexp
+from sqlrules_sqlite import SQLitePlugin, register_regexp, register_sqlite_functions
 
 from sqlrules import Compiler, RuleConfig, RuleSchema, notwhere, where
 
@@ -138,4 +138,32 @@ def test_regexp_udf_treats_mixed_storage_values_as_non_matches() -> None:
         register_regexp(connection.connection.driver_connection)
         assert connection.exec_driver_sql("SELECT 5 REGEXP '^5$'").scalar() == 0
         assert connection.exec_driver_sql("SELECT '5' REGEXP '^5$'").scalar() == 1
+    engine.dispose()
+
+
+def test_sqlite_length_constraints_count_text_after_embedded_nul() -> None:
+    class Rules(RuleSchema):
+        value: Annotated[str, Field(min_length=2, max_length=2)]
+
+    table = Table(
+        "records",
+        MetaData(),
+        Column("id", Integer, primary_key=True),
+        Column("value", String),
+    )
+    engine = create_engine("sqlite://")
+    table.create(engine)
+    with engine.begin() as connection:
+        register_sqlite_functions(connection.connection.driver_connection)
+        connection.execute(
+            insert(table),
+            [
+                {"id": 1, "value": "ab"},
+                {"id": 2, "value": "a\x00b"},
+            ],
+        )
+        compiled = Compiler(plugins=[SQLitePlugin()]).compile(Rules, table)
+        matched = set(connection.execute(select(table.c.id).where(*where(compiled))).scalars())
+
+    assert matched == {1}
     engine.dispose()

@@ -133,8 +133,10 @@ Select exactly one backend provider when compiling. PostgreSQL text-to-scalar
 coercion requires PostgresPlugin(server_version=(16, 0)); MySQL text-to-int
 coercion requires MySQL 8.0+; SQL Server safe text conversions require SQL
 Server 2012+. SQLite text checks use runtime typeof() and need the bundled
-register_regexp() helper on each connection when text coercion or patterns
-are used. Unsupported combinations raise CapabilityError during compilation.
+register_sqlite_functions() helper on each connection when text coercion,
+patterns, or string length constraints are used. The older register_regexp()
+helper remains as an alias. Unsupported combinations raise CapabilityError
+during compilation.
 
 ## Project links
 

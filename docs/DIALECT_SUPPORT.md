@@ -9,7 +9,7 @@ live connection.
 | Package | Provider | Backend-specific rules |
 |---|---|---|
 | sqlrules-postgresql | PostgresPlugin | Regex, JSONB, ARRAY, range, and safe text parsing on PostgreSQL 16+ |
-| sqlrules-sqlite | SQLitePlugin | Runtime storage-class checks, REGEXP, JSON helpers |
+| sqlrules-sqlite | SQLitePlugin | Runtime storage-class checks, REGEXP, Python-compatible string length, JSON helpers |
 | sqlrules-mysql | MysqlPlugin | REGEXP, JSON, full-text, and safe integer text conversion on MySQL 8.0+ |
 | sqlrules-mssql | MssqlPlugin | JSON at SQL Server 2016+ / compatibility level 130+, SQL Server LEN behavior, and TRY_CAST conversions on SQL Server 2012+ |
 

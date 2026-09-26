@@ -164,6 +164,25 @@ def _openjson_value_equals(
     )
 
 
+def _is_json_object(document: ColumnElement[Any]) -> ColumnElement[bool]:
+    """Check the root shape using functions available since SQL Server 2016."""
+    text = sa_cast(document, Unicode())
+    # LTRIM on supported SQL Server versions removes spaces only. Normalize
+    # the other JSON whitespace characters first so valid pretty-printed
+    # documents receive the same root-shape check.
+    for whitespace in ("\t", "\n", "\r"):
+        text = func.replace(
+            text,
+            literal(whitespace, type_=Unicode()),
+            literal(" ", type_=Unicode()),
+        )
+    return cast(
+        ColumnElement[bool],
+        (func.isjson(document) == 1)
+        & (func.left(func.ltrim(text), 1) == literal("{", type_=Unicode())),
+    )
+
+
 def translate_json_contains(
     constraint: Constraint,
     column: ColumnElement[Any],
@@ -180,20 +199,14 @@ def translate_json_contains(
     value = constraint.value
     if isinstance(value, dict):
         if not value:
-            # Align with PostgreSQL ``@> '{}'``: require a non-NULL JSON object.
-            return cast(
-                ColumnElement[bool],
-                column.is_not(None)
-                & (func.isjson(column) == 1)
-                & func.json_query(column, "$").is_not(None),
-            )
+            return _is_json_object(column)
         parts: list[ColumnElement[bool]] = []
         for key, expected in value.items():
             parts.append(_openjson_value_equals(column, str(key), expected, constraint.field))
         expression = parts[0]
         for part in parts[1:]:
             expression = expression & part
-        return cast(ColumnElement[bool], expression)
+        return cast(ColumnElement[bool], _is_json_object(column) & expression)
 
     compact = _compact_dumps(value)
     return cast(

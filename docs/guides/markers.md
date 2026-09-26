@@ -59,8 +59,10 @@ class RowRules(RuleSchema):
 The selected provider must register both pattern and JSON operations.
 PostgreSQL does; SQL Server does not register pattern.
 
-SQLite emits REGEXP for pattern and selected text coercions. Register
-sqlrules_sqlite.register_regexp() on each SQLite connection when those
-expressions are used.
+SQLite emits REGEXP for pattern and selected text coercions. String length
+constraints use a registered Python-compatible code-point counter. Register
+`sqlrules_sqlite.register_sqlite_functions()` on each SQLite connection when
+those expressions are used. The older `register_regexp()` helper remains an
+alias.
 
 Prefer static marker payloads and pattern values. See [SECURITY](../SECURITY.md).

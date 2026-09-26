@@ -6,7 +6,10 @@ from decimal import Decimal
 import pytest
 from pydantic import Field
 from sqlalchemy import Column, Date, Float, Integer, MetaData, Numeric, String, Table
+from sqlalchemy.dialects.mssql import dialect as mssql_dialect
+from sqlalchemy.dialects.postgresql import dialect as postgresql_dialect
 from sqlalchemy.sql.sqltypes import NullType
+from sqlrules_mssql import MssqlPlugin
 from sqlrules_mysql import MysqlPlugin
 from sqlrules_postgresql import PostgresPlugin
 from sqlrules_sqlite import SQLitePlugin
@@ -64,6 +67,20 @@ def test_numeric_lax_conversions_and_backend_limits_are_explicit() -> None:
     numeric = Table("numeric", MetaData(), Column("value", Numeric(12, 2)))
     integral = Compiler(plugins=[PostgresPlugin()]).compile(IntegerRules, numeric)
     assert integral.fields[0].coercion == "integral-numeric-to-int64"
+
+    floating = Table("floating", MetaData(), Column("value", Float))
+    float_to_integer = Compiler(plugins=[PostgresPlugin()]).compile(IntegerRules, floating)
+    postgres_sql = str(float_to_integer.predicate.compile(dialect=postgresql_dialect()))
+    assert " < " in postgres_sql
+    assert " <= " not in postgres_sql
+
+    sql_server_conversion = Compiler(
+        plugins=[MssqlPlugin(server_version=(16, 0))]
+    ).compile(IntegerRules, floating)
+    sql_server_sql = str(sql_server_conversion.predicate.compile(dialect=mssql_dialect()))
+    assert " < " in sql_server_sql
+    assert " <= " not in sql_server_sql
+    assert "TRY_CAST" in sql_server_sql
 
     text = Table("text", MetaData(), Column("value", String))
     with pytest.raises(CapabilityError, match="precision and range"):

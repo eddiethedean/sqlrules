@@ -16,7 +16,8 @@ def translate_pattern(
     """Translate ``pattern`` to SQLite ``column REGEXP pattern``.
 
     Case-insensitive patterns are encoded with a ``(?i)`` prefix so
-    :func:`sqlrules_sqlite.register_regexp` can apply ``re.IGNORECASE``.
+    :func:`sqlrules_sqlite.register_sqlite_functions` can apply
+    ``re.IGNORECASE``.
     Callers must enable REGEXP on the SQLite connection before execution.
     """
     pattern, ignore_case = pattern_text(constraint.value)

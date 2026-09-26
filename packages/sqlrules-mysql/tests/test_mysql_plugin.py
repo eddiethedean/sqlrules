@@ -30,10 +30,12 @@ def test_pattern_json_and_fulltext_constraints_compile() -> None:
         Column("body", String),
     )
     compiled = Compiler(plugins=[MysqlPlugin(server_version=(8, 0, 36))]).compile(Rules, table)
-    sql = str(compiled.predicate.compile(dialect=dialect()))
-    assert "REGEXP" in sql
+    statement = compiled.predicate.compile(dialect=dialect())
+    sql = str(statement).lower()
+    assert "regexp_like" in sql
+    assert "c" in statement.params.values()
     assert "json_contains" in sql
-    assert "MATCH" in sql
+    assert "match" in sql
 
 
 def test_integer_text_profile_is_server_version_gated() -> None:

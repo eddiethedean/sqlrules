@@ -91,7 +91,8 @@ compiler.registry returns a copy.
 
 - sqlrules-postgresql: regex, JSONB, arrays, ranges, PostgreSQL 16+ safe text
   parsing.
-- sqlrules-sqlite: runtime type checks, REGEXP, and JSON helpers.
+- sqlrules-sqlite: runtime type checks, REGEXP, Python-compatible string
+  length, and JSON helpers.
 - sqlrules-mysql: regex, JSON, full-text, and MySQL 8.0+ integer text parsing.
 - sqlrules-mssql: JSON on SQL Server 2016+ with database compatibility level
   130+, LEN string behavior, and SQL Server 2012+ TRY_CAST.

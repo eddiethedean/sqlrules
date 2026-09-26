@@ -33,10 +33,23 @@ def test_length_and_json_constraints_compile() -> None:
     sql = str(compiled.predicate.compile(dialect=dialect()))
     assert "len(" in sql.lower()
     assert "isjson" in sql.lower()
+    assert "left(ltrim" in sql.lower()
     assert "openjson" in sql.lower()
     assert " as oj" in sql.lower()
     assert "as oj(" not in sql.lower()
     assert compiled.fields[1].coercion == "validated-json-text"
+
+
+def test_empty_json_contains_checks_for_an_object_root() -> None:
+    class Rules(RuleSchema):
+        meta: Annotated[dict[str, Any], JsonContains({})]
+
+    table = Table("rows", MetaData(), Column("meta", String))
+    compiled = Compiler(
+        plugins=[MssqlPlugin(server_version=(16, 0), compatibility_level=160)]
+    ).compile(Rules, table)
+    sql = str(compiled.predicate.compile(dialect=dialect())).lower()
+    assert "left(ltrim" in sql
 
 
 def test_text_to_integer_uses_try_cast_and_digit_validation() -> None:

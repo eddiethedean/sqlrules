@@ -31,8 +31,8 @@ def test_pattern_and_json_markers_compile() -> None:
     compiled = Compiler(plugins=[SQLitePlugin()]).compile(Rules, table)
     sql = str(compiled.predicate.compile(dialect=dialect()))
     assert "REGEXP" in sql
-    assert "json_extract" in sql
     assert "json_type" in sql
+    assert "json_valid" in sql
 
 
 def test_regexp_handles_text_and_non_text_values() -> None:

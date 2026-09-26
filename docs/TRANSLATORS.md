@@ -210,7 +210,7 @@ compiler = Compiler(plugins=[PatternPlugin()])
 Some SQL constructs differ by backend. Official packages:
 
 -   `sqlrules-postgresql` — `~` / `~*`, JSONB, ARRAY, range
--   `sqlrules-sqlite` — REGEXP helper + JSON
+-   `sqlrules-sqlite` — REGEXP and Unicode-aware length helpers + JSON
 -   `sqlrules-mysql` — REGEXP, JSON, full-text
 -   `sqlrules-mssql` — JSON + `LEN` length overrides
 

@@ -324,7 +324,12 @@ def prepare_scalar(
             capability="exact-integer-to-decimal",
         )
     if target == "int" and source in {"float", "decimal"} and not field.strict:
-        in_range = and_(column >= -(2**63), column <= (2**63) - 1)
+        # The largest signed int64 value cannot be represented exactly as a
+        # float: 2**63 - 1 rounds to 2**63. Use an exclusive upper bound for
+        # float sources so that value cannot pass the guard before CAST.
+        upper_bound = 2**63 if source == "float" else (2**63) - 1
+        upper_check = column < upper_bound if source == "float" else column <= upper_bound
+        in_range = and_(column >= -(2**63), upper_check)
         value: ColumnElement[Any]
         if backend == "mssql":
             from sqlalchemy.dialects.mssql import try_cast

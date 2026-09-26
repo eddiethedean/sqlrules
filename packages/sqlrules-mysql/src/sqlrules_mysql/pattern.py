@@ -16,10 +16,10 @@ def translate_pattern(
 ) -> ColumnElement[bool]:
     """Translate ``pattern`` to MySQL/MariaDB ``REGEXP``.
 
-    MySQL's default matching follows the expression collation. Preserve an
-    explicit ``re.IGNORECASE`` flag with ``REGEXP_LIKE``'s match type.
+    MySQL's default matching follows the expression collation. Use
+    ``REGEXP_LIKE``'s match type to keep SQLRules patterns case-sensitive by
+    default and preserve an explicit ``re.IGNORECASE`` flag.
     """
     pattern, ignore_case = pattern_text(constraint.value)
-    if ignore_case:
-        return cast(ColumnElement[bool], func.regexp_like(column, pattern, "i"))
-    return cast(ColumnElement[bool], column.op("REGEXP")(pattern))
+    match_type = "i" if ignore_case else "c"
+    return cast(ColumnElement[bool], func.regexp_like(column, pattern, match_type))

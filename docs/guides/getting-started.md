@@ -96,8 +96,10 @@ compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(NameRules, users)
 ~~~
 
-SQLite text coercion and pattern matching use REGEXP. Register the provided
-helper on each SQLite connection when needed. The
+SQLite text coercion and pattern matching use REGEXP, and string length rules
+use a Python-compatible Unicode code-point counter. Register
+`sqlrules_sqlite.register_sqlite_functions()` on each SQLite connection when
+those rules are used. The
 [support matrix](../TYPE_SUPPORT.md) describes source types, conversions,
 server versions, and compile-time capability errors.
 

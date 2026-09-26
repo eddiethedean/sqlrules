@@ -29,9 +29,10 @@ supports the pattern semantics or remove the pattern declaration.
 
 ## SQLite REGEXP errors
 
-SQLite does not provide REGEXP by default. Register
-sqlrules_sqlite.register_regexp() on each connection when patterns or textual
-coercions are used.
+SQLite does not provide REGEXP by default, and its built-in `length(TEXT)`
+stops at an embedded NUL. Register `sqlrules_sqlite.register_sqlite_functions()`
+on each connection when patterns, textual coercions, or string length
+constraints are used. `register_regexp()` remains a backward-compatible alias.
 
 ## Plugin registration conflicts
 
