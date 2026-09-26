@@ -28,9 +28,12 @@ tiers](../API.md) and [Security](../SECURITY.md).
 
 | Version line | Status |
 |---|---|
-| 2.x | Current implementation and release target |
+| 2.x | Current stable line; 2.0.0 released on 2026-09-26 |
 | 1.x | Previous stable line; use the 1.x to 2.x migration guide |
 | 0.x | Historical |
+
+The [2.0.0 release](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
+includes `sqlrules` and all four official dialect packages in lockstep.
 
 The semantic profile uses Pydantic 2.13.4 as its conformance reference while
 the runtime dependency accepts Pydantic v2. SQLAlchemy 2.x and Python 3.10+

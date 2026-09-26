@@ -1,7 +1,8 @@
 # sqlrules-mssql
 
 SQL Server backend provider for [SQLRules](https://github.com/eddiethedean/sqlrules).
-The package version follows the core 2.x line.
+This official provider first shipped with [SQLRules 2.0.0](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
+on 2026-09-26. Official dialect packages share core's release version.
 
 ## Install
 

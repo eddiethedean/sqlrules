@@ -19,6 +19,14 @@
 
 Pick the path that matches how you work:
 
+:::{admonition} SQLRules 2.0.0 released September 26, 2026
+:class: tip
+
+Core and all four official dialect providers are available on PyPI at version
+2.0.0. Read the [release notes](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
+or the [1.x to 2.x migration guide](guides/upgrade-1x.md).
+:::
+
 ::::{grid} 2
 :gutter: 3
 

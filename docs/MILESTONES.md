@@ -211,6 +211,9 @@ coercions that broaden accepted data require an explicit opt-in or profile.
 
 ## 2.0.0 — Rule Schemas and Semantic Foundations (released)
 
+The work packages below record the completed scope and acceptance criteria for
+2.0.0; they are historical release documentation, not open work.
+
 ### Outcome
 
 A user can define or convert a Pydantic-compatible rules model, use it normally

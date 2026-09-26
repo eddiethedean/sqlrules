@@ -2,9 +2,10 @@
 
 Status: SQLRules 2.0 implementation contract. The core and four official
 packages shipped as [version 2.0.0](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
-on 2026-09-26. [The type support matrix](TYPE_SUPPORT.md) and CI record the
-release conformance evidence.
-See [Milestones](MILESTONES.md) for implementation order and release scope.
+on 2026-09-26. The [tagged release workflow](https://github.com/eddiethedean/sqlrules/actions/runs/36253446180)
+passed, and [the type support matrix](TYPE_SUPPORT.md) records the verified
+backend profile. [Milestones](MILESTONES.md) describes the completed scope and
+the later 2.x roadmap.
 
 ## Product contract
 
@@ -374,42 +375,34 @@ Expose capability inspection before binding and collect unsupported field paths
 into an actionable compilation error. A known data mismatch compiles to a
 non-match. Unsupported semantics never disappear under warn/ignore policies.
 
-Before 2.0 implementation proceeds beyond prototypes, freeze a release matrix
-for PostgreSQL, SQLite, MySQL, and SQL Server with actual supported server
-versions. Each must support its native scalar baseline in lax and strict modes
-where observable, nullable groups, the existing applicable operators, and a
-documented nonempty set of useful coercions. The matrix must state emulated or
-unavailable types explicitly. No all-types/all-dialects parity claim is made.
+The 2.0 release froze and published a capability matrix for PostgreSQL, SQLite,
+MySQL, and SQL Server with supported server versions. It records native scalar
+baselines, observable lax and strict behavior, nullable handling, applicable
+operators, useful coercions, and emulated or unavailable types. No
+all-types/all-dialects parity claim is made.
 
-## Migration and release evidence
+## Migration and release contract
 
-- Keep 1.x documentation labeled as the shipped contract while 2.0 is planned.
-  At release, update application docs, examples, plugin docs, and package pins.
-- Migrate `compile(PydanticModel, table)` to explicit conversion, then compile
-  the resulting schema. Migrate dictionary consumers to `CompiledRules`.
-- Preserve the `select(...).where(*sqlrules.where(compiled))` call shape.
-  Document `select(...).where(*sqlrules.notwhere(compiled))` for failures and
-  `~compiled.predicate` for callers that want a bare expression.
-- Remove `emit_type_checks` from the new schema API; annotations always matter.
-  Explain strictness, nullable bounds, and the new explicit backend requirement.
-- Retain semantic fixtures for valid 1.x constraints and document intentional
-  changes. Test accepted row sets on actual supported database versions,
-  including malformed data and cases where unsafe casts previously failed.
-- Use a pinned Pydantic reference to compare supported conversion cases and
-  record SQL-specific differences. SQL rendering assertions supplement these
-  execution checks; they cannot prove coercion safety.
-- Include reference semantic tests for `model_validate()` and SQL predicates,
-  backend execution tests that partition rows into matches and failures under
-  `notwhere(compiled)` (including SQL NULL, invalid conversions, and allowed empty
-  schemas), adapter reports, concurrent compilation, cache-compatibility checks,
-  documentation builds, and wheel installation in release validation.
-  Establish performance baselines in 2.0 and measure subsequent changes.
+- The [1.x to 2.x upgrade guide](guides/upgrade-1x.md) covers direct
+  `compile(PydanticModel, table)` migration through explicit conversion and
+  migration from bare rule dictionaries to `CompiledRules`.
+- The application API preserves the
+  `select(...).where(*sqlrules.where(compiled))` call shape and documents
+  `sqlrules.notwhere(compiled)` for failures and `~compiled.predicate` for a
+  bare SQL expression.
+- In 2.0, annotations are active rules and compilation requires an explicit
+  backend. The [type support matrix](TYPE_SUPPORT.md) documents strictness,
+  nullable behavior, conversions, and SQL-specific differences.
+- The tagged release workflow ran the Python matrix, package build and wheel
+  import, documentation build, and live database conformance before publishing
+  all five distributions. SQL rendering checks supplement execution evidence;
+  they cannot prove coercion safety.
 
 The 2.0.0 release freezes the semantic profile as well as public API and plugin
 contracts. Later 2.x features are additive or explicitly enabled. A new coercion
 must not silently widen existing query results under the 2.0 profile; behavior
 fixes must be identified in release notes. All five existing distributions stay
-versioned together. Update the release workflow and version checks for the 2.x
+versioned together. The release workflow and version checks enforce the 2.x
 major pins.
 
 ## Features staged after 2.0

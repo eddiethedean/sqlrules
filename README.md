@@ -15,6 +15,10 @@ matching rows plus a notwhere() complement for rows that fail any rule.
 
 SQLRules performs no database I/O and never changes stored values.
 
+SQLRules **2.0.0** was released on **2026-09-26**. Core and all four official
+dialect providers are published in lockstep; see the
+[2.0.0 release notes](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0).
+
 ## Quick start
 
 Install SQLRules and the dialect provider for your database:

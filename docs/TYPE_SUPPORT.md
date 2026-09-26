@@ -55,7 +55,7 @@ checks malformed text, integer overflow, fractional and strict mismatches,
 SQL NULL, native scalar constraints, UUID where native storage exists, and the
 `where()`/`notwhere()` partition. SQLite execution coverage is in the regular
 suite's [storage and JSON tests](../tests/test_sqlite_execution.py) and
-[plugin tests](../packages/sqlrules-sqlite/tests/test_sqlite_plugin.py). The
+[plugin tests](../packages/sqlrules-sqlite/tests/test_sqlite_plugin.py).
 The `v2.0.0` release workflow, including live database conformance, passed on
 [the tagged release run](https://github.com/eddiethedean/sqlrules/actions/runs/36253446180).
 
