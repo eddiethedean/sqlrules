@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from enum import Enum
 
 import pytest
 from pydantic import Field
@@ -123,7 +123,7 @@ def test_sqlite_float_conversion_and_decimal_capability_boundary() -> None:
 
 def test_sql_server_numeric_to_float_avoids_huge_numeric_bounds() -> None:
     class FloatRules(RuleSchema):
-        value: float
+        value: float = Field(ge=0)
 
     provider = MssqlPlugin(server_version=(16, 0))
     tables = (
@@ -167,9 +167,12 @@ def test_constraints_cannot_be_applied_to_a_known_mismatched_storage_type() -> N
         Compiler(plugins=[PostgresPlugin()]).compile(BooleanRules, text)
 
 
-def test_strict_string_literal_on_numeric_storage_is_a_known_mismatch() -> None:
+def test_strict_string_enum_on_numeric_storage_is_a_known_mismatch() -> None:
+    class Status(str, Enum):
+        READY = "ready"
+
     class StatusRules(RuleSchema):
-        status: Literal["ready"] = Field(strict=True)
+        status: Status = Field(strict=True)
 
     table = Table("statuses", MetaData(), Column("status", Integer))
     compiled = Compiler(plugins=[PostgresPlugin()]).compile(StatusRules, table)
