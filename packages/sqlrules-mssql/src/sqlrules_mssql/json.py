@@ -166,15 +166,18 @@ def _openjson_value_equals(
 
 def _is_json_object(document: ColumnElement[Any]) -> ColumnElement[bool]:
     """Check the root shape using functions available since SQL Server 2016."""
-    text = sa_cast(document, Unicode())
+    text: ColumnElement[Any] = sa_cast(document, Unicode())
     # LTRIM on supported SQL Server versions removes spaces only. Normalize
     # the other JSON whitespace characters first so valid pretty-printed
     # documents receive the same root-shape check.
     for whitespace in ("\t", "\n", "\r"):
-        text = func.replace(
-            text,
-            literal(whitespace, type_=Unicode()),
-            literal(" ", type_=Unicode()),
+        text = cast(
+            ColumnElement[Any],
+            func.replace(
+                text,
+                literal(whitespace, type_=Unicode()),
+                literal(" ", type_=Unicode()),
+            ),
         )
     return cast(
         ColumnElement[bool],
