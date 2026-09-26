@@ -64,8 +64,32 @@ Each milestone delivers a complete, usable release.
 
 Deliverable:
 
-``` python
-rules = sqlrules.compile(UserFilter, users)
+The original milestone predates the explicit compiler API. The equivalent
+2.0 workflow is:
+
+```python
+from sqlalchemy import Column, Integer, MetaData, Table
+
+from sqlrules import Compiler, RuleSchema
+from sqlrules_sqlite import SQLitePlugin
+
+users = Table("users", MetaData(), Column("age", Integer))
+
+
+class UserFilter(RuleSchema):
+    age: int
+
+
+compiled = Compiler(plugins=[SQLitePlugin()]).compile(UserFilter, users)
+print("compiled fields:", [field.name for field in compiled.fields])
+print("predicate compiled:", compiled.predicate is not None)
+```
+
+Output:
+
+```text
+compiled fields: ['age']
+predicate compiled: True
 ```
 
 ------------------------------------------------------------------------

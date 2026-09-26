@@ -4,11 +4,14 @@ SQL Server backend provider for [SQLRules](https://github.com/eddiethedean/sqlru
 This official provider first shipped with [SQLRules 2.0.0](https://github.com/eddiethedean/sqlrules/releases/tag/v2.0.0)
 on 2026-09-26. Official dialect packages share core's release version.
 
-## Install
+<details>
+<summary>Setup: install SQLRules and SQL Server support</summary>
 
 ```bash
 pip install "sqlrules>=2,<3" "sqlrules-mssql>=2,<3"
 ```
+
+</details>
 
 ## Use
 
@@ -37,6 +40,15 @@ class RowRules(RuleSchema):
 provider = MssqlPlugin(server_version=(16, 0), compatibility_level=160)
 compiled = Compiler(plugins=[provider]).compile(RowRules, rows)
 statement = rows.select().where(*where(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("statement:", type(statement).__name__)
+```
+
+Output (the statement is compiled; no database is contacted):
+
+```text
+compiled fields: ['name', 'meta']
+statement: Select
 ```
 
 ## Capabilities

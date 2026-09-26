@@ -6,9 +6,12 @@ bound SQL column type.
 
 ## Select a plugin
 
+:::{dropdown} Setup: install SQLRules and the PostgreSQL provider
+
 ~~~bash
 pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
 ~~~
+:::
 
 ~~~python
 from typing import Annotated, Any
@@ -29,6 +32,15 @@ class RowRules(RuleSchema):
 compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(RowRules, rows)
 statement = rows.select().where(*where(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("statement:", type(statement).__name__)
+~~~
+
+Output (the statement is compiled; no database is contacted):
+
+~~~text
+compiled fields: ['meta']
+statement: Select
 ~~~
 
 ## Common markers
@@ -47,13 +59,30 @@ operators; they do not validate nested Python items or JSON schemas.
 
 ~~~python
 from typing import Annotated, Any
+
 from pydantic import Field
-from sqlrules import JsonContains, RuleSchema
+from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy.dialects.postgresql import JSONB
+
+from sqlrules import Compiler, JsonContains, RuleSchema
+from sqlrules_postgresql import PostgresPlugin
+
+rows = Table("rows", MetaData(), Column("name", String), Column("meta", JSONB))
 
 
 class RowRules(RuleSchema):
     name: Annotated[str, Field(pattern="^A")]
     meta: Annotated[dict[str, Any], JsonContains({"active": True})]
+
+
+compiled = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))]).compile(RowRules, rows)
+print("compiled fields:", [field.name for field in compiled.fields])
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['name', 'meta']
 ~~~
 
 The selected provider must register both pattern and JSON operations.

@@ -19,11 +19,29 @@ matrix because its regular-expression function API differs from MySQL's.
 Select exactly one backend provider, optionally with constraint plugins:
 
 ~~~python
-from sqlrules import Compiler
+from sqlalchemy import Column, Integer, MetaData, Table
+
+from sqlrules import Compiler, RuleSchema
 from sqlrules_postgresql import PostgresPlugin
+
+users = Table("users", MetaData(), Column("age", Integer))
+
+
+class UserRules(RuleSchema):
+    age: int
+
 
 compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(UserRules, users)
+print("backend:", compiled.backend)
+print("compiled fields:", [field.name for field in compiled.fields])
+~~~
+
+Output:
+
+~~~text
+backend: postgresql
+compiled fields: ['age']
 ~~~
 
 Each provider separates source preparation from constraint translation. It

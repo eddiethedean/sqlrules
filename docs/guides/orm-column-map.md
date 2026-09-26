@@ -9,11 +9,32 @@ Every RuleSchema field binds to a database column. The binding precedence is:
 Pydantic aliases affect validation and serialization, but never choose a
 database column automatically.
 
+:::{dropdown} Setup: install SQLRules and the PostgreSQL provider
+
+~~~bash
+pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
+~~~
+:::
+
 ## Explicit column_map
 
 ~~~python
+from sqlalchemy import Column, Integer, MetaData, String, Table
+
 from sqlrules import Compiler, RuleSchema
 from sqlrules_postgresql import PostgresPlugin
+
+users = Table(
+    "users",
+    MetaData(),
+    Column("display_name", String),
+    Column("age", Integer),
+)
+
+
+class User:
+    display_name = users.c.display_name
+    age = users.c.age
 
 
 class UserRules(RuleSchema):
@@ -29,6 +50,13 @@ compiled = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))]).compile(
         "minimum_age": User.age,
     },
 )
+print("compiled fields:", [field.name for field in compiled.fields])
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['display_name', 'minimum_age']
 ~~~
 
 Values in column_map must be SQLAlchemy expressions or ORM attributes that
@@ -43,6 +71,16 @@ from sqlrules import Field, RuleSchema
 
 class UserRules(RuleSchema):
     display_name: str = Field(column="name")
+    age: int
+
+
+print("model fields:", list(UserRules.model_fields))
+~~~
+
+Output:
+
+~~~text
+model fields: ['display_name', 'age']
 ~~~
 
 The custom Field wrapper retains all standard Pydantic Field behavior. The

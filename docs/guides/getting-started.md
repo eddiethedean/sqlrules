@@ -3,7 +3,7 @@
 SQLRules compiles the supported fields in a RuleSchema into one total
 SQLAlchemy predicate. RuleSchema is also a normal Pydantic v2 model.
 
-## 1. Install
+:::{dropdown} Setup: install SQLRules and the PostgreSQL provider
 
 ~~~bash
 pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
@@ -11,8 +11,9 @@ pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
 
 Choose the dialect package for the database you query. Core never discovers
 or selects a backend from a connection.
+:::
 
-## 2. Define a schema and table
+## 1. Define a schema and table
 
 ~~~python
 from typing import Annotated
@@ -43,7 +44,7 @@ The Pydantic constraints are imported directly. The scalar annotation itself
 creates a database type rule, so id must match the selected backend's int
 profile even without a Field constraint.
 
-## 3. Validate and compile
+## 2. Validate and compile
 
 ~~~python
 from sqlrules import Compiler, notwhere, where
@@ -57,13 +58,24 @@ compiled = compiler.compile(UserRules, users)
 
 matches = users.select().where(*where(compiled))
 fails = users.select().where(*notwhere(compiled))
+print("validated:", request.model_dump())
+print("compiled fields:", [field.name for field in compiled.fields])
+print("match/failure predicates:", len(where(compiled)), len(notwhere(compiled)))
+~~~
+
+Output:
+
+~~~text
+validated: {'id': 42, 'age': 21, 'name': 'Ada'}
+compiled fields: ['id', 'age', 'name']
+match/failure predicates: 1 1
 ~~~
 
 where() returns a one-item list containing the complete root predicate.
 notwhere() returns the complement and selects every row that fails one or more
 rules. SQLRules performs no database I/O.
 
-## 4. Convert an existing Pydantic model
+## 3. Convert an existing Pydantic model
 
 Use from_pydantic() for a Pydantic model that includes features outside the
 SQLRules declaration subset:
@@ -79,21 +91,49 @@ class ApiFilter(BaseModel):
 
 conversion = from_pydantic(ApiFilter, on_incompatible="warn")
 RulesModel = conversion.model
-print(conversion.report)
+print("rules model:", RulesModel.__name__)
+print("fields:", list(RulesModel.model_fields))
+print("report:", [(entry.feature, entry.outcome) for entry in conversion.report.entries])
+~~~
+
+Output:
+
+~~~text
+rules model: ApiFilterRules
+fields: ['age']
+report: [('ge=18', 'preserved'), ('field type and supported constraints', 'preserved')]
 ~~~
 
 The converter strips unsupported behavior according to the selected policy
 and reports changed, unknown, or dropped semantics. It never runs validators,
 serializers, or default factories to infer SQL.
 
-## 5. Patterns and markers
+## 4. Patterns and markers
 
 Patterns and JSON/array/range operators need a plugin for the selected
 database. Select one backend provider:
 
 ~~~python
+from typing import Annotated
+
+from pydantic import Field
+from sqlrules import Compiler, RuleSchema
+from sqlrules_postgresql import PostgresPlugin
+
+
+class NameRules(RuleSchema):
+    name: Annotated[str, Field(pattern=r"^A")]
+
+
 compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(NameRules, users)
+print("compiled fields:", [field.name for field in compiled.fields])
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['name']
 ~~~
 
 SQLite text coercion and pattern matching use REGEXP, and string length rules

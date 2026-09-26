@@ -1,6 +1,7 @@
-"""Minimal compile → select() example (core only).
+"""Minimal RuleSchema → SQLite select() example.
 
-Run from the repo root after ``pip install sqlrules`` (or ``make install``):
+Run from the repo root after installing SQLRules and its SQLite provider (or
+after ``make install``):
 
     python examples/basic_compile.py
 """
@@ -34,7 +35,7 @@ def main() -> None:
     compiled = compiler.compile(UserFilter, users)
     stmt = users.select().where(*sqlrules.where(compiled))
     print("fields:", [field.name for field in compiled.fields])
-    print(stmt)
+    print("\n".join(line.rstrip() for line in str(stmt).splitlines()))
 
 
 if __name__ == "__main__":

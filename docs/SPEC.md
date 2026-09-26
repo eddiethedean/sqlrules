@@ -12,8 +12,12 @@ Every supported scalar annotation creates a type rule, whether or not the
 field has another constraint. The caller selects exactly one backend provider:
 
 ~~~python
-from sqlrules import Compiler, RuleSchema, where
+from sqlalchemy import Column, Integer, MetaData, Table
+
+from sqlrules import Compiler, RuleSchema, notwhere, where
 from sqlrules_postgresql import PostgresPlugin
+
+users = Table("users", MetaData(), Column("id", Integer), Column("age", Integer))
 
 
 class UserRules(RuleSchema):
@@ -23,6 +27,16 @@ class UserRules(RuleSchema):
 
 compiled = Compiler(plugins=[PostgresPlugin()]).compile(UserRules, users)
 statement = users.select().where(*where(compiled))
+failures = users.select().where(*notwhere(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("match/failure predicates:", len(where(compiled)), len(notwhere(compiled)))
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['id', 'age']
+match/failure predicates: 1 1
 ~~~
 
 Compilation performs no database I/O. It returns a `CompiledRules` instance

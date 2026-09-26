@@ -39,3 +39,4 @@ examples:
 	python examples/basic_compile.py
 	python examples/select_usage.py
 	python examples/postgresql_pattern.py
+	python scripts/check_doc_examples.py

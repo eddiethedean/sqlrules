@@ -27,7 +27,38 @@ any behavior removed or changed. The semantic contract is described in
 ## North star
 
 ```python
+from sqlalchemy import Boolean, Column, Integer, MetaData, String, Table, select
+
+import sqlrules
+from sqlrules import Compiler, RuleSchema
+from sqlrules_postgresql import PostgresPlugin
+
+users = Table(
+    "users",
+    MetaData(),
+    Column("id", Integer),
+    Column("name", String),
+    Column("active", Boolean),
+)
+
+
+class UserRules(RuleSchema):
+    id: int
+    name: str
+    active: bool
+
+
+compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(UserRules, users)
 matching = select(users).where(*sqlrules.where(compiled))
 failing = select(users).where(*sqlrules.notwhere(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("match/failure predicates:", len(sqlrules.where(compiled)), len(sqlrules.notwhere(compiled)))
+```
+
+Output:
+
+```text
+compiled fields: ['id', 'name', 'active']
+match/failure predicates: 1 1
 ```

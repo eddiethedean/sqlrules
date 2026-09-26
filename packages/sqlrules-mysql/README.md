@@ -7,11 +7,14 @@ on 2026-09-26. Official dialect packages share core's release version.
 This provider targets MySQL 8.0+. MariaDB is outside the supported server
 matrix because its regular-expression function API differs from MySQL's.
 
-## Install
+<details>
+<summary>Setup: install SQLRules and MySQL support</summary>
 
 ```bash
 pip install "sqlrules>=2,<3" "sqlrules-mysql>=2,<3"
 ```
+
+</details>
 
 ## Use
 
@@ -42,6 +45,15 @@ class RowRules(RuleSchema):
 provider = MysqlPlugin(server_version=(8, 0, 36))
 compiled = Compiler(plugins=[provider]).compile(RowRules, rows)
 statement = rows.select().where(*where(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("statement:", type(statement).__name__)
+```
+
+Output (the statement is compiled; no database is contacted):
+
+```text
+compiled fields: ['name', 'meta', 'body']
+statement: Select
 ```
 
 ## Capabilities

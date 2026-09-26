@@ -62,9 +62,33 @@ collection value against every database element.
 ## Result helpers
 
 ~~~python
+from sqlalchemy import Column, Integer, MetaData, String, Table
+
+import sqlrules
+from sqlrules import Compiler, RuleSchema
+from sqlrules_postgresql import PostgresPlugin
+
+users = Table("users", MetaData(), Column("age", Integer), Column("name", String))
+
+
+class UserRules(RuleSchema):
+    age: int
+    name: str
+
+
+compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(UserRules, users)
 matches = users.select().where(*sqlrules.where(compiled))
 fails = users.select().where(*sqlrules.notwhere(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("match/failure predicates:", len(sqlrules.where(compiled)), len(sqlrules.notwhere(compiled)))
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['age', 'name']
+match/failure predicates: 1 1
 ~~~
 
 where() and flatten() return one complete predicate. notwhere() returns its

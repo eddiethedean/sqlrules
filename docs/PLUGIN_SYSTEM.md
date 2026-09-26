@@ -27,6 +27,17 @@ class PatternPlugin:
             lambda constraint, value, context: value.op("~")(pattern_text(constraint.value)[0]),
             on_conflict="replace",
         )
+
+
+registry = TranslatorRegistry()
+PatternPlugin().register(registry)
+print("pattern registered:", "pattern" in registry)
+~~~
+
+Output:
+
+~~~text
+pattern registered: True
 ~~~
 
 The translator's second argument is the backend-prepared SQL expression, not
@@ -57,12 +68,31 @@ CapabilityError before returning SQL.
 ## Register a backend and compile
 
 ~~~python
+from sqlalchemy import Column, Integer, MetaData, Table
+
 from sqlrules import Compiler, where
+from sqlrules import RuleSchema
 from sqlrules_postgresql import PostgresPlugin
+
+users = Table("users", MetaData(), Column("age", Integer))
+
+
+class UserRules(RuleSchema):
+    age: int
+
 
 compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(UserRules, users)
 statement = users.select().where(*where(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("statement:", type(statement).__name__)
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['age']
+statement: Select
 ~~~
 
 Pass exactly one backend provider. Passing multiple providers is an error.
@@ -75,11 +105,26 @@ The registry starts with SQLRules portable comparison, length, and domain
 translators. Plugins may add or replace translators with:
 
 ~~~python
+from sqlrules import TranslatorRegistry, pattern_text
+
+
+def translate_pattern(constraint, value, context):
+    return value.op("~")(pattern_text(constraint.value)[0])
+
+
+registry = TranslatorRegistry()
 registry.register_constraint(
-    operator="pattern",
-    translator=translate_pattern,
+    "pattern",
+    translate_pattern,
     on_conflict="replace",
 )
+print("pattern registered:", "pattern" in registry)
+~~~
+
+Output:
+
+~~~text
+pattern registered: True
 ~~~
 
 Conflict policies are raise, replace, and ignore. Compiler(on_conflict=...)

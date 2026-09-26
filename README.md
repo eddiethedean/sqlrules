@@ -23,9 +23,14 @@ dialect providers are published in lockstep; see the
 
 Install SQLRules and the dialect provider for your database:
 
+<details>
+<summary>Setup: install SQLRules and PostgreSQL support</summary>
+
 ~~~bash
 pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
 ~~~
+
+</details>
 
 ~~~python
 from typing import Annotated
@@ -62,6 +67,19 @@ compiled = compiler.compile(UserRules, users)
 
 matching = users.select().where(*where(compiled))
 failing = users.select().where(*notwhere(compiled))
+print("validated:", request.model_dump())
+print("compiled fields:", [field.name for field in compiled.fields])
+print("\n".join(line.rstrip() for line in str(matching).splitlines()))
+~~~
+
+Output (the SELECT is compiled SQL; SQLRules does not execute it):
+
+~~~text
+validated: {'id': 12, 'age': 21, 'name': 'Ada'}
+compiled fields: ['id', 'age', 'name']
+SELECT users.id, users.age, users.name
+FROM users
+WHERE CASE WHEN (CASE WHEN (users.id IS NOT NULL AND true) THEN true ELSE false END = true AND CASE WHEN (users.age IS NULL OR users.age >= :age_1) THEN true ELSE false END = true AND CASE WHEN (users.name IS NOT NULL AND length(users.name) >= :length_1) THEN true ELSE false END = true) THEN true ELSE false END = true
 ~~~
 
 A lone scalar annotation is a rule too: id: int requires the bound column to
@@ -92,6 +110,17 @@ class ApiFilter(BaseModel):
 conversion = from_pydantic(ApiFilter, on_incompatible="warn")
 RulesModel = conversion.model
 report = conversion.report
+print("rules model:", RulesModel.__name__)
+print("fields:", list(RulesModel.model_fields))
+print("report:", [(entry.feature, entry.outcome) for entry in report.entries])
+~~~
+
+Output:
+
+~~~text
+rules model: ApiFilterRules
+fields: ['age', 'name']
+report: [('ge=18', 'preserved'), ('field type and supported constraints', 'preserved'), ('field type and supported constraints', 'preserved')]
 ~~~
 
 The converter returns a usable RuleSchema class and a deterministic report.

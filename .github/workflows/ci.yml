@@ -79,6 +79,9 @@ jobs:
           packages/sqlrules-mysql/tests
           packages/sqlrules-mssql/tests
 
+      - name: Documentation examples
+        run: make examples
+
   package:
     name: Package
     runs-on: ubuntu-latest

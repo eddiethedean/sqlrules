@@ -34,7 +34,8 @@ def main() -> None:
     compiled = compiler.compile(ItemFilter, items)
     stmt = items.select().where(*sqlrules.where(compiled))
     # Compile without a live DB — expressions use bound parameters.
-    print(stmt.compile(compile_kwargs={"literal_binds": False}))
+    compiled_stmt = stmt.compile(compile_kwargs={"literal_binds": False})
+    print("\n".join(line.rstrip() for line in str(compiled_stmt).splitlines()))
 
 
 if __name__ == "__main__":

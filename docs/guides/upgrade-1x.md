@@ -4,11 +4,30 @@ SQLRules 2.0 changes the model declaration, compiler result, and plugin
 contracts. Core and all four official dialect packages must use the same 2.x
 line.
 
-## Install matching 2.x packages
+:::{dropdown} Setup: install 2.x packages and prepare an existing Pydantic model
 
 ~~~bash
 pip install "sqlrules>=2,<3" "sqlrules-postgresql>=2,<3"
 ~~~
+
+~~~python
+import sqlrules
+from pydantic import BaseModel, Field
+from sqlalchemy import Column, Integer, MetaData, Table
+
+from sqlrules import Compiler
+from sqlrules_postgresql import PostgresPlugin
+
+users = Table("users", MetaData(), Column("age", Integer))
+
+
+class ApiFilter(BaseModel):
+    age: int = Field(ge=18)
+
+
+compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
+~~~
+:::
 
 ## Use RuleSchema or convert a Pydantic model
 
@@ -20,6 +39,15 @@ from sqlrules import RuleSchema
 
 class UserRules(RuleSchema):
     age: int
+
+
+print("model fields:", list(UserRules.model_fields))
+~~~
+
+Output:
+
+~~~text
+model fields: ['age']
 ~~~
 
 An unrestricted application model remains a normal Pydantic model, but it
@@ -30,7 +58,17 @@ from sqlrules.integrations.pydantic import from_pydantic
 
 conversion = from_pydantic(ApiFilter, on_incompatible="warn")
 RulesModel = conversion.model
-print(conversion.report)
+print("rules model:", RulesModel.__name__)
+print("fields:", list(RulesModel.model_fields))
+print("report outcomes:", [(entry.feature, entry.outcome) for entry in conversion.report.entries])
+~~~
+
+Output:
+
+~~~text
+rules model: ApiFilterRules
+fields: ['age']
+report outcomes: [('ge=18', 'preserved'), ('field type and supported constraints', 'preserved')]
 ~~~
 
 The generated class is still a Pydantic model. Review the conversion report
@@ -45,6 +83,15 @@ plugin:
 ~~~python
 compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(UserRules, users)
+print("backend:", compiled.backend)
+print("compiled fields:", [field.name for field in compiled.fields])
+~~~
+
+Output:
+
+~~~text
+backend: postgresql
+compiled fields: ['age']
 ~~~
 
 The server version is required for version-dependent coercions. Core still
@@ -59,6 +106,15 @@ complete predicate with field details and an explain plan:
 compiled = compiler.compile(UserRules, users)
 matching = users.select().where(*sqlrules.where(compiled))
 failing = users.select().where(*sqlrules.notwhere(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("match/failure predicates:", len(sqlrules.where(compiled)), len(sqlrules.notwhere(compiled)))
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['age']
+match/failure predicates: 1 1
 ~~~
 
 where() and flatten() keep the list return shape and now return a one-element

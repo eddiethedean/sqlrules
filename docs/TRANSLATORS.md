@@ -35,12 +35,19 @@ SQLAlchemy Expression
 
 Every translator implements a common interface.
 
-``` python
-translate(
-    constraint,
-    column,
-    context,
-) -> ColumnElement[bool]
+```python
+from typing import Any, Protocol
+
+from sqlalchemy.sql.elements import ColumnElement
+
+
+class Translator(Protocol):
+    def translate(
+        self,
+        constraint: Any,
+        column: Any,
+        context: Any,
+    ) -> ColumnElement[bool]: ...
 ```
 
 Parameters:
@@ -87,30 +94,62 @@ core translator**. Install `sqlrules-postgresql` / `sqlrules-sqlite` /
 
 ## Literal
 
-``` python
-Literal["A", "B"]
+```python
+from typing import Literal
+
+from sqlrules import RuleSchema
+
+
+class StateRules(RuleSchema):
+    state: Literal["A", "B"]
 ```
 
 ↓
 
-``` python
-column.in_(["A", "B"])
+```python
+from sqlalchemy import column
+
+predicate = column("state").in_(["A", "B"])
+print(predicate)
+```
+
+Output:
+
+```text
+state IN (__[POSTCOMPILE_state_1])
 ```
 
 ------------------------------------------------------------------------
 
 ## Enum
 
-``` python
+```python
+from enum import Enum
+
+from sqlrules import RuleSchema
+
+
 class Status(Enum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
+
+
+class StatusRules(RuleSchema):
+    status: Status
 ```
 
 ↓
 
-``` python
-column.in_(["ACTIVE", "DISABLED"])
+```python
+values = [status.value for status in Status]
+predicate = column("status").in_(values)
+print(predicate)
+```
+
+Output:
+
+```text
+status IN (__[POSTCOMPILE_status_1])
 ```
 
 ------------------------------------------------------------------------

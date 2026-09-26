@@ -32,7 +32,18 @@ from typing import Annotated, Literal
 
 import sqlrules
 from pydantic import ConfigDict, Field, PositiveInt, StrictBool, StringConstraints
+from sqlalchemy import Boolean, Column, Integer, MetaData, String, Table
 from sqlrules_postgresql import PostgresPlugin
+
+users = Table(
+    "users",
+    MetaData(),
+    Column("id", Integer),
+    Column("age", Integer),
+    Column("name", String),
+    Column("status", String(collation="C")),
+    Column("verified", Boolean),
+)
 
 
 class UserRules(sqlrules.RuleSchema):
@@ -62,6 +73,15 @@ compiler = sqlrules.Compiler(
 compiled = compiler.compile(UserRules, users)
 matching_rows = users.select().where(*sqlrules.where(compiled))
 failing_rows = users.select().where(*sqlrules.notwhere(compiled))
+print("validated:", data)
+print("compiled fields:", [field.name for field in compiled.fields])
+```
+
+Output:
+
+```text
+validated: {'id': 12, 'age': 21, 'name': 'Ada', 'status': 'active', 'verified': True}
+compiled fields: ['id', 'age', 'name', 'status', 'verified']
 ```
 
 `RuleSchema` is a Pydantic v2 `BaseModel` subclass. SQLRules limits which fields,
@@ -307,13 +327,39 @@ distribution already requires Pydantic v2, so the converter needs no optional
 dependency extra or separate PyPI package.
 
 ```python
+from pydantic import BaseModel, Field
+from sqlalchemy import Column, Integer, MetaData, String, Table
+
+from sqlrules import Compiler
 from sqlrules.integrations.pydantic import from_pydantic
+from sqlrules_postgresql import PostgresPlugin
+
+
+class ApiModel(BaseModel):
+    age: int = Field(ge=18)
+    name: str
+
+
+users = Table("users", MetaData(), Column("age", Integer), Column("name", String))
+input_data = {"age": "21", "name": "Ada"}
+compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 
 conversion = from_pydantic(ApiModel, on_incompatible="warn")
 RulesModel = conversion.model
 instance = RulesModel.model_validate(input_data)
 compiled = compiler.compile(RulesModel, users)
 report = conversion.report
+print("validated:", instance.model_dump())
+print("compiled fields:", [field.name for field in compiled.fields])
+print("report outcomes:", [(entry.feature, entry.outcome) for entry in report.entries])
+```
+
+Output:
+
+```text
+validated: {'age': 21, 'name': 'Ada'}
+compiled fields: ['age', 'name']
+report outcomes: [('ge=18', 'preserved'), ('field type and supported constraints', 'preserved'), ('field type and supported constraints', 'preserved')]
 ```
 
 Conversion policies are `warn` (default: strip incompatible behavior and warn

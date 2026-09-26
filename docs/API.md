@@ -22,8 +22,18 @@ versioning. Internal modules may change without notice.
 Example:
 
 ~~~python
+from sqlalchemy import Column, Integer, MetaData, String, Table
+
 from sqlrules import Compiler, RuleSchema, notwhere, where
 from sqlrules_postgresql import PostgresPlugin
+
+users = Table(
+    "users",
+    MetaData(),
+    Column("id", Integer),
+    Column("age", Integer),
+    Column("name", String),
+)
 
 
 class UserRules(RuleSchema):
@@ -35,11 +45,20 @@ compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
 compiled = compiler.compile(UserRules, users)
 matches = users.select().where(*where(compiled))
 failures = users.select().where(*notwhere(compiled))
+print("compiled fields:", [field.name for field in compiled.fields])
+print("match/failure predicates:", len(where(compiled)), len(notwhere(compiled)))
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['id', 'age']
+match/failure predicates: 1 1
 ~~~
 
 The module-level compile() has the same explicit provider requirement:
 
-~~~python
+~~~text
 sqlrules.compile(model, table, *, plugins, column_map=None) -> CompiledRules
 ~~~
 
@@ -77,7 +96,14 @@ compiles to TRUE.
 ## Pydantic conversion
 
 ~~~python
+from pydantic import BaseModel, Field
+
 from sqlrules.integrations.pydantic import from_pydantic
+
+
+class ApiModel(BaseModel):
+    age: int = Field(ge=18)
+
 
 conversion = from_pydantic(
     ApiModel,
@@ -85,6 +111,17 @@ conversion = from_pydantic(
 )
 RulesModel = conversion.model
 report = conversion.report
+print("rules model:", RulesModel.__name__)
+print("fields:", list(RulesModel.model_fields))
+print("report outcomes:", [(entry.feature, entry.outcome) for entry in report.entries])
+~~~
+
+Output:
+
+~~~text
+rules model: ApiModelRules
+fields: ['age']
+report outcomes: [('ge=18', 'preserved'), ('field type and supported constraints', 'preserved')]
 ~~~
 
 The conversion report records retained rules, descriptive metadata,
@@ -110,6 +147,18 @@ helper accepts only a CompiledRules result.
 ## Compiler
 
 ~~~python
+from sqlalchemy import Column, Integer, MetaData, Table
+
+from sqlrules import Compiler, RuleSchema
+from sqlrules_postgresql import PostgresPlugin
+
+users = Table("users", MetaData(), Column("id", Integer))
+
+
+class UserRules(RuleSchema):
+    id: int
+
+
 compiler = Compiler(
     plugins=[PostgresPlugin(server_version=(16, 0))],
     registry=None,
@@ -118,6 +167,13 @@ compiler = Compiler(
 )
 schema_ir = compiler.compile_model(UserRules)
 compiled = compiler.bind(schema_ir, users, column_map=None)
+print("compiled fields:", [field.name for field in compiled.fields])
+~~~
+
+Output:
+
+~~~text
+compiled fields: ['id']
 ~~~
 
 Exactly one backend provider must be present when bind() or compile() runs.
