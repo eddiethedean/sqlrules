@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from decimal import Decimal
+from sys import float_info
 from typing import Any, cast
 from uuid import UUID
 
@@ -107,6 +108,15 @@ def _target_sql_type(kind: str) -> TypeEngine[Any]:
         "uuid": String(36),
     }
     return types[kind]
+
+
+def _integer_text_digit_count(column: ColumnElement[Any]) -> ColumnElement[Any]:
+    """Count integer digits without charging surrounding ASCII whitespace."""
+    text = column
+    for whitespace in (" ", "\t", "\n", "\r", "\v", "\f"):
+        text = func.replace(text, whitespace, "")
+    unsigned = func.replace(func.replace(text, "+", ""), "-", "")
+    return func.length(unsigned)
 
 
 def _total(predicate: ColumnElement[Any]) -> ColumnElement[bool]:
@@ -432,9 +442,7 @@ def prepare_scalar(
             pattern = column.op("REGEXP")(_text_pattern(target))
             valid = pattern
             if target == "int":
-                digits = func.length(
-                    func.replace(func.replace(func.trim(column), "+", ""), "-", "")
-                )
+                digits = _integer_text_digit_count(column)
                 valid = and_(valid, digits <= 18)
             converted = sa_cast(column, _target_sql_type(target))
         elif backend == "sqlite":
@@ -443,9 +451,7 @@ def prepare_scalar(
                 # Restrict to at most 18 significant digits so SQLite's signed
                 # 64-bit CAST cannot saturate; this conservative range is in
                 # the published 2.0 semantic profile.
-                digits = func.length(
-                    func.replace(func.replace(func.trim(column), "+", ""), "-", "")
-                )
+                digits = _integer_text_digit_count(column)
                 valid = and_(valid, digits <= 18)
             converted = sa_cast(column, _target_sql_type(target))
         elif backend == "mssql":
@@ -460,9 +466,12 @@ def prepare_scalar(
                 )
             from sqlalchemy.dialects.mssql import try_cast
 
-            converted = try_cast(column, _target_sql_type(target))
+            normalized = column
+            for whitespace in ("\t", "\n", "\r", "\v", "\f"):
+                normalized = func.replace(normalized, whitespace, " ")
+            trimmed = func.ltrim(func.rtrim(normalized))
+            converted = try_cast(trimmed, _target_sql_type(target))
             valid = converted.isnot(None)
-            trimmed = func.ltrim(func.rtrim(column))
             if target == "int":
                 first = func.substring(trimmed, 1, 1)
                 integer_digits = case(
@@ -584,9 +593,15 @@ def prepare_sqlite_scalar(
             valid = runtime == "real"
         else:
             text_float = and_(runtime == "text", column.op("REGEXP")(_text_pattern("float")))
-            valid = or_expression(runtime == "real", runtime == "integer", text_float)
+            text_float_value = sa_cast(column, Float())
+            finite_text_float = and_(
+                text_float,
+                text_float_value >= -float_info.max,
+                text_float_value <= float_info.max,
+            )
+            valid = or_expression(runtime == "real", runtime == "integer", finite_text_float)
             value = case(
-                (text_float, sa_cast(column, Float())),
+                (text_float, text_float_value),
                 else_=sa_cast(column, Float()),
             )
             coercion = "sqlite-numeric-to-float"

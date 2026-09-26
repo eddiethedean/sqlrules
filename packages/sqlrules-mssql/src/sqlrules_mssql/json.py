@@ -19,6 +19,11 @@ def _json_path_for_key(key: Any) -> str:
     return f'$."{escaped}"'
 
 
+def _json_path_for_array_index(index: int) -> str:
+    """Build a JSONPath for one zero-based array element."""
+    return f"$[{index}]"
+
+
 def _exact_text_equals(
     left: ColumnElement[Any],
     right: ColumnElement[Any],
@@ -101,7 +106,13 @@ def _openjson_array_equals(
         cast(ColumnElement[bool], _openjson_child_count(document) == len(expected))
     ]
     parts.extend(
-        _openjson_value_equals(document, str(index), value, field)
+        _openjson_value_equals(
+            document,
+            str(index),
+            value,
+            field,
+            nested_path=_json_path_for_array_index(index),
+        )
         for index, value in enumerate(expected)
     )
     return cast(ColumnElement[bool], and_(*parts))
@@ -112,6 +123,8 @@ def _openjson_value_equals(
     key: str,
     expected: Any,
     field: str,
+    *,
+    nested_path: str | None = None,
 ) -> ColumnElement[bool]:
     if expected is None:
         return _openjson_key_exists(document, key, json_type=0)
@@ -130,14 +143,14 @@ def _openjson_value_equals(
             expected_value=expected,
         )
     if isinstance(expected, dict):
-        nested = func.json_query(document, _json_path_for_key(key))
+        nested = func.json_query(document, nested_path or _json_path_for_key(key))
         return cast(
             ColumnElement[bool],
             _openjson_key_exists(document, key, json_type=5)
             & _openjson_object_equals(nested, expected, field),
         )
     if isinstance(expected, list):
-        nested = func.json_query(document, _json_path_for_key(key))
+        nested = func.json_query(document, nested_path or _json_path_for_key(key))
         return cast(
             ColumnElement[bool],
             _openjson_key_exists(document, key, json_type=4)
