@@ -224,4 +224,7 @@ def translate_json_has_key(
     context: CompilationContext,
 ) -> ColumnElement[bool]:
     """Translate ``json_has_key`` via ``OPENJSON`` key presence (includes JSON null)."""
-    return _openjson_key_exists(column, str(constraint.value))
+    return cast(
+        ColumnElement[bool],
+        _is_json_object(column) & _openjson_key_exists(column, str(constraint.value)),
+    )
