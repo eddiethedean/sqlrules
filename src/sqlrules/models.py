@@ -446,7 +446,7 @@ def normalize_schema(model: type[BaseModel]) -> SchemaSpec:
                 annotation,
                 "Array markers require a list field.",
             )
-        elif python_type in {list, dict}:
+        elif not uses_array and python_type in {list, dict}:
             raise UnsupportedConstraintError(
                 name,
                 "type",
