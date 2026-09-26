@@ -414,6 +414,13 @@ def normalize_schema(model: type[BaseModel]) -> SchemaSpec:
             operators = {item.operator for item in constraints}
             json_markers = {"json_contains", "json_has_key"}
             array_markers = {"array_contains", "array_overlap"}
+            if python_type is list and "json_has_key" in operators:
+                raise UnsupportedConstraintError(
+                    name,
+                    "json_has_key",
+                    annotation,
+                    "JsonHasKey requires a dict field; use ArrayContains for list elements.",
+                )
             if python_type is list and operators & json_markers:
                 python_type = dict
             elif python_type is dict and operators & array_markers:
