@@ -575,7 +575,7 @@ def prepare_sqlite_scalar(
             valid = integer
         else:
             text_integer = and_(runtime == "text", column.op("REGEXP")(_text_pattern("int")))
-            digits = func.length(func.replace(func.replace(func.trim(column), "+", ""), "-", ""))
+            digits = _integer_text_digit_count(column)
             valid = or_expression(
                 integer,
                 and_(integral_real, column >= -(2**63), column <= (2**63) - 1),
