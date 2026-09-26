@@ -42,6 +42,7 @@ statement = rows.select().where(*where(compiled))
 
 - SQL Server `LEN` length constraints
 - Guarded JSON helpers for text columns validated with `ISJSON` (`server_version` >= 13 and explicit `compatibility_level` >= 130)
+- `JsonContains` supports null, boolean, and string values; nested objects and arrays compare structurally, while numeric JSON values raise `CapabilityError` because exact numeric equality cannot be guaranteed from `OPENJSON` text values
 - Safe lax text-to-int/float conversions on SQL Server 2012+
 - No built-in regex translator
 - Text-to-Decimal is a compile-time capability error

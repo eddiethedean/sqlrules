@@ -129,7 +129,7 @@ def from_pydantic(
     converted_fields: dict[str, tuple[Any, Any]] = {}
     for name, info in model.model_fields.items():
         location = f"{source_name}.{name}"
-        concrete, _, annotation_metadata = _unwrap(info.annotation)
+        concrete, nullable, annotation_metadata = _unwrap(info.annotation)
         try:
             _domain_type(concrete, name)
         except UnsupportedConstraintError as exc:
@@ -166,6 +166,7 @@ def from_pydantic(
             )
 
         candidate_metadata = list(supported_metadata)
+        clean_annotation = concrete | type(None) if nullable else concrete
         clean_info: Any
         field_is_supported = False
         normalized_probe = None
@@ -177,7 +178,7 @@ def from_pydantic(
                     f"_{model.__name__}_{name}_Probe",
                     __base__=RuleSchema,
                     __module__=model.__module__,
-                    **{name: (info.annotation, clean_info)},
+                    **{name: (clean_annotation, clean_info)},
                 )
                 normalized_probe = normalize_schema(probe)
                 field_is_supported = True
@@ -210,7 +211,7 @@ def from_pydantic(
         if not field_is_supported:
             continue
 
-        converted_fields[name] = (info.annotation, clean_info)
+        converted_fields[name] = (clean_annotation, clean_info)
         entries.append(
             _report_entry(
                 location,

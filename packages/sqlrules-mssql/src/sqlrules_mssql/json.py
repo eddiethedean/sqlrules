@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 from typing import Any, cast
 
-from sqlalchemy import Integer, String, Unicode, exists, func, literal, select, type_coerce
+from sqlalchemy import Integer, String, Unicode, and_, exists, func, literal, select, type_coerce
 from sqlalchemy import cast as sa_cast
 from sqlalchemy import column as sa_column
 from sqlalchemy.sql.elements import ColumnElement
 
+from sqlrules.errors import CapabilityError
 from sqlrules.ir import CompilationContext, Constraint
 
 
@@ -74,6 +75,95 @@ def _openjson_key_matches(
     return cast(ColumnElement[bool], exists(select(1).select_from(oj).where(predicate)))
 
 
+def _openjson_child_count(document: ColumnElement[Any]) -> ColumnElement[Any]:
+    children = func.openjson(document).table_valued(sa_column("key", String)).alias("children")
+    return select(func.count()).select_from(children).scalar_subquery()
+
+
+def _openjson_object_equals(
+    document: ColumnElement[Any],
+    expected: dict[Any, Any],
+    field: str,
+) -> ColumnElement[bool]:
+    parts: list[ColumnElement[bool]] = [
+        cast(ColumnElement[bool], _openjson_child_count(document) == len(expected))
+    ]
+    parts.extend(
+        _openjson_value_equals(document, str(key), value, field) for key, value in expected.items()
+    )
+    return cast(ColumnElement[bool], and_(*parts))
+
+
+def _openjson_array_equals(
+    document: ColumnElement[Any],
+    expected: list[Any],
+    field: str,
+) -> ColumnElement[bool]:
+    parts: list[ColumnElement[bool]] = [
+        cast(ColumnElement[bool], _openjson_child_count(document) == len(expected))
+    ]
+    parts.extend(
+        _openjson_value_equals(document, str(index), value, field)
+        for index, value in enumerate(expected)
+    )
+    return cast(ColumnElement[bool], and_(*parts))
+
+
+def _openjson_value_equals(
+    document: ColumnElement[Any],
+    key: str,
+    expected: Any,
+    field: str,
+) -> ColumnElement[bool]:
+    if expected is None:
+        return _openjson_key_exists(document, key, json_type=0)
+    if isinstance(expected, bool):
+        return _openjson_key_matches(
+            document,
+            key,
+            json_type=3,
+            expected_value="true" if expected else "false",
+        )
+    if isinstance(expected, str):
+        return _openjson_key_matches(
+            document,
+            key,
+            json_type=1,
+            expected_value=expected,
+        )
+    if isinstance(expected, dict):
+        nested = func.json_query(document, _json_path_for_key(key))
+        return cast(
+            ColumnElement[bool],
+            _openjson_key_exists(document, key, json_type=5)
+            & _openjson_object_equals(nested, expected, field),
+        )
+    if isinstance(expected, list):
+        nested = func.json_query(document, _json_path_for_key(key))
+        return cast(
+            ColumnElement[bool],
+            _openjson_key_exists(document, key, json_type=4)
+            & _openjson_array_equals(nested, expected, field),
+        )
+    if isinstance(expected, (int, float)):
+        raise CapabilityError(
+            "mssql",
+            field,
+            "exact JSON numeric equality",
+            "OPENJSON.value text",
+            "SQL Server exposes JSON numbers as text, and the provider cannot "
+            "guarantee exact numeric equivalence without lossy conversion.",
+        )
+    raise CapabilityError(
+        "mssql",
+        field,
+        "JSON scalar equality",
+        type(expected).__name__,
+        "Only null, boolean, string, object, and array values are supported by "
+        "the SQL Server JSON containment translator.",
+    )
+
+
 def translate_json_contains(
     constraint: Constraint,
     column: ColumnElement[Any],
@@ -81,9 +171,11 @@ def translate_json_contains(
 ) -> ColumnElement[bool]:
     """Translate ``json_contains`` using SQL Server JSON functions.
 
-    Object payloads use shallow key checks via ``JSON_VALUE`` /
-    ``JSON_QUERY`` / ``OPENJSON``. Nested deep-merge containment is not
-    emulated.
+    Object payloads contain their requested top-level keys. Nested objects and
+    arrays are matched exactly by structure, independent of whitespace and
+    object key order. Numeric comparisons are rejected because ``OPENJSON``
+    exposes numbers as text and SQL Server cannot guarantee exact equality
+    without a potentially lossy conversion.
     """
     value = constraint.value
     if isinstance(value, dict):
@@ -97,47 +189,7 @@ def translate_json_contains(
             )
         parts: list[ColumnElement[bool]] = []
         for key, expected in value.items():
-            path = _json_path_for_key(key)
-            key_text = str(key)
-            if expected is None:
-                # OPENJSON's type code is an integer: 0 means JSON null.
-                parts.append(_openjson_key_exists(column, key_text, json_type=0))
-            elif isinstance(expected, (dict, list)):
-                compact = _compact_dumps(expected)
-                parts.append(
-                    _exact_text_equals(
-                        func.json_query(column, path),
-                        func.json_query(sa_cast(literal(compact), String), "$"),
-                    )
-                )
-            elif isinstance(expected, bool):
-                expected_text = "true" if expected else "false"
-                parts.append(
-                    _openjson_key_matches(
-                        column,
-                        key_text,
-                        json_type=3,
-                        expected_value=expected_text,
-                    )
-                )
-            elif isinstance(expected, str):
-                parts.append(
-                    _openjson_key_matches(
-                        column,
-                        key_text,
-                        json_type=1,
-                        expected_value=expected,
-                    )
-                )
-            else:
-                parts.append(
-                    _openjson_key_matches(
-                        column,
-                        key_text,
-                        json_type=2,
-                        expected_value=str(expected),
-                    )
-                )
+            parts.append(_openjson_value_equals(column, str(key), expected, constraint.field))
         expression = parts[0]
         for part in parts[1:]:
             expression = expression & part
