@@ -1,6 +1,7 @@
-from sqlrules.compiler import Compiler, clear_model_cache, compile, flatten, where
-from sqlrules.constraints import pattern_text, type_spec
+from sqlrules.compiler import Compiler, clear_model_cache, compile, flatten, notwhere, where
+from sqlrules.constraints import pattern_text
 from sqlrules.errors import (
+    CapabilityError,
     ConfigurationError,
     InternalCompilerError,
     InvalidModelError,
@@ -12,15 +13,23 @@ from sqlrules.errors import (
     TranslatorError,
     UnsupportedConstraintError,
 )
+from sqlrules.integrations.pydantic import (
+    ConversionEntry,
+    ConversionReport,
+    PydanticConversion,
+    from_pydantic,
+)
 from sqlrules.ir import (
     CompilationContext,
+    CompiledRules,
     Constraint,
     Diagnostic,
     FieldDescriptor,
-    FieldIR,
-    ModelIR,
+    FieldResult,
     PatternSpec,
-    TypeSpec,
+    PreparedValue,
+    RuleField,
+    SchemaSpec,
 )
 from sqlrules.markers import (
     ArrayContains,
@@ -32,23 +41,30 @@ from sqlrules.markers import (
     RangeContains,
     RangeOverlap,
 )
-from sqlrules.plugins import PLUGIN_API_VERSION, SQLRulesPlugin
-from sqlrules.translators import SQLRulesWarning, TranslatorRegistry, default_registry
+from sqlrules.models import Field, RuleConfig, RuleSchema
+from sqlrules.plugins import PLUGIN_API_VERSION, BackendProvider, SQLRulesPlugin
+from sqlrules.translators import TranslatorRegistry, default_registry
 
-__version__ = "1.0.1"
+__version__ = "2.0.0"
 
 __all__ = [
     "PLUGIN_API_VERSION",
     "ArrayContains",
     "ArrayOverlap",
+    "BackendProvider",
+    "CapabilityError",
     "CompilationContext",
+    "CompiledRules",
     "Compiler",
     "ConfigurationError",
+    "ConversionEntry",
+    "ConversionReport",
     "Constraint",
     "ConstraintMarker",
     "Diagnostic",
     "FieldDescriptor",
-    "FieldIR",
+    "FieldResult",
+    "Field",
     "FullTextMatch",
     "InternalCompilerError",
     "InvalidModelError",
@@ -56,25 +72,29 @@ __all__ = [
     "JsonContains",
     "JsonHasKey",
     "MissingColumnError",
-    "ModelIR",
     "PatternSpec",
+    "PreparedValue",
     "PluginError",
     "RangeContains",
     "RangeOverlap",
     "RegistryError",
+    "RuleConfig",
+    "RuleField",
+    "RuleSchema",
+    "SchemaSpec",
     "SQLRulesError",
     "SQLRulesPlugin",
-    "SQLRulesWarning",
     "TranslatorError",
     "TranslatorRegistry",
-    "TypeSpec",
+    "PydanticConversion",
     "UnsupportedConstraintError",
     "__version__",
     "clear_model_cache",
     "compile",
     "default_registry",
     "flatten",
+    "from_pydantic",
+    "notwhere",
     "pattern_text",
-    "type_spec",
     "where",
 ]

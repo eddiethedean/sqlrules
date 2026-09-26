@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- SQLRules 2.0 `RuleSchema`, Pydantic conversion with deterministic reports,
+  explicit backend providers, safe scalar preparation, `CompiledRules`, and
+  `notwhere()`.
+- Coordinated 2.0.0 package metadata, API v2 documentation, examples, and
+  migration guidance.
+
+### Changed
+
+- Compilation now requires SQLRules-compatible declarations and exactly one
+  explicit backend provider. Every supported scalar annotation is a rule.
+- Backend coercion and strictness follow the published 2.0 semantic profile;
+  retained rules cannot be omitted with warn/ignore settings.
+
 ## [1.0.1] - 2026-07-11
 
 ### Fixed

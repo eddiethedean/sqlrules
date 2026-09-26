@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from sqlalchemy import func
 from sqlalchemy.sql.elements import ColumnElement
 
 from sqlrules.ir import CompilationContext, Constraint
@@ -22,4 +23,7 @@ def translate_json_has_key(
     context: CompilationContext,
 ) -> ColumnElement[bool]:
     """Translate ``json_has_key`` to JSONB ``?`` / ``has_key``."""
-    return cast(ColumnElement[bool], column.has_key(constraint.value))
+    return cast(
+        ColumnElement[bool],
+        (func.jsonb_typeof(column) == "object") & column.has_key(constraint.value),
+    )

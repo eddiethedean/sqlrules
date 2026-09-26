@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy import Column, Integer, MetaData, String, Table
+from sqlrules_sqlite import SQLitePlugin
 
 import sqlrules
+from sqlrules import Compiler, RuleSchema
 
 users = Table(
     "users",
@@ -22,15 +24,16 @@ users = Table(
 )
 
 
-class UserFilter(BaseModel):
+class UserFilter(RuleSchema):
     age: Annotated[int, Field(ge=18, le=65)]
     name: Annotated[str, Field(min_length=2)]
 
 
 def main() -> None:
-    rules = sqlrules.compile(UserFilter, users)
-    stmt = users.select().where(*sqlrules.where(rules))
-    print("fields:", sorted(rules))
+    compiler = Compiler(plugins=[SQLitePlugin()])
+    compiled = compiler.compile(UserFilter, users)
+    stmt = users.select().where(*sqlrules.where(compiled))
+    print("fields:", [field.name for field in compiled.fields])
     print(stmt)
 
 

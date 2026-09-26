@@ -1,67 +1,58 @@
 # Troubleshooting
 
-## `UnsupportedConstraintError`
+## RuleSchema declaration errors
 
-An operator or type has no translator.
+RuleSchema checks supported types and metadata during class creation. Remove
+custom validators, serializers, computed fields, unsupported Pydantic options,
+general unions, or unsupported type/constraint combinations. To use a full
+Pydantic model that contains those features, convert it with from_pydantic()
+and inspect its report.
 
-- Check [CONSTRAINTS](../CONSTRAINTS.md) and [TYPE_SUPPORT](../TYPE_SUPPORT.md).
-- For `pattern` / dialect markers, install a plugin and pass
-  `Compiler(plugins=[...])` (or register a translator).
-- For unknown **operators** only, try `on_unsupported="warn"` or `"ignore"`.
-  Unsupported **types** always raise.
-- `emit_type_checks=True` without a `type_check` translator raises the same
-  way as bare `pattern` — install a dialect plugin or register a translator.
+## CapabilityError
 
-## `pattern` still unsupported with `sqlrules-mssql`
+The selected backend cannot prove the bound column's logical type or safely
+implement the requested conversion. Check the source SQLAlchemy type,
+configured server_version, SQLite storage class, and collation requirements
+in [TYPE_SUPPORT](../TYPE_SUPPORT.md). A known row mismatch is a non-match;
+an unavailable backend capability is a compile-time error.
 
-Expected: the MSSQL plugin does **not** register `pattern`. Use PostgreSQL /
-SQLite / MySQL plugins, a custom translator, or drop the constraint.
+## MissingColumnError
 
-## `pattern` compiles but SQLite queries fail / never match
+Every field, including a type-only field, needs a bound SQLAlchemy column.
+Use column_map keyed by the Python field name, Field(column="..."), or a
+matching database column.
 
-`sqlrules-sqlite` emits `REGEXP`. Call
-`sqlrules_sqlite.register_regexp(connection)` on each connection (or via a
-SQLAlchemy `connect` event). Until then, SQLite has no REGEXP implementation.
-See [DIALECT_SUPPORT](../DIALECT_SUPPORT.md) and [SECURITY](../SECURITY.md)
-(Python `re` runs in-process).
+## Pattern unsupported on SQL Server
 
-## `MissingColumnError`
+Expected: sqlrules-mssql does not register pattern. Select a provider that
+supports the pattern semantics or remove the pattern declaration.
 
-A constrained field could not bind to a column.
+## SQLite REGEXP errors
 
-```python
-rules = sqlrules.compile(
-    Model,
-    table,
-    column_map={"field_or_alias": table.c.actual_column},
-)
-```
-
-- Confirm the table/ORM attribute is a real column (not `Table.name`, etc.).
-- String aliases on `Field` are tried before the Python field name.
-- Full walkthrough: [ORM / column_map](orm-column-map.md).
+SQLite does not provide REGEXP by default, and its built-in `length(TEXT)`
+stops at an embedded NUL. Register `sqlrules_sqlite.register_sqlite_functions()`
+on each connection when patterns, textual coercions, or string length
+constraints are used. `register_regexp()` remains a backward-compatible alias.
 
 ## Plugin registration conflicts
 
-Two plugins (or a plugin and a builtin) claim the same operator.
+Two translators claim one operator. Set on_conflict="replace" or "ignore" on
+Compiler or the individual register_constraint() call. Exactly one backend
+provider must be selected.
 
-- Set `on_conflict="replace"` or `"ignore"` on `Compiler` / `register_constraint`.
-- Default is `"raise"`. See [PLUGIN_SYSTEM](../PLUGIN_SYSTEM.md).
+## Plugin API mismatch
 
-## Plugin API version mismatch
+api_version must equal sqlrules.PLUGIN_API_VERSION (currently 2). API v1
+plugins need a backend preparation hook and capability report before they can
+be used with 2.0.
 
-`api_version` must equal `sqlrules.PLUGIN_API_VERSION` (`"1"`). Upgrade the
-plugin or core so they match.
+## Rows match unexpectedly
 
-## Rules look wrong / empty
+Inspect compiled.explain() for the bound columns, logical types, coercion
+profile, and backend assumptions. Use notwhere(compiled) to query failing
+rows. Defaults and values on a Python model instance never become SQL
+predicates.
 
-- Unconstrained fields are omitted.
-- Confirm you are inspecting the returned dict, not re-validating the model
-  or expecting instance values in the WHERE clause.
-- For two-phase use, call `bind` after `compile_model`.
-- `dialect=` alone never loads plugins — pass `plugins=[...]`.
+## More help
 
-## Still stuck?
-
-- [FAQ](faq.md) · [ERRORS](../ERRORS.md) · [SECURITY](../SECURITY.md)
-- Open an issue: https://github.com/eddiethedean/sqlrules/issues
+[FAQ](faq.md) · [Errors](../ERRORS.md) · [Support matrix](../TYPE_SUPPORT.md)

@@ -3,18 +3,17 @@ from __future__ import annotations
 import inspect
 import math
 import operator
-import sys
 import threading
-import types
-import warnings
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
-from sqlalchemy import func
+from sqlalchemy import Float, Unicode, and_, func, literal, or_
+from sqlalchemy import cast as sa_cast
 from sqlalchemy.sql.elements import ColumnElement
 
 from sqlrules.errors import (
+    CapabilityError,
     InvalidTranslatorError,
     RegistryError,
     TranslatorError,
@@ -23,23 +22,6 @@ from sqlrules.errors import (
 from sqlrules.ir import CompilationContext, Constraint, OnConflict
 
 Translator = Callable[[Constraint, ColumnElement[Any], CompilationContext], ColumnElement[bool]]
-
-
-class SQLRulesWarning(UserWarning):
-    """Warning emitted when an unsupported constraint is skipped."""
-
-
-def _warning_stacklevel() -> int:
-    """Stacklevel that attributes warnings to the first frame outside sqlrules."""
-    frame: types.FrameType | None = sys._getframe(1)
-    level = 1
-    while frame is not None:
-        module = frame.f_globals.get("__name__", "")
-        if not (isinstance(module, str) and module.startswith("sqlrules")):
-            return level
-        frame = frame.f_back
-        level += 1
-    return 2
 
 
 def _binary(op: Callable[[Any, Any], Any]) -> Translator:
@@ -67,6 +49,13 @@ def _is_positive_finite(value: Any) -> bool:
     return bool(value > 0)
 
 
+def _logical_type_name(column: ColumnElement[Any]) -> str:
+    try:
+        return column.type.python_type.__name__.lower()
+    except (AttributeError, NotImplementedError):
+        return type(column.type).__name__.lower()
+
+
 def _multiple_of(
     constraint: Constraint,
     column: ColumnElement[Any],
@@ -79,6 +68,27 @@ def _multiple_of(
             operator="multiple_of",
             value=value,
             suggestion="multiple_of requires a finite positive numeric value.",
+        )
+    if isinstance(column.type, Float) or isinstance(value, float):
+        raise CapabilityError(
+            context.dialect or "unknown",
+            constraint.field,
+            _logical_type_name(column),
+            type(column.type).__name__,
+            "the built-in modulo translator does not support floating-point fields or divisors.",
+        )
+    if (
+        context.dialect == "sqlite"
+        and isinstance(value, Decimal)
+        and value != value.to_integral_value()
+    ):
+        raise CapabilityError(
+            context.dialect,
+            constraint.field,
+            _logical_type_name(column),
+            type(column.type).__name__,
+            "SQLite converts modulo operands to integers and would truncate this "
+            "non-integral Decimal divisor.",
         )
     return cast(ColumnElement[bool], (column % value) == 0)
 
@@ -104,6 +114,24 @@ def _in_values(
     column: ColumnElement[Any],
     context: CompilationContext,
 ) -> ColumnElement[bool]:
+    values = constraint.value
+    if not values:
+        return cast(ColumnElement[bool], column.in_(values))
+    if context.dialect in {"mysql", "mssql"} and all(isinstance(value, str) for value in values):
+        exact_matches: list[ColumnElement[bool]] = []
+        for value in values:
+            bound = literal(value)
+            if context.dialect == "mysql":
+                same_length = func.char_length(column) == func.char_length(bound)
+            else:
+                # SQL Server pads strings during equality comparisons. Compare
+                # unbounded Unicode byte lengths to avoid padding and truncation
+                # from the source column's declared size.
+                same_length = func.datalength(sa_cast(column, Unicode())) == func.datalength(
+                    sa_cast(bound, Unicode())
+                )
+            exact_matches.append(and_(column == bound, same_length))
+        return or_(*exact_matches)
     return cast(ColumnElement[bool], column.in_(constraint.value))
 
 
@@ -187,38 +215,15 @@ class TranslatorRegistry:
     def handle_missing_translator(
         self,
         constraint: Constraint,
-        context: CompilationContext,
-    ) -> None:
-        """Apply ``on_unsupported`` policy when no translator is registered."""
-        message = (
-            f"Field {constraint.field!r}: constraint {constraint.operator!r} "
-            "is not supported and will be skipped."
-        )
-        if context.on_unsupported == "raise":
-            raise UnsupportedConstraintError(
-                field=constraint.field,
-                operator=constraint.operator,
-                value=constraint.value,
-                suggestion=("Remove the constraint, or set on_unsupported='warn'/'ignore'."),
-            )
-        if context.on_unsupported == "warn":
-            context.record(
-                severity="warning",
-                field=constraint.field,
-                operator=constraint.operator,
-                value=constraint.value,
-                message=message,
-                code="unsupported_constraint",
-            )
-            warnings.warn(message, SQLRulesWarning, stacklevel=_warning_stacklevel())
-            return
-        context.record(
-            severity="info",
+    ) -> NoReturn:
+        """Fail when a retained constraint has no translator."""
+        raise UnsupportedConstraintError(
             field=constraint.field,
             operator=constraint.operator,
             value=constraint.value,
-            message=message,
-            code="unsupported_constraint",
+            suggestion=(
+                "Remove it or use from_pydantic() to convert and report unsupported declarations."
+            ),
         )
 
     def translate(
@@ -226,15 +231,14 @@ class TranslatorRegistry:
         constraint: Constraint,
         column: ColumnElement[Any],
         context: CompilationContext,
-    ) -> ColumnElement[bool] | None:
+    ) -> ColumnElement[bool]:
         translator = self.lookup(constraint.operator)
         if translator is None:
-            self.handle_missing_translator(constraint, context)
-            return None
+            self.handle_missing_translator(constraint)
 
         try:
             result = translator(constraint, column, context)
-        except UnsupportedConstraintError:
+        except (CapabilityError, UnsupportedConstraintError):
             raise
         except Exception as exc:  # pragma: no cover - defensive wrapper
             raise TranslatorError(

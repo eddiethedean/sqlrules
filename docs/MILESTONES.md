@@ -195,8 +195,8 @@ No new major features.
 
 ## 2.x Release Policy
 
-Status: planned. The [2.0 design](V2_DESIGN.md) defines the proposed API and
-semantic contract. Phase 2.0 ends with **2.0.0**, phase 2.1 with **2.1.0**, and
+Status: implementation in progress. The [2.0 design](V2_DESIGN.md) defines the
+API and semantic contract. Phase 2.0 ends with **2.0.0**, phase 2.1 with **2.1.0**, and
 so on. Internal work packages below are dependency steps within a release.
 Dates are assigned after each phase's capability and conformance scope is fixed.
 
@@ -206,7 +206,7 @@ depends on Pydantic v2; the conversion helper ships in the core distribution.
 while preserving the 2.0 semantic profile for existing schemas. Additional
 coercions that broaden accepted data require an explicit opt-in or profile.
 
-## 2.0.0 — Rule Schemas and Semantic Foundations (planned)
+## 2.0.0 — Rule Schemas and Semantic Foundations (in progress)
 
 ### Outcome
 
@@ -315,8 +315,8 @@ Depends on A; integrates the schema representation from B.
 - Define plugin API v2 with distinct source preparation, capability reporting,
   and constraint translation. Require an explicit backend provider and stable
   capability errors. Do not allow `warn`/`ignore` to omit a retained rule.
-- Freeze registry snapshots, isolate per-call state, and bound schema caches.
-  Keep diagnostics and table-bound expressions out of shared cached schema IR.
+- Freeze registry snapshots and isolate per-call state. Do not keep
+  diagnostics, mutable payloads, or table-bound expressions in shared schema IR.
 
 Exit: public result behavior is fixed, nullable/grouping semantics are
 representable without later API changes, and IR-level truth tables show every
@@ -360,9 +360,10 @@ Depends on B, C, and D passing their exits.
   release tooling. Remove stale references to plugin API v1 and package pins
   `>=1,<2`; align all five distribution versions at **2.0.0**.
 - Run database conformance, converter reports, Pydantic model validation,
-  FastAPI request/response checks, concurrency/cache checks, docs builds, and
-  wheel installation checks from clean environments. Record warm/cold compile
-  performance baselines for later comparison.
+  FastAPI request/response checks, concurrent compilation and cache-compatibility
+  checks, docs builds, and wheel installation checks from clean environments.
+  Record normalization, bind, and full compile performance baselines for later
+  comparison.
 - Confirm each example in the migration guide runs against its documented
   backend and adapter setup. Publish the frozen type/coercion capability matrix.
 
@@ -433,7 +434,7 @@ capability/conformance checks. Existing schemas keep their previous semantics.
 
 - Type/coercion behavior is versioned; a later Pydantic release cannot silently
   change the meaning of an existing SQLRules schema.
-- Database execution checks, performance tracking, bounded caches, concurrent
+- Database execution checks, performance tracking, cache behavior, concurrent
   compilation, diagnostics, docs, and packaging start in 2.0 and continue in
   every phase.
 - Compilation enforces all retained rules. Permissive stripping is confined to

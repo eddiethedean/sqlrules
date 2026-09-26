@@ -1,209 +1,169 @@
 # Public API
 
-SQLRules exposes three stability tiers. Semver applies to the
-**Application** and **Plugin** tiers. The **Internal** tier may change
-in minor releases without notice.
+SQLRules 2.0 has an application API, a versioned plugin API, and internal
+implementation modules. Application and plugin APIs follow semantic
+versioning. Internal modules may change without notice.
 
-------------------------------------------------------------------------
-
-## Application API (stable)
-
-Primary surface for application code:
+## Application API
 
 | Symbol | Role |
 |---|---|
-| `compile` | One-shot compile (no plugins) |
-| `where` / `flatten` | Flatten a rules dict (identical aliases; both supported) |
-| `Compiler` | Reusable compiler with plugins / registry / cache |
-| `clear_model_cache` | Clear the process-wide default Phase-1 IR cache |
-| Exception hierarchy under `SQLRulesError` | Fail-fast errors |
-| `__version__` | Package version |
-| Markers (`JsonContains`, …) | `Annotated` metadata for dialect operators |
+| RuleSchema | Pydantic v2 BaseModel restricted to SQL-compilable declarations |
+| Field | Pydantic Field wrapper with SQLRules-only column binding metadata |
+| RuleConfig | SQLRules model options, including explicit allow_empty |
+| from_pydantic | Convert an unrestricted Pydantic class and return a loss report |
+| Compiler / compile | Normalize a RuleSchema and bind it through one explicit backend |
+| CompiledRules | Complete total predicate, field results, diagnostics, and explain plan |
+| where / flatten | One-item list containing the complete root predicate |
+| notwhere | One-item list containing the root predicate complement |
+| CapabilityError | Backend cannot prove or implement a retained rule |
+| SQLRulesError hierarchy | Stable public compilation errors |
 
-```python
-sqlrules.compile(
-    model,
-    table,
-    *,
-    column_map=None,
-    on_unsupported="raise",
-    cache=True,
-    emit_type_checks=False,
-) -> dict[str, list[ColumnElement[bool]]]
-```
+Example:
 
-| Parameter | Description |
-|---|---|
-| `model` | Pydantic `BaseModel` subclass |
-| `table` | SQLAlchemy `Table`, alias, ORM class, or object with `.c` |
-| `column_map` | Optional explicit field/alias → column mapping |
-| `on_unsupported` | `"raise"` (default), `"warn"`, or `"ignore"` for unknown **operators** |
-| `cache` | Cache Phase-1 model IR (default `True`) |
-| `emit_type_checks` | When `True`, emit `type_check` IR for supported scalars (needs a plugin translator) |
+~~~python
+from sqlrules import Compiler, RuleSchema, notwhere, where
+from sqlrules_postgresql import PostgresPlugin
 
-Rule dictionary keys are always the Python field names. String field aliases
-are used only for column binding. Unconstrained fields are omitted from the
-rules dict (unless `emit_type_checks=True`) but **must still use a supported
-type annotation**.
 
-Unsupported **types** always raise, regardless of `on_unsupported`.
+class UserRules(RuleSchema):
+    id: int
+    age: int | None
 
-Module-level `compile` does not accept plugins; use `Compiler`.
 
-**Raises** (typical): `InvalidModelError`, `MissingColumnError`,
-`UnsupportedConstraintError`, `TranslatorError`, `ConfigurationError`.
-See [ERRORS](ERRORS.md).
+compiler = Compiler(plugins=[PostgresPlugin(server_version=(16, 0))])
+compiled = compiler.compile(UserRules, users)
+matches = users.select().where(*where(compiled))
+failures = users.select().where(*notwhere(compiled))
+~~~
 
-### `where` / `flatten`
+The module-level compile() has the same explicit provider requirement:
 
-```python
-sqlrules.where(rules) -> list[ColumnElement[bool]]
-sqlrules.flatten(rules) -> list[ColumnElement[bool]]
-```
+~~~python
+sqlrules.compile(model, table, *, plugins, column_map=None) -> CompiledRules
+~~~
 
-Identical aliases. Both are part of the stable Application API.
+model must be a RuleSchema class. Direct compilation of an unrestricted
+Pydantic BaseModel raises InvalidModelError; call from_pydantic() first.
+column_map maps Python field names to SQLAlchemy columns. Field(column=...)
+selects a column name without changing Pydantic aliases.
 
-### `clear_model_cache`
+## RuleSchema behavior
 
-```python
-sqlrules.clear_model_cache() -> None
-```
+RuleSchema is a full Pydantic v2 model. Instances support normal construction,
+model_validate(), model_dump(), Pydantic validation errors, and FastAPI route
+integration. It also validates declarations during class construction.
 
-Clears the process-wide default Phase-1 `ModelIR` cache. Call this when
-creating many ephemeral models (for example `pydantic.create_model`) so
-cached IR does not grow without bound. Compilers constructed with a custom
-`model_cache=` are unaffected.
+Supported declarations include scalar annotations, homogeneous Literal and
+Enum domains, nullable fields, supported Pydantic constraints, strict aliases,
+and supported metadata in Annotated. Type-only scalar annotations compile a
+type predicate. Pydantic defaults and default factories keep their runtime
+behavior but never become SQL defaults or bypass column checks.
 
-### `Compiler`
+SQL-only column mapping is written with SQLRules Field:
 
-```python
-compiler = sqlrules.Compiler(
-    on_unsupported="raise",
+~~~python
+from sqlrules import Field, RuleSchema
+
+
+class UserRules(RuleSchema):
+    display_name: str = Field(column="name")
+~~~
+
+An empty RuleSchema is rejected unless it declares
+__rule_config__ = RuleConfig(allow_empty=True). An allowed empty schema
+compiles to TRUE.
+
+## Pydantic conversion
+
+~~~python
+from sqlrules.integrations.pydantic import from_pydantic
+
+conversion = from_pydantic(
+    ApiModel,
+    on_incompatible="warn",  # warn, drop, or raise
+)
+RulesModel = conversion.model
+report = conversion.report
+~~~
+
+The conversion report records retained rules, descriptive metadata,
+unsupported callbacks, dropped fields or constraints, and changed or unknown
+semantics. Conversion never runs validators, serializers, or default
+factories.
+
+## CompiledRules
+
+CompiledRules is an immutable result containing:
+
+- predicate: the complete SQLAlchemy predicate with total TRUE/FALSE behavior.
+- fields: ordered FieldResult entries containing field predicates, bindings,
+  logical types, strictness, nullability, coercions, and capabilities.
+- diagnostics: compile-scoped structured diagnostics.
+- backend, server_version, and assumptions.
+- explain(): a structured plan; it does not execute database EXPLAIN.
+
+where(compiled) returns [compiled.predicate]. notwhere(compiled) returns
+[~compiled.predicate]. flatten(compiled) remains an alias for where(). Each
+helper accepts only a CompiledRules result.
+
+## Compiler
+
+~~~python
+compiler = Compiler(
+    plugins=[PostgresPlugin(server_version=(16, 0))],
     registry=None,
-    plugins=None,
     on_conflict="raise",
     dialect=None,
-    cache=True,
-    model_cache=None,
-    emit_type_checks=False,
 )
-rules = compiler.compile(model, table, column_map=None)
+schema_ir = compiler.compile_model(UserRules)
+compiled = compiler.bind(schema_ir, users, column_map=None)
+~~~
 
-# Two-phase (advanced Application API):
-model_ir = compiler.compile_model(model)
-rules = compiler.bind(model_ir, table, column_map=None)
-compiler.diagnostics  # from the last bind/compile (translate phase)
-```
+Exactly one backend provider must be present when bind() or compile() runs.
+Constraint-only plugins may be included with it. on_conflict controls plugin
+registration. Unsupported retained operators always raise; warn and ignore
+policies are not available because they could omit a declared rule.
 
-| Parameter | Description |
-|---|---|
-| `plugins` | Optional `SQLRulesPlugin` instances registered at init |
-| `on_conflict` | Default for plugin `register()` / `register_constraint()`: `"raise"`, `"replace"`, `"ignore"` |
-| `dialect` | **Hint only** for custom translators on `CompilationContext`. Does **not** load plugins or change built-ins. Pass `plugins=[...]` explicitly. |
-| `registry` | Optional base `TranslatorRegistry`; always **copied** into the compiler |
-| `emit_type_checks` | Opt-in `type_check` IR from scalar annotations (`TypeSpec`) |
+compile_model() normalizes the schema without a database backend. bind()
+resolves columns and uses a backend provider. The compiler keeps an immutable
+registry snapshot and per-call diagnostics, so independent compiles do not
+share mutable compilation state.
 
-**Mutation:** do not call `compiler.registry.register(...)` (or
-`register_constraint`) after construction. Register translators via
-`plugins=` at init.
-
-**Concurrency:** do not call `compile` / `bind` / `compile_model` concurrently
-on the same `Compiler` instance. The shared Phase-1 IR cache is thread-safe
-across instances; call `clear_model_cache()` if you create many ephemeral
-models.
-
-------------------------------------------------------------------------
-
-## Plugin API (stable)
-
-For dialect packages and custom translators. Import from `sqlrules`:
+## Plugin API
 
 | Symbol | Role |
 |---|---|
-| `PLUGIN_API_VERSION` | Contract version string (`"1"`) — exact match required |
-| `SQLRulesPlugin` | Protocol: `name`, `api_version`, `register(registry)` |
-| `TranslatorRegistry` | Register / lookup / copy translators |
-| `default_registry` | Copy of built-in portable translators |
-| `pattern_text` | Unpack `PatternSpec` or `str` → `(pattern, ignore_case)` |
-| `type_spec` / `TypeSpec` | Helpers for `type_check` IR (opt-in `emit_type_checks`) |
-| `Constraint`, `PatternSpec`, `CompilationContext` | IR types used by translators |
-| `ModelIR` | Two-phase / caching IR root |
-| `ConstraintMarker` + marker dataclasses | Dialect operator metadata |
-| `SQLRulesWarning` | Warning class used by `on_unsupported="warn"` |
-| `sqlrules.conformance` | Test helpers for plugin authors (supported) |
+| PLUGIN_API_VERSION | Exact API contract string, currently 2 |
+| SQLRulesPlugin | name, api_version, and register(registry) protocol |
+| BackendProvider | Adds prepare_value() and capabilities() |
+| TranslatorRegistry | Copyable registry for normalized-expression translators |
+| PreparedValue | Source, normalized value, validity, null state, and provenance |
+| Constraint, PatternSpec, CompilationContext | Translator-facing IR types |
+| ConstraintMarker and marker dataclasses | Dialect operator metadata |
 
-Prefer `registry.register_constraint(..., on_conflict=...)`.
-`register(..., replace=)` remains as a thin compatibility alias.
+The translator's expression argument is the backend-prepared value, not the
+raw source column. Backend providers are responsible for safe conversion and
+source type evidence. API v1 plugins must be adapted to these requirements.
 
-```python
-from sqlrules import (
-    PLUGIN_API_VERSION,
-    Compiler,
-    TranslatorRegistry,
-    pattern_text,
-)
+See [PLUGIN_SYSTEM](PLUGIN_SYSTEM.md) and [IR_CONTRACT](IR_CONTRACT.md).
 
-class MyPlugin:
-    name = "my-plugin"
-    api_version = PLUGIN_API_VERSION
+## Internal API
 
-    def register(self, registry: TranslatorRegistry) -> None:
-        registry.register_constraint(
-            "pattern",
-            lambda c, col, ctx: col.op("~")(pattern_text(c.value)[0]),
-            on_conflict="replace",
-        )
-
-compiler = Compiler(plugins=[MyPlugin()], dialect="postgresql")
-```
-
-### `PLUGIN_API_VERSION` policy
-
-Version `"1"` requires an **exact** string match (`api_version == "1"`).
-It includes `PatternSpec` for `pattern` values. Always use
-`pattern_text(constraint.value)` — do not assume a bare `str`.
-
-Bump `PLUGIN_API_VERSION` to a new string (for example `"2"`) only when
-changing translator signatures, registry methods, or IR value types for
-built-in operators. See [PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md) and
-[IR_CONTRACT.md](IR_CONTRACT.md).
-
-Frozen marker operator names: `json_contains`, `json_has_key`,
-`array_contains`, `array_overlap`, `range_contains`, `range_overlap`,
-`fulltext_match`.
-
-`register_type`, `register_dialect`, and `register_compiler_pass` are
-**not** present on `TranslatorRegistry` in API v1 — do not probe with
-`hasattr`.
-
-------------------------------------------------------------------------
-
-## Internal API (unstable)
-
-Not covered by semver. Prefer Application/Plugin imports.
-
-- `sqlrules.inspectors`, `sqlrules.columns`, `sqlrules.cache` helpers
-- `DiagnosticsCollector`, private translator factories
-- Module layout details
-
-See [INTERNAL_API.md](INTERNAL_API.md).
-
-------------------------------------------------------------------------
+Implementation modules such as sqlrules.models, sqlrules.backend,
+sqlrules.columns, sqlrules.constraints, and private translator factories are
+not compatibility surfaces. Import public types from sqlrules instead.
 
 ## Exceptions
 
-All public exceptions inherit from `SQLRulesError`:
+- InvalidModelError
+- MissingColumnError
+- UnsupportedConstraintError
+- CapabilityError
+- TranslatorError / InvalidTranslatorError
+- RegistryError
+- ConfigurationError
+- PluginError
+- InternalCompilerError
 
-- `InvalidModelError`
-- `MissingColumnError`
-- `UnsupportedConstraintError`
-- `TranslatorError`
-- `InvalidTranslatorError`
-- `RegistryError`
-- `ConfigurationError`
-- `PluginError`
-- `InternalCompilerError` (reserved)
-
-`SQLRulesWarning` is used when `on_unsupported="warn"`.
-
-See [ERRORS.md](ERRORS.md).
+See [ERRORS](ERRORS.md).

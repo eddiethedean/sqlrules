@@ -1,7 +1,8 @@
 # SQLRules 2.0 Design
 
-Status: proposed implementation contract. The APIs below are design sketches;
-the shipped package remains 1.x until the 2.0.0 release gates are met.
+Status: SQLRules 2.0 implementation contract. The core and four official
+packages target the 2.0.0 line; the milestone gates track remaining release
+conformance evidence.
 See [Milestones](MILESTONES.md) for implementation order and release scope.
 
 ## Product contract
@@ -22,7 +23,7 @@ predicate selects matching rows; it neither rewrites stored values nor changes
 the values projected by a SELECT. Checking that an entire table passes requires
 a caller-executed query for rows failing the predicate.
 
-## Proposed authoring and compilation API
+## Authoring and compilation API
 
 ```python
 from typing import Annotated, Literal
@@ -30,6 +31,7 @@ from typing import Annotated, Literal
 import sqlrules
 from pydantic import ConfigDict, Field, PositiveInt, StrictBool, StringConstraints
 from sqlrules_postgresql import PostgresPlugin
+
 
 class UserRules(sqlrules.RuleSchema):
     model_config = ConfigDict(strict=False)
@@ -40,13 +42,16 @@ class UserRules(sqlrules.RuleSchema):
     status: Literal["active", "disabled"]
     verified: StrictBool
 
-user = UserRules.model_validate({
-    "id": "12",
-    "age": "21",
-    "name": "Ada",
-    "status": "active",
-    "verified": True,
-})
+
+user = UserRules.model_validate(
+    {
+        "id": "12",
+        "age": "21",
+        "name": "Ada",
+        "status": "active",
+        "verified": True,
+    }
+)
 data = user.model_dump()
 
 compiler = sqlrules.Compiler(
@@ -287,11 +292,11 @@ exposes its complement. A `notwhere()` helper over the 1.x rule dictionary
 cannot provide this guarantee by simply negating its existing expressions.
 
 Use immutable registry snapshots and per-call compilation state. Bound
-SQLAlchemy expressions are never stored in the process-wide schema cache.
-Bounded schema caching keys include schema and semantic-profile identity;
-configuration or marker payload mutation cannot leave stale cache entries.
-Unsupported mutable extension payloads must disable caching or supply a stable
-snapshot protocol. Diagnostics must not leak between concurrent compilations.
+SQLAlchemy expressions are never stored in shared schema IR. SQLRules does not
+maintain a process-wide schema cache; it normalizes declarations per compile
+so mutable marker payload changes cannot leave stale entries. Pydantic keeps
+its own compiled model validators. Diagnostics must not leak between
+concurrent compilations.
 
 ## Explicit Pydantic conversion
 
@@ -395,7 +400,7 @@ unavailable types explicitly. No all-types/all-dialects parity claim is made.
 - Include reference semantic tests for `model_validate()` and SQL predicates,
   backend execution tests that partition rows into matches and failures under
   `notwhere(compiled)` (including SQL NULL, invalid conversions, and allowed empty
-  schemas), adapter reports, concurrent compilation, bounded caches,
+  schemas), adapter reports, concurrent compilation, cache-compatibility checks,
   documentation builds, and wheel installation in release validation.
   Establish performance baselines in 2.0 and measure subsequent changes.
 

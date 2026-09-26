@@ -1,118 +1,96 @@
-# Specification
+# SQLRules 2.0 Specification
 
-## Primary API
+## Public contract
 
-```python
-rules = sqlrules.compile(MyModel, table)
-```
+`RuleSchema` is a Pydantic v2 `BaseModel` subclass whose accepted fields have
+SQL meaning. It remains a normal Pydantic model: callers can instantiate it,
+call `model_validate()` and `model_dump()`, and use it as a FastAPI model.
+Unrestricted application models remain supported through the explicit
+`from_pydantic()` converter.
 
-## Returns
+Every supported scalar annotation creates a type rule, whether or not the
+field has another constraint. The caller selects exactly one backend provider:
 
-```python
-dict[str, list[ColumnElement[bool]]]
-```
+~~~python
+from sqlrules import Compiler, RuleSchema, where
+from sqlrules_postgresql import PostgresPlugin
 
-Ordering is deterministic and follows model field declaration order.
-Within a field, expressions follow constraint extraction order.
-Fields that produce no expressions are omitted from the dictionary.
 
-## Supported constraints (v1.0)
+class UserRules(RuleSchema):
+    id: int
+    age: int | None
 
-- `gt`
-- `ge`
-- `lt`
-- `le`
-- `min_length`
-- `max_length`
-- `multiple_of`
-- `Literal`
-- `Enum`
 
-`pattern` is extracted into IR as `PatternSpec` but has no portable core
-translator. It raises by default; use `on_unsupported="warn"` / `"ignore"`,
-register a custom translator, or install a dialect plugin. Treat untrusted
-patterns as a CPU/ReDoS cost risk (see [SECURITY.md](SECURITY.md)).
+compiled = Compiler(plugins=[PostgresPlugin()]).compile(UserRules, users)
+statement = users.select().where(*where(compiled))
+~~~
 
-Dialect markers (`JsonContains`, `ArrayContains`, `RangeContains`,
-`FullTextMatch`, …) are extracted into IR and require a dialect plugin.
+Compilation performs no database I/O. It returns a `CompiledRules` instance
+containing one total root predicate, per-field results, capability assumptions,
+diagnostics, and `explain()` output.
 
-`max_digits` and `decimal_places` are rejected at extract time (no portable
-SQL mapping in 1.0).
+## Predicate helpers
 
-## Supported types (v1.0)
+- `where(compiled)` returns a one-item list containing the complete predicate.
+- `flatten(compiled)` is an alias for `where(compiled)`.
+- `notwhere(compiled)` returns a one-item list containing the exact complement.
 
-- `bool`, `int`, `float`, `Decimal`, `str`
-- `date`, `datetime`, `time`
-- `UUID` (Literal / Enum only)
-- `Literal[...]`, `Enum`
-- `list` / `dict` (allowed annotations; portable constraints raise;
-  unconstrained containers are skipped like unconstrained scalars;
-  dialect markers require a plugin)
+The predicate is always SQL TRUE or FALSE. SQL NULL matches a field only when
+its annotation is nullable. Invalid values and failed constraints do not raise
+from the SQL expression; they produce a non-match. `notwhere()` therefore
+selects each row that fails one or more rules, including NULL and invalid
+values.
 
-**Whole-model rule:** every field annotation must be in this matrix, including
-fields with no constraints. Unsupported types (for example `timedelta`) always
-raise. Split filter models from DTOs that carry unsupported types.
+## Supported declarations
 
-## `where` / `flatten`
+Scalar annotations: `bool`, `int`, `float`, `Decimal`, `str`, `date`,
+`datetime`, `time`, and `UUID`; homogeneous `Literal` and `Enum` domains; and
+nullable forms. Lists and dictionaries are accepted only with a supported
+dialect marker. Collection item validation, general unions, nested JSON
+schemas, and custom Python validators are outside the 2.0 subset.
 
-Both names are supported aliases of the same function.
+Supported constraints include `gt`, `ge`, `lt`, `le`, `multiple_of`, string
+`min_length` / `max_length`, `pattern` where the provider registers a
+translator, and compatible Literal/Enum membership. Existing JSON, array,
+range, and full-text markers remain provider-specific.
 
-## Unsupported constraints
+Pydantic `Field`, `ConfigDict`, strict aliases, supported constrained aliases,
+`annotated_types` constraints, and compatible `Annotated` metadata can be
+imported directly. SQLRules `Field(column=...)` adds an optional database
+column binding. Class creation rejects unsupported metadata, invalid bounds,
+duplicate constraints, custom validators/serializers, computed fields, and
+custom schema hooks.
 
-Unsupported **constraint operators** raise `UnsupportedConstraintError` by
-default.
+## Type and conversion behavior
 
-Policies (`on_unsupported`):
+Lax mode uses the versioned SQLRules conversion profile in
+[TYPE_SUPPORT](TYPE_SUPPORT.md). Strict mode checks the logical type observable
+in the database. An explicit field strict setting overrides a reusable type
+setting, which overrides model `ConfigDict(strict=...)`; lax is the default.
+SQLite relies on runtime `typeof()` because column affinity cannot prove the
+stored type of each row.
 
-| Mode | Behavior |
-|---|---|
-| `raise` | Raise immediately (default) |
-| `warn` | Emit a `SQLRulesWarning`, record a diagnostic, and skip |
-| `ignore` | Record a diagnostic and silently skip |
-
-`on_unsupported` applies only to unknown constraint operators. Unsupported
-**types** (for example containers and `timedelta`) always raise.
+A backend mismatch that can be established safely is a non-match. If a backend
+cannot safely inspect or convert a source representation, compilation raises
+`CapabilityError`. Retained rules are never skipped by a warning or ignore
+policy.
 
 ## Column binding
 
-Each constrained field is bound to a SQLAlchemy column via, in order:
+For each rule field, resolution order is:
 
-1. `column_map` (keys may be the field name or a string alias)
-2. `table.c`
-3. ORM / attribute lookup, only when the attribute is a `ColumnElement` or
-   exposes `__clause_element__()`
+1. `column_map[field_name]`
+2. `sqlrules.Field(column="database_name")`
+3. the Python field name
 
-String `Field(alias=...)`, `validation_alias`, and `serialization_alias` are
-tried before the Python field name. Non-column table attributes (for example
-`Table.name` or `Table.is_selectable`) are never treated as columns.
-
-Unconstrained fields are skipped and do not require a matching column.
-
-## Two-phase compilation
-
-```python
-compiler = sqlrules.Compiler()
-model_ir = compiler.compile_model(MyModel)  # cached by default
-rules = compiler.bind(model_ir, table)
-```
-
-Phase 1 caches immutable model IR. Phase 2 binds columns and translates.
+Pydantic validation and serialization aliases keep their normal model
+behavior; they do not select database columns automatically. Every schema
+field must bind to a column, including fields with only a type annotation.
 
 ## Plugins
 
-```python
-compiler = sqlrules.Compiler(
-    plugins=[PostgresPlugin()],
-    dialect="postgresql",
-    on_conflict="raise",
-)
-```
-
-Plugins must declare `api_version == PLUGIN_API_VERSION`. See
-[PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md).
-
-## Compatibility
-
-- Python 3.10+
-- Pydantic v2
-- SQLAlchemy 2.x
+Constraint plugins register translators through `TranslatorRegistry`.
+Backend providers additionally prepare source values and expose a capability
+profile. The plugin API version is exported as
+`sqlrules.PLUGIN_API_VERSION` and currently equals `"2"`. See
+[PLUGIN_SYSTEM](PLUGIN_SYSTEM.md) and [DIALECT_SUPPORT](DIALECT_SUPPORT.md).

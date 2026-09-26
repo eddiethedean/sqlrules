@@ -25,19 +25,20 @@ SQL. Security boundaries are:
 |---|---|
 | PostgreSQL `~` / `~*` | Engine-side regex cost |
 | MySQL `REGEXP` | Engine-side regex cost |
-| SQLite `REGEXP` via `sqlrules_sqlite.register_regexp` | **Python `re.search` per row** in-process — catastrophic backtracking can stall the application worker |
+| SQLite `REGEXP` via `sqlrules_sqlite.register_sqlite_functions` | **Python `re.search` per row** in-process — catastrophic backtracking can stall the application worker |
 
 **Recommendations**
 
 - Prefer **static / allowlisted** patterns authored with the model, not
   patterns taken from end-user input.
 - Do not expose free-form regex from untrusted clients on hot query paths.
-- For SQLite, understand that `register_regexp` is not a sandbox; it runs
+- For SQLite, understand that `register_sqlite_functions` is not a sandbox; it runs
   Python's `re` in your process.
 - Official dialect packages are released in lockstep with core — pin the
-  same major line (`sqlrules>=1,<2` and matching dialect extras).
+  same major line (`sqlrules>=2,<3` and the matching dialect package).
 
 ## Non-goals
 
-SQLRules will not provide a plugin capability system, bytecode sandbox,
-or automatic dialect detection. See [NON_GOALS.md](NON_GOALS.md).
+SQLRules does not sandbox plugins or automatically detect a backend. Providers
+report capabilities, but installing and selecting a trusted package remains
+the application's responsibility. See [NON_GOALS.md](NON_GOALS.md).

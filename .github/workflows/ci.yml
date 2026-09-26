@@ -27,6 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip install "pydantic==2.13.4"
           python -m pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite \
             -e packages/sqlrules-mysql -e packages/sqlrules-mssql
 
@@ -66,6 +67,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip install "pydantic==2.13.4"
           python -m pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite \
             -e packages/sqlrules-mysql -e packages/sqlrules-mssql
 
@@ -113,21 +115,11 @@ jobs:
           python - <<'PY'
           from typing import Annotated
 
-          from pydantic import BaseModel, Field
+          from pydantic import Field
           from sqlalchemy import Column, MetaData, String, Table
 
           import sqlrules
-          from sqlrules import (
-              compile,
-              where,
-              flatten,
-              Compiler,
-              PLUGIN_API_VERSION,
-              clear_model_cache,
-              pattern_text,
-              TranslatorRegistry,
-              default_registry,
-          )
+          from sqlrules import PLUGIN_API_VERSION, RuleSchema, pattern_text
           from sqlrules.conformance import run_basic_conformance
           from sqlrules_postgresql import PostgresPlugin
           from sqlrules_sqlite import SQLitePlugin
@@ -135,17 +127,14 @@ jobs:
           from sqlrules_mssql import MssqlPlugin
 
           assert sqlrules.__version__
-          assert callable(compile)
-          assert callable(where)
-          assert callable(flatten)
-          assert callable(clear_model_cache)
+          assert callable(sqlrules.compile)
+          assert callable(sqlrules.where)
+          assert callable(sqlrules.flatten)
+          assert callable(sqlrules.notwhere)
           assert callable(pattern_text)
-          assert Compiler is not None
-          assert TranslatorRegistry is not None
-          assert callable(default_registry)
-          assert PLUGIN_API_VERSION == "1"
+          assert PLUGIN_API_VERSION == "2"
 
-          class LengthFilter(BaseModel):
+          class LengthFilter(RuleSchema):
               name: Annotated[str, Field(min_length=2)]
 
           length_table = Table("items", MetaData(), Column("name", String))
@@ -178,6 +167,72 @@ jobs:
       - name: Sphinx
         run: sphinx-build -W -b html docs docs/_build/html
 
+  database-conformance:
+    name: Live database conformance
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sqlrules
+          POSTGRES_PASSWORD: sqlrules-ci
+          POSTGRES_DB: sqlrules
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sqlrules -d sqlrules"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: sqlrules
+          MYSQL_USER: sqlrules
+          MYSQL_PASSWORD: sqlrules-ci
+          MYSQL_ROOT_PASSWORD: root-ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot-ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "SqlRules-ci!Passw0rd"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'SqlRules-ci!Passw0rd' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      SQLRULES_TEST_POSTGRESQL_URL: postgresql+psycopg://sqlrules:sqlrules-ci@127.0.0.1:5432/sqlrules
+      SQLRULES_TEST_MYSQL_URL: mysql+pymysql://sqlrules:sqlrules-ci@127.0.0.1:3306/sqlrules
+      SQLRULES_TEST_MSSQL_URL: mssql+pymssql://sa:SqlRules-ci%21Passw0rd@127.0.0.1:1433/master
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip install "pydantic==2.13.4" "psycopg[binary]" pymysql pymssql
+          python -m pip install -e packages/sqlrules-postgresql -e packages/sqlrules-sqlite \
+            -e packages/sqlrules-mysql -e packages/sqlrules-mssql
+
+      - name: Execute backend conformance corpus
+        run: pytest -o addopts='' -q tests/test_live_backend_conformance.py
+
   checks:
     name: CI checks
     if: always()
@@ -186,6 +241,7 @@ jobs:
       - test
       - package
       - docs
+      - database-conformance
     runs-on: ubuntu-latest
     steps:
       - name: Require all jobs
@@ -195,6 +251,7 @@ jobs:
             "${{ needs.test.result }}"
             "${{ needs.package.result }}"
             "${{ needs.docs.result }}"
+            "${{ needs.database-conformance.result }}"
           )
           for result in "${results[@]}"; do
             if [[ "$result" != "success" ]]; then
@@ -202,4 +259,4 @@ jobs:
               exit 1
             fi
           done
-          echo "All CI jobs passed (lint, test, package, docs)."
+          echo "All CI jobs passed (lint, test, package, docs, database conformance)."

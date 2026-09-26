@@ -1,61 +1,62 @@
 # sqlrules-sqlite
 
-SQLite dialect plugin for [SQLRules](https://github.com/eddiethedean/sqlrules).
+SQLite backend provider for [SQLRules](https://github.com/eddiethedean/sqlrules).
+The package version follows the core 2.x line.
 
 ## Install
 
 ```bash
-pip install sqlrules-sqlite
+pip install "sqlrules>=2,<3" "sqlrules-sqlite>=2,<3"
 ```
 
-## Usage
+## Use
 
 ```python
-import sqlite3
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
-from sqlalchemy import Column, MetaData, String, Table, create_engine, text
+from pydantic import Field
+from sqlalchemy import Column, JSON, MetaData, String, Table, create_engine, event
 
-from sqlrules import Compiler, JsonContains, JsonHasKey
-from sqlrules_sqlite import SQLitePlugin, register_regexp
+from sqlrules import Compiler, JsonContains, RuleSchema, where
+from sqlrules_sqlite import SQLitePlugin, register_sqlite_functions
 
-class RowFilter(BaseModel):
+rows = Table("rows", MetaData(), Column("name", String), Column("meta", JSON))
+
+
+class RowRules(RuleSchema):
     name: Annotated[str, Field(pattern=r"^A")]
-    meta: Annotated[dict[str, Any], JsonContains({"active": True}), JsonHasKey("active")]
+    meta: Annotated[dict[str, Any], JsonContains({"active": True})]
 
-table = Table(
-    "rows",
-    MetaData(),
-    Column("name", String),
-    Column("meta", String),
+
+engine = create_engine("sqlite:///app.db")
+event.listen(
+    engine,
+    "connect",
+    lambda dbapi_connection, _: register_sqlite_functions(dbapi_connection),
 )
-
-compiler = Compiler(plugins=[SQLitePlugin()], dialect="sqlite")
-rules = compiler.compile(RowFilter, table)
-
-engine = create_engine("sqlite://")
-with engine.raw_connection() as conn:
-    # SQLAlchemy 2 may wrap the DBAPI connection; unwrap if needed.
-    dbapi = conn.driver_connection if hasattr(conn, "driver_connection") else conn
-    register_regexp(dbapi)
+compiled = Compiler(plugins=[SQLitePlugin()]).compile(RowRules, rows)
+statement = rows.select().where(*where(compiled))
 ```
 
-## Operators
+## Capabilities
 
-| IR operator | Notes |
-|---|---|
-| `pattern` | `column REGEXP pattern`; call `register_regexp(connection)` |
-| `type_check` | `typeof` / `REGEXP` shape checks; text forms need `register_regexp` |
-| `json_contains` | JSON1 `json_extract` equality for object keys |
-| `json_has_key` | `json_type(column, '$.key') IS NOT NULL` |
+- Runtime `typeof()` checks for SQLite integer, real, and text storage classes
+- Lax text-to-int/float coercion and bool values stored as integer 0 or 1
+- JSON1 helpers that treat malformed documents as non-matches
+- `REGEXP` pattern matching and Unicode-aware string length through
+  `register_sqlite_functions()`
 
-Case-insensitive patterns (`re.IGNORECASE` / `PatternSpec.ignore_case`) are
-encoded with a `(?i)` prefix understood by `register_regexp`.
+Strict bool, exact Decimal, and SQLAlchemy-emulated date/time/UUID values need
+explicit storage adapters and raise `CapabilityError`. Text coercion, patterns,
+and string length constraints require the registered SQLRules SQLite functions
+on each connection. `register_regexp()` remains as a backward-compatible alias.
+See the
+[type support matrix](https://sqlrules.readthedocs.io/en/latest/TYPE_SUPPORT.html).
 
-## Security note
+## Pattern cost
 
-`register_regexp` installs a Python `re.search` UDF. Untrusted
-`Field(pattern=...)` values can cause **CPU denial of service** (ReDoS) in
-your process — not SQL injection. Prefer static/allowlisted patterns. See
-[SECURITY](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).
+`register_sqlite_functions()` runs Python's `re.search` for each regex row and
+Python's `len()` for each length-checked string row. Untrusted patterns can
+cause CPU denial of service through catastrophic backtracking. Prefer static
+or allowlisted patterns. See the SQLRules
+[security notes](https://sqlrules.readthedocs.io/en/latest/SECURITY.html).

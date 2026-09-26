@@ -1,8 +1,8 @@
 # Vision
 
-SQLRules 1.x is a tiny compiler that bridges Pydantic model constraints and
-SQLAlchemy WHERE expressions. The 2.x roadmap makes SQLRules-owned rule
-schemas the primary input, with explicit Pydantic conversion.
+SQLRules compiles SQL-compatible rule declarations into SQLAlchemy predicates.
+The 2.x contract makes SQLRules-owned rule schemas the primary input, with
+explicit conversion from unrestricted Pydantic models.
 
 Native rule schemas remain Pydantic v2 models: users can instantiate them,
 validate and serialize data, and use them in FastAPI. SQLRules restricts the

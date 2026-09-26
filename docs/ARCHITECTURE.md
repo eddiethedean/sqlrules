@@ -1,38 +1,68 @@
 # Architecture
 
-This page describes the shipped 1.x compiler. The proposed 2.0 schema,
-coercion, and result architecture is in [the 2.0 design](V2_DESIGN.md).
+SQLRules compiles an immutable RuleSchema description into one total SQL
+predicate. The compiler does not connect to a database or execute statements.
 
-```text
-Pydantic Model
+~~~text
+RuleSchema class
     ↓
-inspectors.inspect_model  → FieldDescriptor[]
+Pydantic declaration validation → immutable SchemaSpec
     ↓
-constraints.extract_constraints → Constraint IR (PatternSpec / markers)
+backend provider: source type evidence and safe PreparedValue
     ↓
-cache.ModelIRCache (optional) → ModelIR
+constraint translators → grouped field predicates
     ↓
-columns.resolve_column
-    ↓
-translators.TranslatorRegistry.translate
-    ↓
-Rule dictionary (+ diagnostics)
-```
+CompiledRules.predicate → where() / notwhere()
+~~~
 
-SQLRules is a pure compiler pipeline with two phases:
+## Declaration normalization
 
-**Phase 1 — static model IR**
+RuleSchema subclasses Pydantic BaseModel. Class creation checks supported
+scalar types, nullability, strictness, Pydantic Field metadata, Annotated
+markers, model configuration, and SQLRules column bindings. The resulting
+SchemaSpec preserves source order, runtime metadata, constraints, and
+conversion provenance. Unsupported Python-only callbacks and incompatible
+declarations fail before a compiler is constructed.
 
-1. **Inspect** the Pydantic model and preserve field declaration order.
-2. **Extract** supported constraints into a dialect-neutral IR.
-3. **Cache** immutable `ModelIR` keyed by model class (optional).
+Unrestricted Pydantic classes enter through from_pydantic(). The converter
+returns a generated RuleSchema and a report of retained rules, metadata, and
+removed or changed behavior. It never executes validators, serializers, or
+default factories.
 
-**Phase 2 — bind and translate**
+## Backend preparation
 
-4. **Resolve** each constrained field to a SQLAlchemy column.
-5. **Translate** each IR constraint into one SQLAlchemy expression.
-6. **Assemble** expressions into `dict[str, list[ColumnElement[bool]]]`.
+The caller selects exactly one BackendProvider. It receives a bound source
+column and normalized RuleField, reports its versioned capabilities, and
+returns PreparedValue:
 
-The compiler never connects to a database, executes SQL, or renders SQL
-strings. See [COMPILER.md](COMPILER.md) and [INTERNAL_API.md](INTERNAL_API.md)
-for module-level detail.
+- source: original bound column expression.
+- value: safe normalized SQL expression for constraints.
+- valid: non-null boolean for supported type/coercion behavior.
+- is_null: whether the original source is SQL NULL.
+- logical_type, coercion, capability: explain-plan evidence.
+
+Known row mismatches become false. Missing type evidence or unsafe conversions
+raise CapabilityError during compilation. The provider must not rely on a
+separate boolean expression to guard a potentially failing CAST.
+
+## Predicate assembly
+
+Each field combines its null branch, type validity, and all constraints into
+one group. Field groups combine under one root AND. Every predicate is
+normalized from SQL UNKNOWN to false, so notwhere() is a complete complement
+of where().
+
+CompiledRules retains the root predicate, ordered field results, compile-local
+diagnostics, backend version, assumptions, and explain() output. It contains
+table-bound expressions and is never stored in a process-wide cache.
+
+## Concurrency and caches
+
+Each compile has a local diagnostics collector and context. Compiler instances
+hold private immutable registry snapshots; callers can inspect a copy of the
+registry. SQLRules does not maintain a global mutable schema cache. RuleSchema
+classes retain Pydantic's own compiled validators, while SQLRules normalizes
+the field declarations per compile.
+
+See [COMPILER](COMPILER.md), [IR_CONTRACT](IR_CONTRACT.md), and
+[TYPE_SUPPORT](TYPE_SUPPORT.md).
