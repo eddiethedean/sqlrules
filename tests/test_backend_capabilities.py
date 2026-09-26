@@ -74,9 +74,9 @@ def test_numeric_lax_conversions_and_backend_limits_are_explicit() -> None:
     assert " < " in postgres_sql
     assert " <= " not in postgres_sql
 
-    sql_server_conversion = Compiler(
-        plugins=[MssqlPlugin(server_version=(16, 0))]
-    ).compile(IntegerRules, floating)
+    sql_server_conversion = Compiler(plugins=[MssqlPlugin(server_version=(16, 0))]).compile(
+        IntegerRules, floating
+    )
     sql_server_sql = str(sql_server_conversion.predicate.compile(dialect=mssql_dialect()))
     assert " < " in sql_server_sql
     assert " <= " not in sql_server_sql

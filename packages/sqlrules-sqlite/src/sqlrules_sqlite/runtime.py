@@ -32,4 +32,3 @@ def register_sqlite_functions(connection: sqlite3.Connection) -> None:
     """
     connection.create_function("REGEXP", 2, _regexp)
     connection.create_function("sqlrules_char_length", 1, _char_length)
-
