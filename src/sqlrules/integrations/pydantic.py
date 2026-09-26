@@ -5,7 +5,8 @@ import warnings
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, create_model
+from annotated_types import MaxLen, MinLen
+from pydantic import BaseModel, ConfigDict, StringConstraints, create_model
 from pydantic_core import PydanticUndefined
 
 from sqlrules.errors import InvalidModelError, UnsupportedConstraintError
@@ -146,8 +147,48 @@ def from_pydantic(
             continue
 
         metadata = _metadata_values(info, annotation_metadata)
-        supported_metadata = [item for item in metadata if _recognized_metadata(item)]
-        unsupported_metadata = [item for item in metadata if not _recognized_metadata(item)]
+        supported_metadata: list[Any] = []
+        unsupported_metadata: list[Any] = []
+        for item in metadata:
+            if isinstance(item, StringConstraints):
+                # StringConstraints is grouped metadata. Split it into its
+                # independently convertible pieces so an unsupported text
+                # transform does not discard a compatible length or pattern
+                # rule along with it.
+                unsupported_settings = {
+                    key: value
+                    for key, value in vars(item).items()
+                    if key not in {"min_length", "max_length", "pattern", "strict"}
+                    and value is not None
+                    and value is not False
+                }
+                for key, value in unsupported_settings.items():
+                    entries.append(
+                        _report_entry(
+                            location,
+                            f"StringConstraints.{key}={value!r}",
+                            "unsupported_metadata",
+                            "dropped",
+                            "unknown",
+                            "This setting has no SQLRules representation and was removed; "
+                            "compatible StringConstraints members were retained.",
+                        )
+                    )
+                if item.strict is not None:
+                    supported_metadata.append(StringConstraints(strict=item.strict))
+                if item.min_length is not None:
+                    supported_metadata.append(MinLen(item.min_length))
+                if item.max_length is not None:
+                    supported_metadata.append(MaxLen(item.max_length))
+                if item.pattern is not None:
+                    # Keep the pattern last so an invalid/unsupported pattern
+                    # can be dropped without losing the other supported pieces.
+                    supported_metadata.append(StringConstraints(pattern=item.pattern))
+                continue
+            if _recognized_metadata(item):
+                supported_metadata.append(item)
+            else:
+                unsupported_metadata.append(item)
         for item in unsupported_metadata:
             behavior: Literal["broader", "narrower", "unknown"] = (
                 "broader"

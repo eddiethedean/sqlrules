@@ -410,10 +410,26 @@ def normalize_schema(model: type[BaseModel]) -> SchemaSpec:
         )
         strict = _strictness(info, metadata, model_strict)
         binding = next((item.name for item in metadata if isinstance(item, ColumnBinding)), None)
-        if python_type in {list, dict}:
-            operators = {item.operator for item in constraints}
-            json_markers = {"json_contains", "json_has_key"}
-            array_markers = {"array_contains", "array_overlap"}
+        operators = {item.operator for item in constraints}
+        json_markers = {"json_contains", "json_has_key"}
+        array_markers = {"array_contains", "array_overlap"}
+        uses_json = bool(operators & json_markers)
+        uses_array = bool(operators & array_markers)
+        if uses_json and uses_array:
+            raise UnsupportedConstraintError(
+                name,
+                "marker_type",
+                tuple(sorted(operators & (json_markers | array_markers))),
+                "JSON and array markers cannot be combined on one field.",
+            )
+        if uses_json:
+            if python_type not in {list, dict}:
+                raise UnsupportedConstraintError(
+                    name,
+                    "json_marker",
+                    annotation,
+                    "JSON markers require a dict or list field.",
+                )
             if python_type is list and "json_has_key" in operators:
                 raise UnsupportedConstraintError(
                     name,
@@ -421,22 +437,30 @@ def normalize_schema(model: type[BaseModel]) -> SchemaSpec:
                     annotation,
                     "JsonHasKey requires a dict field; use ArrayContains for list elements.",
                 )
-            if python_type is list and operators & json_markers:
+            if python_type is list:
                 python_type = dict
-            elif python_type is dict and operators & array_markers:
-                raise UnsupportedConstraintError(
-                    name,
-                    "array_marker",
-                    annotation,
-                    "Array markers require a list field; JSON markers require a dict field.",
-                )
-            elif not (operators & (json_markers | array_markers)):
-                raise UnsupportedConstraintError(
-                    name,
-                    "type",
-                    annotation,
-                    "Container fields require a compatible JSON or array marker.",
-                )
+        elif uses_array and python_type is not list:
+            raise UnsupportedConstraintError(
+                name,
+                "array_marker",
+                annotation,
+                "Array markers require a list field.",
+            )
+        elif python_type in {list, dict}:
+            raise UnsupportedConstraintError(
+                name,
+                "type",
+                annotation,
+                "Container fields require a compatible JSON or array marker.",
+            )
+
+        if "fulltext_match" in operators and python_type is not str:
+            raise UnsupportedConstraintError(
+                name,
+                "fulltext_match",
+                annotation,
+                "FullTextMatch requires a str field.",
+            )
 
         for item in constraints:
             if item.operator in {"min_length", "max_length", "pattern"} and python_type is not str:

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
 from typing import Any, cast
 
-from sqlalchemy import Integer, String, Unicode, and_, exists, func, literal, select, type_coerce
+from sqlalchemy import Integer, String, Unicode, and_, exists, func, literal, select
 from sqlalchemy import cast as sa_cast
 from sqlalchemy import column as sa_column
 from sqlalchemy.sql.elements import ColumnElement
@@ -18,10 +17,6 @@ def _json_path_for_key(key: Any) -> str:
     # SQL Server JSON path quotes use doubled double-quotes inside the name.
     escaped = text.replace('"', '""')
     return f'$."{escaped}"'
-
-
-def _compact_dumps(value: Any) -> str:
-    return json.dumps(value, separators=(",", ":"))
 
 
 def _exact_text_equals(
@@ -167,7 +162,10 @@ def _openjson_value_equals(
     )
 
 
-def _is_json_object(document: ColumnElement[Any]) -> ColumnElement[bool]:
+def _is_json_root(
+    document: ColumnElement[Any],
+    root_marker: str,
+) -> ColumnElement[bool]:
     """Check the root shape using functions available since SQL Server 2016."""
     text: ColumnElement[Any] = sa_cast(document, Unicode())
     # LTRIM on supported SQL Server versions removes spaces only. Normalize
@@ -185,8 +183,16 @@ def _is_json_object(document: ColumnElement[Any]) -> ColumnElement[bool]:
     return cast(
         ColumnElement[bool],
         (func.isjson(document) == 1)
-        & (func.left(func.ltrim(text), 1) == literal("{", type_=Unicode())),
+        & (func.left(func.ltrim(text), 1) == literal(root_marker, type_=Unicode())),
     )
+
+
+def _is_json_object(document: ColumnElement[Any]) -> ColumnElement[bool]:
+    return _is_json_root(document, "{")
+
+
+def _is_json_array(document: ColumnElement[Any]) -> ColumnElement[bool]:
+    return _is_json_root(document, "[")
 
 
 def translate_json_contains(
@@ -213,11 +219,18 @@ def translate_json_contains(
         for part in parts[1:]:
             expression = expression & part
         return cast(ColumnElement[bool], _is_json_object(column) & expression)
-
-    compact = _compact_dumps(value)
-    return cast(
-        ColumnElement[bool],
-        type_coerce(column, String) == func.json_query(sa_cast(literal(compact), String), "$"),
+    if isinstance(value, list):
+        return cast(
+            ColumnElement[bool],
+            _is_json_array(column) & _openjson_array_equals(column, value, constraint.field),
+        )
+    raise CapabilityError(
+        "mssql",
+        constraint.field,
+        "JSON scalar containment",
+        type(value).__name__,
+        "SQL Server's JSON containment translator supports object and array payloads; "
+        "top-level scalar payloads cannot be compared reliably.",
     )
 
 
